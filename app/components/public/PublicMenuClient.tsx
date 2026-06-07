@@ -1,47 +1,122 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatPence } from '@/app/lib/utils'
 import {
   type BasketItem,
+  type BasketModifier,
   basketItemCount,
   basketSubtotal,
+  clearBasket,
   getBasket,
   saveBasket,
 } from '@/app/lib/basket'
+import { CartPanel } from './CartPanel'
+import { ProductModal } from './ProductModal'
+import type { Category, Product, Restaurant } from './menu-types'
 
-type Modifier = { id: string; name: string; price_delta_pence: number; is_default?: boolean }
-type ModifierGroup = {
-  id: string
-  name: string
-  required: boolean
-  min_select: number
-  max_select: number
-  modifiers: Modifier[]
+function PlaceholderImage({ className }: { className?: string }) {
+  return (
+    <div className={`flex items-center justify-center bg-stone-100 text-stone-300 ${className ?? ''}`}>
+      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    </div>
+  )
 }
-type Product = {
-  id: string
-  name: string
-  description?: string | null
-  price_pence: number
-  image_url?: string | null
-  modifier_groups: ModifierGroup[]
+
+function AddButton({
+  primary,
+  onClick,
+  disabled,
+}: {
+  primary: string
+  onClick: (e: React.MouseEvent) => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-white shadow-sm transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+      style={{ backgroundColor: primary }}
+      aria-label="Add to cart"
+    >
+      +
+    </button>
+  )
 }
-type Category = { id: string; name: string; color: string; items: Product[] }
-type Restaurant = {
-  slug: string
-  name: string
-  description?: string | null
-  logo_url?: string | null
-  banner_url?: string | null
-  brand_color: string
-  isOpen: boolean
-  closedReason?: string
-  holiday_mode: boolean
-  holiday_message?: string | null
-  min_order_pence: number
-  avg_prep_minutes: number
+
+function MenuItemRow({
+  product,
+  primary,
+  recommended,
+  onAdd,
+  onOpen,
+}: {
+  product: Product
+  primary: string
+  recommended: boolean
+  onAdd: () => void
+  onOpen: () => void
+}) {
+  const unavailable = !product.is_available
+
+  function handleAdd(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (unavailable) return
+    if (product.modifier_groups.length > 0) {
+      onOpen()
+    } else {
+      onAdd()
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="relative flex w-full gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md"
+    >
+      {product.image_url ? (
+        <img
+          src={product.image_url}
+          alt=""
+          className="h-20 w-20 shrink-0 rounded-lg object-cover"
+        />
+      ) : (
+        <PlaceholderImage className="h-20 w-20 shrink-0 rounded-lg" />
+      )}
+
+      <div className="min-w-0 flex-1 py-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-bold text-stone-900">{product.name}</p>
+          {recommended && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              ★ Recommended
+            </span>
+          )}
+        </div>
+        {product.description && (
+          <p className="mt-0.5 line-clamp-2 text-sm text-stone-500">{product.description}</p>
+        )}
+        <p className="mt-1.5 text-sm font-bold" style={{ color: primary }}>
+          {formatPence(product.price_pence)}
+        </p>
+      </div>
+
+      <AddButton primary={primary} onClick={handleAdd} disabled={unavailable} />
+
+      {unavailable && (
+        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/75">
+          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+            Unavailable
+          </span>
+        </div>
+      )}
+    </button>
+  )
 }
 
 export function PublicMenuClient({
@@ -51,12 +126,26 @@ export function PublicMenuClient({
   restaurant: Restaurant
   categories: Category[]
 }) {
-  const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? '')
+  const primary = restaurant.brand_color || '#c2410c'
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [search, setSearch] = useState('')
   const [basket, setBasket] = useState<BasketItem[]>([])
   const [modalProduct, setModalProduct] = useState<Product | null>(null)
-  const [qty, setQty] = useState(1)
-  const [notes, setNotes] = useState('')
-  const [selectedMods, setSelectedMods] = useState<Record<string, string[]>>({})
+  const [mobileCartOpen, setMobileCartOpen] = useState(false)
+  const [orderType, setOrderType] = useState<'collection' | 'delivery'>('collection')
+  const carouselRef = useRef<HTMLDivElement>(null)
+
+  const allItems = useMemo(
+    () => categories.flatMap((c) => c.items),
+    [categories]
+  )
+
+  const recommendedIds = useMemo(
+    () => new Set(allItems.slice(0, 6).map((i) => i.id)),
+    [allItems]
+  )
+
+  const recommendedItems = useMemo(() => allItems.slice(0, 6), [allItems])
 
   useEffect(() => {
     const stored = getBasket(restaurant.slug)
@@ -73,220 +162,435 @@ export function PublicMenuClient({
     }
   }, [basket, restaurant.slug])
 
-  const activeItems = categories.find((c) => c.id === activeCategory)?.items ?? []
-  const subtotal = basketSubtotal(basket)
   const count = basketItemCount(basket)
+  const subtotal = basketSubtotal(basket)
 
-  function addToBasket() {
-    if (!modalProduct) return
+  const filteredCategories = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return categories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((item) => {
+          if (activeCategory !== 'all' && cat.id !== activeCategory) return false
+          if (!q) return true
+          return (
+            item.name.toLowerCase().includes(q) ||
+            (item.description?.toLowerCase().includes(q) ?? false)
+          )
+        }),
+      }))
+      .filter((cat) => cat.items.length > 0)
+  }, [categories, activeCategory, search])
 
-    const modifiers = Object.entries(selectedMods).flatMap(([groupId, modIds]) => {
-      const group = modalProduct.modifier_groups.find((g) => g.id === groupId)
-      if (!group) return []
-      return modIds.map((modId) => {
-        const mod = group.modifiers.find((m) => m.id === modId)!
-        return {
-          groupId,
-          groupName: group.name,
-          modifierId: modId,
-          name: mod.name,
-          priceDeltaPence: mod.price_delta_pence,
-        }
-      })
-    })
+  function persistBasket(items: BasketItem[]) {
+    setBasket(items)
+    if (items.length === 0) clearBasket(restaurant.slug)
+  }
 
+  function addItemDirect(
+    product: Product,
+    qty: number,
+    modifiers: BasketModifier[],
+    notes: string
+  ) {
     const item: BasketItem = {
-      id: `${modalProduct.id}-${Date.now()}`,
-      menuItemId: modalProduct.id,
-      name: modalProduct.name,
-      pricePence: modalProduct.price_pence,
+      id: `${product.id}-${Date.now()}`,
+      menuItemId: product.id,
+      name: product.name,
+      pricePence: product.price_pence,
       quantity: qty,
       modifiers,
       notes: notes || undefined,
     }
+    persistBasket([...basket, item])
+  }
 
-    setBasket([...basket, item])
-    setModalProduct(null)
-    setQty(1)
-    setNotes('')
-    setSelectedMods({})
+  function openProduct(product: Product) {
+    if (!product.is_available) return
+    setModalProduct(product)
+  }
+
+  function updateQty(id: string, qty: number) {
+    if (qty < 1) {
+      persistBasket(basket.filter((i) => i.id !== id))
+      return
+    }
+    persistBasket(basket.map((i) => (i.id === id ? { ...i, quantity: qty } : i)))
+  }
+
+  function removeItem(id: string) {
+    persistBasket(basket.filter((i) => i.id !== id))
+  }
+
+  function scrollCarousel(dir: -1 | 1) {
+    carouselRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' })
   }
 
   if (!restaurant.isOpen) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="text-center max-w-md">
+      <div className="flex min-h-screen items-center justify-center bg-stone-50 p-6">
+        <div className="max-w-md text-center">
           {restaurant.logo_url && (
-            <img src={restaurant.logo_url} alt="" className="w-20 h-20 mx-auto rounded-xl mb-4 object-cover" />
+            <img
+              src={restaurant.logo_url}
+              alt=""
+              className="mx-auto mb-4 h-20 w-20 rounded-full object-cover ring-4 ring-white shadow-lg"
+            />
           )}
-          <h1 className="text-2xl font-bold text-slate-900">{restaurant.name}</h1>
-          <p className="mt-4 text-slate-600">
+          <h1 className="text-2xl font-bold text-stone-900">{restaurant.name}</h1>
+          <p className="mt-4 text-stone-600">
             {restaurant.holiday_mode && restaurant.holiday_message
               ? restaurant.holiday_message
-              : 'We&apos;re currently closed. Please check back during opening hours.'}
+              : "We're currently closed. Please check back during opening hours."}
           </p>
         </div>
       </div>
     )
   }
 
+  const cartPanelProps = {
+    slug: restaurant.slug,
+    items: basket,
+    primary,
+    minOrderPence: restaurant.min_order_pence,
+    orderType,
+    onOrderTypeChange: setOrderType,
+    onUpdateQty: updateQty,
+    onRemove: removeItem,
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      {restaurant.banner_url && (
-        <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${restaurant.banner_url})` }} />
-      )}
-      <header className="bg-white border-b px-4 py-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          {restaurant.logo_url && (
-            <img src={restaurant.logo_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
-          )}
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{restaurant.name}</h1>
-            {restaurant.description && (
-              <p className="text-sm text-slate-500 line-clamp-2">{restaurant.description}</p>
-            )}
-          </div>
-          <span className="ml-auto text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Open</span>
-        </div>
-      </header>
-
-      <div className="max-w-3xl mx-auto px-4 py-4">
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setActiveCategory(cat.id)}
-              className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium ${
-                activeCategory === cat.id ? 'text-white' : 'bg-white text-slate-600 border'
-              }`}
-              style={activeCategory === cat.id ? { backgroundColor: cat.color } : undefined}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
-          {activeItems.map((product) => (
-            <button
-              key={product.id}
-              type="button"
-              onClick={() => {
-                setModalProduct(product)
-                const defaults: Record<string, string[]> = {}
-                product.modifier_groups.forEach((g) => {
-                  const def = g.modifiers.find((m) => m.is_default)
-                  if (def) defaults[g.id] = [def.id]
-                })
-                setSelectedMods(defaults)
-              }}
-              className="bg-white rounded-xl border text-left overflow-hidden hover:shadow-md transition-shadow"
-            >
-              {product.image_url ? (
-                <img src={product.image_url} alt="" className="w-full h-28 object-cover" />
-              ) : (
-                <div className="w-full h-28 bg-slate-100" />
-              )}
-              <div className="p-3">
-                <p className="font-medium text-slate-900 text-sm">{product.name}</p>
-                {product.description && (
-                  <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{product.description}</p>
-                )}
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-sm font-semibold" style={{ color: restaurant.brand_color }}>
-                    {formatPence(product.price_pence)}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-slate-100">+ Add</span>
-                </div>
+    <div className="min-h-screen bg-stone-50 pb-24 lg:pb-8">
+      {/* Banner */}
+      <div className="relative h-44 sm:h-52 lg:h-56">
+        {restaurant.banner_url ? (
+          <img
+            src={restaurant.banner_url}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="h-full w-full"
+            style={{
+              background: `linear-gradient(135deg, ${primary} 0%, ${primary}cc 50%, ${primary}99 100%)`,
+            }}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-12 sm:px-6">
+          <div className="mx-auto flex max-w-7xl items-end gap-4">
+            {restaurant.logo_url ? (
+              <img
+                src={restaurant.logo_url}
+                alt=""
+                className="h-16 w-16 shrink-0 rounded-full border-4 border-white object-cover shadow-lg sm:h-20 sm:w-20"
+              />
+            ) : (
+              <div
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-white text-xl font-bold text-white shadow-lg sm:h-20 sm:w-20"
+                style={{ backgroundColor: primary }}
+              >
+                {restaurant.name.charAt(0)}
               </div>
-            </button>
-          ))}
+            )}
+            <div className="min-w-0 flex-1 pb-1">
+              <h1 className="text-2xl font-bold text-white drop-shadow sm:text-3xl">
+                {restaurant.name}
+              </h1>
+              {restaurant.description && (
+                <p className="mt-0.5 line-clamp-2 text-sm text-white/90 drop-shadow">
+                  {restaurant.description}
+                </p>
+              )}
+            </div>
+            <span className="mb-1 shrink-0 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow">
+              Open
+            </span>
+          </div>
         </div>
       </div>
 
-      {count > 0 && (
-        <Link
-          href={`/${restaurant.slug}/basket`}
-          className="fixed bottom-4 left-4 right-4 max-w-3xl mx-auto block text-center py-3 rounded-xl text-white font-medium shadow-lg"
-          style={{ backgroundColor: restaurant.brand_color }}
-        >
-          Basket · {count} items · {formatPence(subtotal)}
-        </Link>
-      )}
+      {/* Info bar */}
+      <div className="border-b border-stone-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
+          {restaurant.phone && (
+            <a
+              href={`tel:${restaurant.phone}`}
+              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              {restaurant.phone}
+            </a>
+          )}
+          {restaurant.email && (
+            <a
+              href={`mailto:${restaurant.email}`}
+              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span className="truncate">{restaurant.email}</span>
+            </a>
+          )}
+          {restaurant.phone && (
+            <a
+              href={`tel:${restaurant.phone}`}
+              className="ml-auto flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              style={{ backgroundColor: primary }}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              Call Now
+            </a>
+          )}
+        </div>
+      </div>
 
-      {modalProduct && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-xl font-bold text-slate-900">{modalProduct.name}</h2>
-            {modalProduct.description && (
-              <p className="text-slate-600 text-sm mt-1">{modalProduct.description}</p>
-            )}
-            {modalProduct.modifier_groups.map((group) => (
-              <div key={group.id} className="mt-4">
-                <p className="text-sm font-medium text-slate-700">
-                  {group.name}
-                  {group.required && ' *'}
-                </p>
-                <div className="space-y-1 mt-2">
-                  {group.modifiers.map((mod) => {
-                    const selected = selectedMods[group.id]?.includes(mod.id)
-                    const isRadio = group.max_select === 1
-                    return (
-                      <label key={mod.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type={isRadio ? 'radio' : 'checkbox'}
-                          name={group.id}
-                          checked={selected}
-                          onChange={() => {
-                            if (isRadio) {
-                              setSelectedMods({ ...selectedMods, [group.id]: [mod.id] })
-                            } else {
-                              const current = selectedMods[group.id] ?? []
-                              setSelectedMods({
-                                ...selectedMods,
-                                [group.id]: selected
-                                  ? current.filter((id) => id !== mod.id)
-                                  : [...current, mod.id],
-                              })
-                            }
-                          }}
-                        />
-                        {mod.name}
-                        {mod.price_delta_pence > 0 && (
-                          <span className="text-slate-500">+{formatPence(mod.price_delta_pence)}</span>
-                        )}
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-            <div className="mt-4 flex items-center gap-3">
-              <span className="text-sm">Qty</span>
-              <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="w-8 h-8 rounded bg-slate-100">-</button>
-              <span>{qty}</span>
-              <button type="button" onClick={() => setQty(qty + 1)} className="w-8 h-8 rounded bg-slate-100">+</button>
-            </div>
-            <input
-              placeholder="Item notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full mt-3 border rounded-lg px-3 py-2 text-sm"
-            />
+      {/* Main layout */}
+      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6">
+        {/* Desktop category sidebar */}
+        <aside className="hidden w-[250px] shrink-0 lg:block">
+          <nav className="sticky top-4 space-y-1 rounded-xl border border-stone-200 bg-white p-2 shadow-sm">
             <button
               type="button"
-              onClick={addToBasket}
-              className="w-full mt-4 py-3 rounded-xl text-white font-medium"
-              style={{ backgroundColor: restaurant.brand_color }}
+              onClick={() => setActiveCategory('all')}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                activeCategory === 'all' ? 'text-white' : 'text-stone-700 hover:bg-stone-50'
+              }`}
+              style={activeCategory === 'all' ? { backgroundColor: primary } : undefined}
             >
-              Add to basket {formatPence(modalProduct.price_pence * qty)}
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-stone-400" />
+              All Items
             </button>
-            <button type="button" onClick={() => setModalProduct(null)} className="w-full mt-2 py-2 text-slate-500 text-sm">
-              Cancel
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategory(cat.id)}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  activeCategory === cat.id ? 'text-white' : 'text-stone-700 hover:bg-stone-50'
+                }`}
+                style={activeCategory === cat.id ? { backgroundColor: primary } : undefined}
+              >
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: cat.color }}
+                />
+                {cat.name}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Center content */}
+        <main className="min-w-0 flex-1">
+          {/* Recommended carousel */}
+          {recommendedItems.length > 0 && !search && (
+            <section className="mb-6">
+              <h2 className="mb-3 text-lg font-bold text-stone-900">Recommended Meals</h2>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel(-1)}
+                  className="absolute -left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow sm:flex"
+                  aria-label="Scroll left"
+                >
+                  ‹
+                </button>
+                <div
+                  ref={carouselRef}
+                  className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide"
+                  style={{ scrollbarWidth: 'none' }}
+                >
+                  {recommendedItems.map((product) => (
+                    <div
+                      key={product.id}
+                      className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm sm:w-40"
+                    >
+                      {product.image_url ? (
+                        <img
+                          src={product.image_url}
+                          alt=""
+                          className="h-28 w-full object-cover"
+                        />
+                      ) : (
+                        <PlaceholderImage className="h-28 w-full" />
+                      )}
+                      <div className="p-2.5">
+                        <p className="truncate text-sm font-bold text-stone-900">{product.name}</p>
+                        <p className="text-sm font-semibold" style={{ color: primary }}>
+                          {formatPence(product.price_pence)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          product.modifier_groups.length > 0
+                            ? openProduct(product)
+                            : product.is_available &&
+                              addItemDirect(product, 1, [], '')
+                        }
+                        disabled={!product.is_available}
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white shadow disabled:opacity-40"
+                        style={{ backgroundColor: primary }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel(1)}
+                  className="absolute -right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow sm:flex"
+                  aria-label="Scroll right"
+                >
+                  ›
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* Mobile category pills */}
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setActiveCategory('all')}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
+                activeCategory === 'all' ? 'text-white' : 'border border-stone-200 bg-white text-stone-700'
+              }`}
+              style={activeCategory === 'all' ? { backgroundColor: primary } : undefined}
+            >
+              All Items
             </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategory(cat.id)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium ${
+                  activeCategory === cat.id ? 'text-white' : 'border border-stone-200 bg-white text-stone-700'
+                }`}
+                style={activeCategory === cat.id ? { backgroundColor: primary } : undefined}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: activeCategory === cat.id ? 'white' : cat.color }}
+                />
+                {cat.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="relative mb-6">
+            <svg
+              className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="search"
+              placeholder="Search meals..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-stone-200 bg-white py-3 pl-10 pr-4 text-sm shadow-sm focus:border-stone-400 focus:outline-none"
+            />
+          </div>
+
+          {/* Menu list */}
+          {filteredCategories.length === 0 ? (
+            <p className="py-12 text-center text-stone-500">No items match your search.</p>
+          ) : (
+            filteredCategories.map((cat) => (
+              <section key={cat.id} className="mb-8">
+                {(activeCategory === 'all' || search) && (
+                  <h2 className="mb-3 text-xl font-bold text-stone-900">{cat.name}</h2>
+                )}
+                <div className="space-y-3">
+                  {cat.items.map((product) => (
+                    <MenuItemRow
+                      key={product.id}
+                      product={product}
+                      primary={primary}
+                      recommended={recommendedIds.has(product.id)}
+                      onOpen={() => openProduct(product)}
+                      onAdd={() => addItemDirect(product, 1, [], '')}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+        </main>
+
+        {/* Desktop cart sidebar */}
+        <aside className="hidden w-[300px] shrink-0 lg:block">
+          <div className="sticky top-4">
+            <CartPanel {...cartPanelProps} />
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile floating cart */}
+      {count > 0 && (
+        <button
+          type="button"
+          onClick={() => setMobileCartOpen(true)}
+          className="fixed bottom-4 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white shadow-lg lg:hidden"
+          style={{ backgroundColor: primary }}
+        >
+          <span>🛒</span>
+          <span>
+            {count} {count === 1 ? 'item' : 'items'} · {formatPence(subtotal)}
+          </span>
+        </button>
+      )}
+
+      {/* Mobile cart drawer */}
+      {mobileCartOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileCartOpen(false)}
+          />
+          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-stone-50 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-stone-900">Your order</h2>
+              <button
+                type="button"
+                onClick={() => setMobileCartOpen(false)}
+                className="rounded-full p-1 text-stone-400 hover:bg-stone-200"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <CartPanel {...cartPanelProps} compact />
           </div>
         </div>
+      )}
+
+      {/* Product modal */}
+      {modalProduct && (
+        <ProductModal
+          product={modalProduct}
+          primary={primary}
+          onClose={() => setModalProduct(null)}
+          onAdd={(qty, modifiers, notes) => {
+            addItemDirect(modalProduct, qty, modifiers, notes)
+            setModalProduct(null)
+          }}
+        />
       )}
     </div>
   )

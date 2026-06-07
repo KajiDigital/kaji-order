@@ -18,7 +18,6 @@ export default async function PublicMenuPage({ params }: Params) {
         orderBy: { sort_order: 'asc' },
         include: {
           items: {
-            where: { is_available: true },
             orderBy: { sort_order: 'asc' },
             include: {
               modifier_groups: {
@@ -44,7 +43,9 @@ export default async function PublicMenuPage({ params }: Params) {
         description: restaurant.description,
         logo_url: restaurant.logo_url,
         banner_url: restaurant.banner_url,
-        brand_color: restaurant.brand_color,
+        brand_color: restaurant.brand_color || '#c2410c',
+        phone: restaurant.phone,
+        email: restaurant.email,
         isOpen: openStatus.open && restaurant.collection_enabled,
         closedReason: openStatus.reason,
         holiday_mode: restaurant.holiday_mode,
