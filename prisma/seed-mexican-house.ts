@@ -25,312 +25,448 @@ type CategoryDef = {
   items: ItemDef[]
 }
 
-const DRINK_CHOICE: ModifierGroupDef = {
-  name: 'Choice of drink',
+const WING_SAUCE: ModifierGroupDef = {
+  name: 'Choice of sauce',
+  required: true,
+  max_select: 1,
+  modifiers: [
+    { name: 'BBQ', price_delta_pence: 0 },
+    { name: 'Buffalo', price_delta_pence: 0 },
+    { name: 'Lemon & Herb', price_delta_pence: 0 },
+  ],
+}
+
+const CHICKEN_STYLE: ModifierGroupDef = {
+  name: 'Chicken style',
+  required: true,
+  max_select: 1,
+  modifiers: [
+    { name: 'Grilled', price_delta_pence: 0 },
+    { name: 'Crispy fried', price_delta_pence: 0 },
+  ],
+}
+
+const CHIMICHANGA_FILLING: ModifierGroupDef = {
+  name: 'Filling',
+  required: true,
+  max_select: 1,
+  modifiers: [
+    { name: 'Chicken', price_delta_pence: 0 },
+    { name: 'Beef', price_delta_pence: 0 },
+  ],
+}
+
+const DIP_CHOICE: ModifierGroupDef = {
+  name: 'Dip choice',
+  required: true,
+  max_select: 1,
+  modifiers: [
+    { name: 'Salsa', price_delta_pence: 0 },
+    { name: 'Sour Cream', price_delta_pence: 0 },
+    { name: 'Guacamole', price_delta_pence: 0 },
+    { name: 'Garlic Mayo', price_delta_pence: 0 },
+    { name: 'BBQ', price_delta_pence: 0 },
+    { name: 'Buffalo', price_delta_pence: 0 },
+  ],
+}
+
+const SOFT_DRINK: ModifierGroupDef = {
+  name: 'Drink choice',
   required: true,
   max_select: 1,
   modifiers: [
     { name: 'Coke', price_delta_pence: 0 },
     { name: 'Diet Coke', price_delta_pence: 0 },
+    { name: 'Fanta Orange', price_delta_pence: 0 },
     { name: 'Sprite', price_delta_pence: 0 },
-    { name: 'Fanta', price_delta_pence: 0 },
   ],
 }
 
-const FILLING_CHOICE: ModifierGroupDef = {
-  name: 'Filling',
+const JARRITOS_FLAVOUR: ModifierGroupDef = {
+  name: 'Flavour',
   required: true,
   max_select: 1,
   modifiers: [
-    { name: 'Chilli Beef', price_delta_pence: 0 },
-    { name: 'Spicy Chicken', price_delta_pence: 0 },
-    { name: 'Spicy Vegetable', price_delta_pence: 0 },
+    { name: 'Lime', price_delta_pence: 0 },
+    { name: 'Mango', price_delta_pence: 0 },
+    { name: 'Pineapple', price_delta_pence: 0 },
+    { name: 'Guava', price_delta_pence: 0 },
   ],
 }
 
-const MEAT_CHOICE_SKEWER: ModifierGroupDef = {
-  name: 'Meat choice',
+const CHURROS_SAUCE: ModifierGroupDef = {
+  name: 'Dipping sauce',
   required: true,
   max_select: 1,
   modifiers: [
-    { name: 'Chicken', price_delta_pence: 0 },
-    { name: 'Lamb', price_delta_pence: 0 },
-  ],
-}
-
-const MEAT_CHOICE_FAJITAS: ModifierGroupDef = {
-  name: 'Meat choice',
-  required: true,
-  max_select: 1,
-  modifiers: [
-    { name: 'Chicken', price_delta_pence: 0 },
-    { name: 'Lamb', price_delta_pence: 200 },
-    { name: 'Prawn', price_delta_pence: 200 },
-    { name: 'Vegetable', price_delta_pence: -200 },
-  ],
-}
-
-const MOMO_TYPE: ModifierGroupDef = {
-  name: 'Momo type',
-  required: true,
-  max_select: 1,
-  modifiers: [
-    { name: 'Lamb', price_delta_pence: 0 },
-    { name: 'Chicken', price_delta_pence: 0 },
+    { name: 'Chocolate', price_delta_pence: 0 },
+    { name: 'Caramel', price_delta_pence: 0 },
   ],
 }
 
 const categories: CategoryDef[] = [
   {
-    name: 'Most Popular',
+    name: 'Starters',
     sort_order: 0,
     color: '#ef4444',
     items: [
       {
-        name: 'Halloumi Fingers',
-        price_pence: 585,
+        name: 'Chicken Wings (6pcs)',
+        price_pence: 595,
         description:
-          'Grilled halloumi finger with spicy red pepper chutney & house green crispy salad',
+          'Succulent chicken wings tossed in your choice of sauce: BBQ, Buffalo, or Lemon & Herb.',
+        modifierGroups: [WING_SAUCE],
       },
       {
-        name: 'Taquitos',
-        price_pence: 585,
-        description:
-          'Covered in fresh spices, herbs & wrapped in a flour tortilla; Deep fried & served with house green crispy salad & salsa, accompanied with BBQ sauce for dipping',
+        name: 'Chicken Wings (10pcs)',
+        price_pence: 895,
+        description: 'Succulent chicken wings tossed in your choice of sauce.',
+        modifierGroups: [WING_SAUCE],
       },
       {
-        name: 'Crispy Potato Skin',
-        price_pence: 594,
-        description: 'Served with topped sour cream',
+        name: 'Mozzarella Sticks (5pcs)',
+        price_pence: 495,
+        description: 'Gooey mozzarella sticks served with a tangy salsa dip.',
       },
       {
-        name: 'Mexican House Two Course Meal',
-        price_pence: 1495,
-        description:
-          'Starter: garlic bread, halloumi fingers, jalapenos rellenos, albondigas or Mexican chipotle dippers; Mains: chimichanga, Mexican house burritos or trio of tacos',
+        name: 'Jalapeno Poppers (5pcs)',
+        price_pence: 545,
+        description: 'Cream cheese filled jalapenos in a crunchy breadcrumb coating.',
       },
       {
-        name: 'Quesadillas Delight',
-        price_pence: 536,
-        description: 'Delicious toasted tortilla with cheese and fillings',
+        name: 'Halloumi Fries',
+        price_pence: 595,
+        description: 'Crispy halloumi fries served with a sweet chilli dipping sauce.',
+      },
+      { name: 'Garlic Bread', price_pence: 395, description: 'Plain garlic bread.' },
+      {
+        name: 'Garlic Bread with Cheese',
+        price_pence: 495,
+        description: 'Garlic bread topped with melted cheese.',
       },
       {
-        name: 'Mexican House Signature Fajita Chicken',
-        price_pence: 1215,
-        description:
-          'Hot sizzling strips with mixed capsicum, onion & mushroom with warm tortillas served with crispy salad, guacamole, sour cream & salsa',
+        name: 'Loaded Fries - Chilli Beef',
+        price_pence: 795,
+        description: 'Fries topped with our homemade chilli beef, melted cheese and jalapenos.',
       },
       {
-        name: 'Extra Special Nachos',
-        price_pence: 675,
-        description: 'With chilli beef, spicy chicken',
-      },
-      {
-        name: 'Chimichanga Meal',
-        price_pence: 986,
-        description:
-          'A fried, rolled flour tortilla with your choice of filling, sauteed peppers & onions, cheese, chipotle chilli sauce & sour cream, finished with spicy Mexican rice, homemade beans & crispy salad',
-      },
-      {
-        name: 'Enchilada Meal',
-        price_pence: 986,
-        description:
-          'Two corn tortilla rolled with chilli beef, spicy chicken or spicy vegetable garnished with cheese & special sauce also topped with sour cream, served with Mexican rice & herbs',
-      },
-      {
-        name: 'Mexican House Burrito',
-        price_pence: 986,
-        description:
-          'Combined with homemade beans, spicy Mexican rice, salsa, chipotle sauce, guacamole & sour cream all wrapped in a soft white flour tortilla served with spicy wedges or chips',
+        name: 'Loaded Fries - Chicken',
+        price_pence: 745,
+        description: 'Fries topped with seasoned chicken, melted cheese and peppers.',
       },
     ],
   },
   {
-    name: 'Meal Deals & Burger Meals',
+    name: 'Nachos',
     sort_order: 1,
     color: '#f97316',
     items: [
       {
-        name: 'Regular Chicken Fillet Burger Meal',
-        price_pence: 850,
-        description: 'Chicken breast fillet with lettuce & mayo, chips and can of drinks',
-      },
-      {
-        name: 'Nugget Bucket',
-        price_pence: 850,
-        description: 'Bucket of Nuggets (10 pieces), Chips and drinks',
-      },
-      {
-        name: 'Wings Box',
-        price_pence: 950,
-        description: '10 pieces of spicy chicken, fries and can drink',
-      },
-      {
-        name: 'Chicken Mexiyani',
-        price_pence: 1095,
+        name: 'Classic Nachos',
+        price_pence: 645,
         description:
-          'Patented by Mexican house: Breast of chicken in Mexican sauce, served on the bed of rice, topped with melted cheese, Nachos, salsa, sour cream, guacamole, Jalapeno, with salad and can of drink or ice cream',
-        modifierGroups: [DRINK_CHOICE],
+          'Crunchy tortilla chips topped with melted cheese, salsa, sour cream, guacamole and jalapenos.',
       },
       {
-        name: 'Beef Mexiyani',
-        price_pence: 1095,
-        description:
-          'Chilly Beef cooked in Mexican style, served on the bed of rice, topped with melted cheese, Nachos, salsa, sour cream, guacamole, Jalapeno, with salad and can of drink or ice cream',
-        modifierGroups: [DRINK_CHOICE],
+        name: 'Chilli Beef Nachos',
+        price_pence: 845,
+        description: 'Our classic nachos topped with homemade chilli beef.',
       },
       {
-        name: 'Hot & Spicy Momo With Can Drink',
-        price_pence: 1000,
-        description: '10 Pcs of Momo with spicy dip & a can of Coke',
-        modifierGroups: [MOMO_TYPE],
-      },
-      {
-        name: 'Family Pack Meal',
-        price_pence: 2595,
-        description:
-          'Chicken nuggets & chips, halloumi fingers, beef tacos, salads, bottle of Coke, Mexican house churros',
+        name: 'Chicken Nachos',
+        price_pence: 795,
+        description: 'Our classic nachos topped with seasoned grilled chicken.',
       },
     ],
   },
   {
-    name: 'Starters',
+    name: 'Burritos',
     sort_order: 2,
     color: '#eab308',
     items: [
-      { name: 'Garlic Bread', price_pence: 405, description: 'Plain garlic bread' },
       {
-        name: 'Garlic Bread with Cheese',
-        price_pence: 495,
-        description: 'Garlic bread topped with melted cheese',
-      },
-      {
-        name: 'Quesadillas Delight',
-        price_pence: 536,
-        description: 'Toasted flour tortilla with cheese and fillings',
-      },
-      {
-        name: 'Taquitos',
-        price_pence: 585,
-        description: 'Deep fried flour tortilla with fresh spices, served with salad & salsa',
-      },
-      {
-        name: 'Crispy Potato Skin',
-        price_pence: 594,
-        description: 'Served with topped sour cream',
-      },
-      {
-        name: 'Jalapenos Rellenos',
-        price_pence: 585,
+        name: 'Chicken Burrito',
+        price_pence: 945,
         description:
-          'Hot jalapenos stuffed with spicy cream cheese, topped with sour cream & garnished with house green crispy salad & salsa',
+          'Wrapped in a large flour tortilla with Mexican rice, black beans, cheese, salsa and sour cream.',
       },
       {
-        name: 'Chicken Wings',
-        price_pence: 585,
+        name: 'Beef Burrito',
+        price_pence: 1045,
         description:
-          'Tossed BBQ sauce & served with a pot of sour cream & house green crispy salad',
+          'Wrapped in a large flour tortilla with Mexican rice, black beans, cheese, salsa and sour cream.',
       },
       {
-        name: 'Albondigas',
-        price_pence: 594,
+        name: 'Veggie Burrito',
+        price_pence: 845,
         description:
-          'Homemade meatballs covered in a rich tomato, mixed herb sauce & Parmesan shavings served with garlic bread',
+          'Wrapped in a large flour tortilla with Mexican rice, black beans, cheese, salsa and sour cream.',
       },
       {
-        name: 'Mexican Chipotle Dippers',
-        price_pence: 585,
+        name: 'Pulled Pork Burrito',
+        price_pence: 995,
         description:
-          'Spicy chipotle stripped chicken covered in crunchy breadcrumbs, deep fried, served with spicy salsa & BBQ dip',
+          'Wrapped in a large flour tortilla with Mexican rice, black beans, cheese, salsa and sour cream.',
+      },
+    ],
+  },
+  {
+    name: 'Tacos',
+    sort_order: 3,
+    color: '#22c55e',
+    items: [
+      {
+        name: 'Chicken Tacos',
+        price_pence: 945,
+        description: 'Three soft corn tortillas served with fresh salsa and a wedge of lime.',
       },
       {
-        name: 'Crispy Calamari',
-        price_pence: 585,
+        name: 'Beef Tacos',
+        price_pence: 1045,
+        description: 'Three soft corn tortillas served with fresh salsa and a wedge of lime.',
+      },
+      {
+        name: 'Veggie Tacos',
+        price_pence: 845,
+        description: 'Three soft corn tortillas served with fresh salsa and a wedge of lime.',
+      },
+      {
+        name: 'Pulled Pork Tacos',
+        price_pence: 995,
+        description: 'Three soft corn tortillas served with fresh salsa and a wedge of lime.',
+      },
+    ],
+  },
+  {
+    name: 'Quesadillas',
+    sort_order: 4,
+    color: '#14b8a6',
+    items: [
+      {
+        name: 'Chicken Quesadilla',
+        price_pence: 895,
         description:
-          'Seasoned calamari, lightly breaded & fried, served with chipotle mayo & house green crispy salad',
+          'A large flour tortilla filled with cheese and chicken, toasted until golden.',
       },
       {
-        name: 'Veg Spring Roll',
-        price_pence: 536,
-        description: '4 Pcs of spring roll with sweet or hot chilli sauce',
-      },
-      {
-        name: 'Chilli Mushroom',
-        price_pence: 536,
-        description: 'Button mushrooms cooked in tomato, chilli and garlic sauce',
-      },
-      {
-        name: 'Chilli Prawn Skewer',
-        price_pence: 716,
+        name: 'Beef Quesadilla',
+        price_pence: 995,
         description:
-          'Sauteed prawns skewer, served with tartar sauce & house green crispy salad',
+          'A large flour tortilla filled with cheese and beef, toasted until golden.',
       },
       {
-        name: 'Mexican House Shared Platter',
-        price_pence: 1976,
+        name: 'Veggie Quesadilla',
+        price_pence: 795,
         description:
-          'A selection of appetizers including stuffed jalapenos, taquitos beef, Mexican chipotle dippers, crispy calamari',
+          'A large flour tortilla filled with cheese and vegetables, toasted until golden.',
+      },
+      {
+        name: 'Cheese Quesadilla',
+        price_pence: 695,
+        description: 'A large flour tortilla filled with cheese, toasted until golden.',
+      },
+    ],
+  },
+  {
+    name: 'Enchiladas',
+    sort_order: 5,
+    color: '#8b5cf6',
+    items: [
+      {
+        name: 'Chicken Enchiladas',
+        price_pence: 1045,
+        description:
+          'Two corn tortillas rolled with chicken, topped with enchilada sauce and melted cheese, then baked.',
+      },
+      {
+        name: 'Beef Enchiladas',
+        price_pence: 1145,
+        description:
+          'Two corn tortillas rolled with beef, topped with enchilada sauce and melted cheese, then baked.',
+      },
+      {
+        name: 'Veggie Enchiladas',
+        price_pence: 945,
+        description:
+          'Two corn tortillas rolled with vegetables, topped with enchilada sauce and melted cheese, then baked.',
+      },
+    ],
+  },
+  {
+    name: 'Fajitas',
+    sort_order: 6,
+    color: '#ec4899',
+    items: [
+      {
+        name: 'Chicken Fajitas',
+        price_pence: 1295,
+        description:
+          'Sizzling platter with peppers and onions. Served with 3 flour tortillas, salsa, sour cream and guacamole.',
+      },
+      {
+        name: 'Beef Fajitas',
+        price_pence: 1395,
+        description:
+          'Sizzling platter with peppers and onions. Served with 3 flour tortillas, salsa, sour cream and guacamole.',
+      },
+      {
+        name: 'Veggie Fajitas',
+        price_pence: 1095,
+        description:
+          'Sizzling platter with peppers and onions. Served with 3 flour tortillas, salsa, sour cream and guacamole.',
+      },
+      {
+        name: 'Mixed Fajitas (Chicken & Beef)',
+        price_pence: 1495,
+        description:
+          'Sizzling platter with peppers and onions. Served with 3 flour tortillas, salsa, sour cream and guacamole.',
+      },
+    ],
+  },
+  {
+    name: 'Burgers',
+    sort_order: 7,
+    color: '#f43f5e',
+    items: [
+      {
+        name: 'Classic Beef Burger',
+        price_pence: 995,
+        description:
+          'Served in a toasted brioche bun with lettuce, tomato, red onion and a side of fries.',
+      },
+      {
+        name: 'Cheese Burger',
+        price_pence: 1095,
+        description:
+          'Served in a toasted brioche bun with lettuce, tomato, red onion and a side of fries.',
+      },
+      {
+        name: 'Mexican Burger',
+        price_pence: 1195,
+        description:
+          'Topped with homemade chilli beef, cheese and jalapenos. Served with fries.',
+      },
+      {
+        name: 'Chicken Burger',
+        price_pence: 995,
+        description:
+          'Choose between grilled or crispy fried chicken breast. Served with fries.',
+        modifierGroups: [CHICKEN_STYLE],
       },
     ],
   },
   {
     name: 'Mains',
-    sort_order: 3,
-    color: '#22c55e',
+    sort_order: 8,
+    color: '#6366f1',
     items: [
       {
-        name: 'Trio of Tacos',
-        price_pence: 986,
+        name: 'Chilli Con Carne',
+        price_pence: 1095,
         description:
-          'Three crispy shell tacos filled with authentic chilli topped with salad mixture, cheese & sour cream',
-        modifierGroups: [FILLING_CHOICE],
-      },
-      {
-        name: 'Authentic Mexican House Chilli',
-        price_pence: 986,
-        description:
-          'Served on the crispy edible tortilla bowl, topped with cheese, pico de gallo, sour cream on a bed of spicy Mexican rice',
-      },
-      {
-        name: 'Pan Fry Sea Bass Fillet Meal',
-        price_pence: 1256,
-        description:
-          'Pan fried sea bass fillet with herbs & lemon served with homemade beans, spicy Mexican rice & house green crispy salads',
-      },
-      {
-        name: 'Skewer',
-        price_pence: 1256,
-        description:
-          'Marinated tender skewers, charcoal grilled & served with house green crispy salad, spicy Mexican rice, mint yoghurt dip',
-        modifierGroups: [MEAT_CHOICE_SKEWER],
+          'Our homemade beef chilli served with Mexican rice and crunchy tortilla chips.',
       },
       {
         name: 'Chimichanga',
-        price_pence: 986,
+        price_pence: 1145,
         description:
-          'A fried rolled flour tortilla with your choice of filling, sauteed peppers & onions, cheese, chipotle chilli sauce & sour cream',
-        modifierGroups: [FILLING_CHOICE],
+          'A deep-fried burrito filled with your choice of chicken or beef, topped with salsa and sour cream.',
+        modifierGroups: [CHIMICHANGA_FILLING],
       },
       {
-        name: 'Enchilada',
-        price_pence: 986,
+        name: 'Mexican Paella',
+        price_pence: 1295,
         description:
-          'Two corn tortilla rolled with filling, garnished with cheese & special sauce, topped with sour cream, served with Mexican rice',
-        modifierGroups: [FILLING_CHOICE],
+          'Traditional rice dish with chicken, spicy chorizo, prawns and mixed peppers.',
+      },
+    ],
+  },
+  {
+    name: 'Sides',
+    sort_order: 9,
+    color: '#84cc16',
+    items: [
+      { name: 'Fries', price_pence: 345, description: 'Classic french fries.' },
+      { name: 'Cheesy Fries', price_pence: 445, description: 'Fries topped with melted cheese.' },
+      {
+        name: 'Sweet Potato Fries',
+        price_pence: 445,
+        description: 'Crispy sweet potato fries.',
+      },
+      { name: 'Mexican Rice', price_pence: 345, description: 'Spiced Mexican rice.' },
+      { name: 'Corn on the Cob', price_pence: 345, description: 'Grilled corn on the cob.' },
+      { name: 'Side Salad', price_pence: 345, description: 'Fresh mixed side salad.' },
+      {
+        name: 'Extra Dips',
+        price_pence: 95,
+        description: 'Choice of Salsa, Sour Cream, Guacamole, Garlic Mayo, BBQ, or Buffalo.',
+        modifierGroups: [DIP_CHOICE],
+      },
+    ],
+  },
+  {
+    name: 'Kids Menu',
+    sort_order: 10,
+    color: '#0ea5e9',
+    items: [
+      {
+        name: 'Chicken Nuggets & Fries',
+        price_pence: 545,
+        description: 'Kids portion of chicken nuggets with fries.',
       },
       {
-        name: 'Mexican House Burrito',
-        price_pence: 986,
-        description:
-          'Combined with homemade beans, spicy Mexican rice, salsa, chipotle sauce, guacamole & sour cream in a soft flour tortilla',
-        modifierGroups: [FILLING_CHOICE],
+        name: 'Fish Fingers & Fries',
+        price_pence: 545,
+        description: 'Kids portion of fish fingers with fries.',
       },
       {
-        name: 'Fajitas',
-        price_pence: 1215,
+        name: 'Cheese Quesadilla & Fries',
+        price_pence: 545,
+        description: 'Kids cheese quesadilla served with fries.',
+      },
+    ],
+  },
+  {
+    name: 'Desserts',
+    sort_order: 11,
+    color: '#a855f7',
+    items: [
+      {
+        name: 'Churros (4pcs)',
+        price_pence: 545,
         description:
-          'Hot sizzling strips with mixed capsicum, onion & mushroom, warm tortillas, crispy salad, guacamole, sour cream & salsa',
-        modifierGroups: [MEAT_CHOICE_FAJITAS],
+          'Mexican doughnuts dusted in cinnamon sugar, served with chocolate or caramel dipping sauce.',
+        modifierGroups: [CHURROS_SAUCE],
+      },
+      {
+        name: 'Chocolate Brownie',
+        price_pence: 545,
+        description: 'Warm chocolate brownie served with a scoop of vanilla ice cream.',
+      },
+      {
+        name: 'Cheesecake',
+        price_pence: 545,
+        description: "Ask for today's flavour.",
+      },
+    ],
+  },
+  {
+    name: 'Drinks',
+    sort_order: 12,
+    color: '#64748b',
+    items: [
+      {
+        name: 'Soft Drinks (330ml Can)',
+        price_pence: 150,
+        description: 'Coke, Diet Coke, Fanta Orange, Sprite.',
+        modifierGroups: [SOFT_DRINK],
+      },
+      { name: 'Water (500ml)', price_pence: 120, description: 'Still bottled water.' },
+      {
+        name: 'Jarritos (370ml)',
+        price_pence: 295,
+        description: 'Authentic Mexican soda. Flavours: Lime, Mango, Pineapple, Guava.',
+        modifierGroups: [JARRITOS_FLAVOUR],
       },
     ],
   },
@@ -410,7 +546,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded ${categories.length} categories and ${itemCount} items for Mexican House`
+    `Seeded ${categories.length} categories and ${itemCount} items for ${restaurant.name}`
   )
 }
 

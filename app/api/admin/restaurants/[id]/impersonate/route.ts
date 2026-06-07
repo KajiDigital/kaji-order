@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { cookies } from 'next/headers'
 import { getAdminSession, ADMIN_SESSION_COOKIE } from '@/app/lib/admin-auth'
-import { signToken, sessionCookieOptions } from '@/app/lib/auth'
+import { hashPassword, signToken, sessionCookieOptions } from '@/app/lib/auth'
 import prisma from '@/app/lib/prisma'
 import { logAdminChange } from '@/app/lib/audit'
 import {
@@ -29,9 +30,28 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const staff = restaurant.staff[0]
+  const staffRecord = restaurant.staff[0]
+  let staff = staffRecord
+
   if (!staff) {
-    return NextResponse.json({ error: 'No staff account to impersonate' }, { status: 400 })
+    if (!restaurant.email) {
+      return NextResponse.json(
+        { error: 'No staff account — add a restaurant email first, then try again' },
+        { status: 400 }
+      )
+    }
+
+    const hashed = await hashPassword(randomBytes(12).toString('base64url'))
+    staff = await prisma.restaurantStaff.create({
+      data: {
+        restaurant_id: id,
+        email: restaurant.email,
+        password: hashed,
+        name: restaurant.contact_name ?? restaurant.name,
+        role: 'OWNER',
+        password_set: false,
+      },
+    })
   }
 
   const cookieStore = await cookies()
