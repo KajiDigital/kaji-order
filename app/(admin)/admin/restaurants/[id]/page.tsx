@@ -51,6 +51,12 @@ export default async function AdminRestaurantPage({ params }: Params) {
         pricing_plan: restaurant.pricing_plan,
         commission_pct: restaurant.commission_pct,
         admin_notes: restaurant.admin_notes,
+        logo_url: restaurant.logo_url,
+        banner_url: restaurant.banner_url,
+        primary_color: restaurant.primary_color,
+        brand_color: restaurant.brand_color,
+        font_choice: restaurant.font_choice,
+        show_powered_by: restaurant.show_powered_by,
         created_at: restaurant.created_at.toISOString(),
         orders: restaurant.orders.map((o) => ({
           id: o.id,

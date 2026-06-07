@@ -14,6 +14,7 @@ import {
 import { CartPanel } from './CartPanel'
 import { ProductModal } from './ProductModal'
 import type { Category, Product, Restaurant } from './menu-types'
+import { getFontClass } from '@/app/lib/branding'
 
 function PlaceholderImage({ className }: { className?: string }) {
   return (
@@ -126,7 +127,8 @@ export function PublicMenuClient({
   restaurant: Restaurant
   categories: Category[]
 }) {
-  const primary = restaurant.brand_color || '#c2410c'
+  const primary = restaurant.primary_color
+  const fontClass = getFontClass(restaurant.font_choice)
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [basket, setBasket] = useState<BasketItem[]>([])
@@ -146,6 +148,15 @@ export function PublicMenuClient({
   )
 
   const recommendedItems = useMemo(() => allItems.slice(0, 6), [allItems])
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--primary', primary)
+    document.documentElement.style.setProperty('--secondary', restaurant.secondary_color)
+    return () => {
+      document.documentElement.style.removeProperty('--primary')
+      document.documentElement.style.removeProperty('--secondary')
+    }
+  }, [primary, restaurant.secondary_color])
 
   useEffect(() => {
     const stored = getBasket(restaurant.slug)
@@ -260,7 +271,7 @@ export function PublicMenuClient({
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 lg:pb-8">
+    <div className={`min-h-screen bg-stone-50 pb-24 lg:pb-8 ${fontClass}`}>
       {/* Banner */}
       <div className="relative h-44 sm:h-52 lg:h-56">
         {restaurant.banner_url ? (
@@ -591,6 +602,19 @@ export function PublicMenuClient({
             setModalProduct(null)
           }}
         />
+      )}
+
+      {restaurant.show_powered_by && (
+        <footer className="border-t border-stone-200 bg-white py-4 text-center">
+          <a
+            href="https://order.kajipos.co.uk"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-stone-400 transition-colors hover:text-stone-600"
+          >
+            Powered by Kaji Order 🌮
+          </a>
+        </footer>
       )}
     </div>
   )

@@ -548,6 +548,17 @@ async function main() {
   console.log(
     `Seeded ${categories.length} categories and ${itemCount} items for ${restaurant.name}`
   )
+
+  await prisma.restaurant.update({
+    where: { id: restaurant.id },
+    data: {
+      primary_color: '#c2410c',
+      brand_color: '#c2410c',
+      banner_url: null,
+    },
+  })
+
+  console.log('Updated Mexican House branding: primary_color=#c2410c')
 }
 
 main()

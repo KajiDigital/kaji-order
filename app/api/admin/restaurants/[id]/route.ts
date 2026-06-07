@@ -109,6 +109,15 @@ export async function PATCH(request: Request, { params }: Params) {
   }
   if (body.commission_pct !== undefined) data.commission_pct = body.commission_pct
   if (body.admin_notes !== undefined) data.admin_notes = body.admin_notes
+  if (body.primary_color !== undefined) {
+    data.primary_color = body.primary_color
+    data.brand_color = body.primary_color
+  }
+  if (body.secondary_color !== undefined) data.secondary_color = body.secondary_color
+  if (body.font_choice !== undefined) data.font_choice = body.font_choice
+  if (body.logo_url !== undefined) data.logo_url = body.logo_url
+  if (body.banner_url !== undefined) data.banner_url = body.banner_url
+  if (body.show_powered_by !== undefined) data.show_powered_by = body.show_powered_by
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatOrderNumber, formatPence, getOrderUrl } from '@/app/lib/utils'
+import { DEFAULT_PRIMARY, FONT_OPTIONS } from '@/app/lib/branding'
 
 type Order = {
   id: string
@@ -26,6 +27,12 @@ type RestaurantData = {
   pricing_plan: string
   commission_pct: number
   admin_notes?: string | null
+  logo_url?: string | null
+  banner_url?: string | null
+  primary_color?: string | null
+  brand_color?: string | null
+  font_choice?: string | null
+  show_powered_by?: boolean
   created_at: string
   orders: Order[]
 }
@@ -85,8 +92,14 @@ export function AdminRestaurantDetail({
   stats: Stats
 }) {
   const router = useRouter()
-  const [data, setData] = useState(initial)
+  const [data, setData] = useState({
+    ...initial,
+    primary_color: initial.primary_color ?? initial.brand_color ?? DEFAULT_PRIMARY,
+    font_choice: initial.font_choice ?? 'default',
+    show_powered_by: initial.show_powered_by ?? true,
+  })
   const [saving, setSaving] = useState(false)
+  const [savingBranding, setSavingBranding] = useState(false)
   const [message, setMessage] = useState('')
 
   async function saveAll() {
@@ -116,6 +129,33 @@ export function AdminRestaurantDetail({
     }
     setData({ ...data, ...json.restaurant })
     setMessage('Saved')
+    router.refresh()
+  }
+
+  async function saveBranding() {
+    setSavingBranding(true)
+    setMessage('')
+    const res = await fetch(`/api/admin/restaurants/${data.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        primary_color: data.primary_color,
+        logo_url: data.logo_url,
+        banner_url: data.banner_url,
+        font_choice: data.font_choice,
+        show_powered_by: data.show_powered_by,
+        pricing_plan: data.pricing_plan,
+        commission_pct: data.commission_pct,
+      }),
+    })
+    const json = await res.json()
+    setSavingBranding(false)
+    if (!res.ok) {
+      setMessage(json.error ?? 'Save failed')
+      return
+    }
+    setData({ ...data, ...json.restaurant })
+    setMessage('Branding saved')
     router.refresh()
   }
 
@@ -210,6 +250,77 @@ export function AdminRestaurantDetail({
           onChange={(v) => setData({ ...data, admin_notes: v })}
           type="textarea"
         />
+      </section>
+
+      {/* Branding */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-white">Branding</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-slate-400">Primary colour</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="color"
+                value={data.primary_color ?? DEFAULT_PRIMARY}
+                onChange={(e) => setData({ ...data, primary_color: e.target.value })}
+                className="h-9 w-12 cursor-pointer rounded border border-slate-700 bg-slate-800"
+              />
+              <input
+                value={data.primary_color ?? DEFAULT_PRIMARY}
+                onChange={(e) => setData({ ...data, primary_color: e.target.value })}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm font-mono"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-400">Font</label>
+            <select
+              value={data.font_choice ?? 'default'}
+              onChange={(e) => setData({ ...data, font_choice: e.target.value })}
+              className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              {FONT_OPTIONS.map((f) => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+          </div>
+          <Field label="Logo URL" value={data.logo_url ?? ''} onChange={(v) => setData({ ...data, logo_url: v })} />
+          <Field label="Banner URL" value={data.banner_url ?? ''} onChange={(v) => setData({ ...data, banner_url: v })} />
+          <div>
+            <label className="text-xs text-slate-400">Plan override</label>
+            <select
+              value={data.pricing_plan}
+              onChange={(e) => setData({ ...data, pricing_plan: e.target.value })}
+              className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              {PLANS.map((p) => (
+                <option key={p} value={p}>{p.toLowerCase()}</option>
+              ))}
+            </select>
+          </div>
+          <Field
+            label="Commission % override"
+            value={String(data.commission_pct)}
+            onChange={(v) => setData({ ...data, commission_pct: parseInt(v, 10) || 0 })}
+            type="number"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={data.show_powered_by ?? true}
+            onChange={(e) => setData({ ...data, show_powered_by: e.target.checked })}
+          />
+          Show &quot;Powered by Kaji&quot; on menu page
+        </label>
+        <button
+          type="button"
+          onClick={saveBranding}
+          disabled={savingBranding}
+          className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
+        >
+          {savingBranding ? 'Saving...' : 'Save branding'}
+        </button>
       </section>
 
       {/* Section 2: Quick actions */}

@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { DAYS, type DayHours, type OpeningHours, getOrderUrl } from '@/app/lib/utils'
 import { parseOpeningHours } from '@/app/lib/hours'
+import {
+  DEFAULT_PRIMARY,
+  FONT_OPTIONS,
+  getFontPreviewClass,
+  isPaidPlan,
+} from '@/app/lib/branding'
 
 type Restaurant = {
   id: string
@@ -15,6 +21,11 @@ type Restaurant = {
   banner_url?: string | null
   description?: string | null
   brand_color: string
+  primary_color?: string | null
+  secondary_color?: string | null
+  font_choice?: string | null
+  show_powered_by: boolean
+  pricing_plan: string
   opening_hours?: unknown
   holiday_mode: boolean
   holiday_message?: string | null
@@ -29,15 +40,21 @@ type Restaurant = {
   sound_alerts: boolean
 }
 
-const TAB_LABELS = ['Profile', 'Hours', 'Ordering', 'Notifications', 'Share'] as const
+const TAB_LABELS = ['Profile', 'Branding', 'Hours', 'Ordering', 'Notifications', 'Share'] as const
 
 export function SettingsClient({ initial }: { initial: Restaurant }) {
   const [tab, setTab] = useState<(typeof TAB_LABELS)[number]>('Profile')
-  const [data, setData] = useState(initial)
+  const [data, setData] = useState({
+    ...initial,
+    primary_color: initial.primary_color ?? initial.brand_color ?? DEFAULT_PRIMARY,
+    font_choice: initial.font_choice ?? 'default',
+  })
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const orderUrl = getOrderUrl(data.slug)
+  const primaryColor = data.primary_color ?? DEFAULT_PRIMARY
+  const showPoweredByToggle = !isPaidPlan(data.pricing_plan)
 
   async function save(partial: Partial<Restaurant>) {
     setSaving(true)
@@ -101,14 +118,130 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
           <Field label="Address" value={data.address ?? ''} onChange={(v) => setData({ ...data, address: v })} />
           <Field label="Postcode" value={data.postcode ?? ''} onChange={(v) => setData({ ...data, postcode: v })} />
           <Field label="Phone" value={data.phone ?? ''} onChange={(v) => setData({ ...data, phone: v })} />
-          <Field label="Logo URL" value={data.logo_url ?? ''} onChange={(v) => setData({ ...data, logo_url: v })} />
-          <Field label="Banner URL" value={data.banner_url ?? ''} onChange={(v) => setData({ ...data, banner_url: v })} />
           <Field label="Description" value={data.description ?? ''} onChange={(v) => setData({ ...data, description: v })} multiline />
+          <SaveBtn saving={saving} onClick={() => save(data)} />
+        </div>
+      )}
+
+      {tab === 'Branding' && (
+        <div className="space-y-6 max-w-lg">
           <div>
             <label className="text-sm text-slate-400">Brand colour</label>
-            <input type="color" value={data.brand_color} onChange={(e) => setData({ ...data, brand_color: e.target.value })} className="block mt-1" />
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setData({ ...data, primary_color: e.target.value })}
+                className="h-10 w-14 cursor-pointer rounded border border-slate-700 bg-slate-800"
+              />
+              <input
+                value={primaryColor}
+                onChange={(e) => setData({ ...data, primary_color: e.target.value })}
+                className="w-28 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm font-mono"
+              />
+              <button
+                type="button"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Preview button
+              </button>
+            </div>
           </div>
-          <SaveBtn saving={saving} onClick={() => save(data)} />
+
+          <div>
+            <label className="text-sm text-slate-400">Logo</label>
+            <div className="mt-2 flex items-center gap-4">
+              {data.logo_url ? (
+                <img src={data.logo_url} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-slate-700" />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-800 text-slate-500 text-xs">
+                  No logo
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  value={data.logo_url ?? ''}
+                  onChange={(e) => setData({ ...data, logo_url: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                />
+                <p className="text-xs text-slate-500 mt-1">Enter a direct image URL</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400">Banner</label>
+            {data.banner_url ? (
+              <img src={data.banner_url} alt="" className="mt-2 h-[200px] w-full rounded-xl object-cover" />
+            ) : (
+              <div
+                className="mt-2 flex h-[200px] w-full items-center justify-center rounded-xl text-sm text-white/80"
+                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}99)` }}
+              >
+                Banner preview
+              </div>
+            )}
+            <input
+              value={data.banner_url ?? ''}
+              onChange={(e) => setData({ ...data, banner_url: e.target.value })}
+              placeholder="https://..."
+              className="w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+            />
+            <p className="text-xs text-slate-500 mt-1">Enter a direct image URL</p>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400">Font</label>
+            <select
+              value={data.font_choice ?? 'default'}
+              onChange={(e) => setData({ ...data, font_choice: e.target.value })}
+              className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              {FONT_OPTIONS.map((f) => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+            <p className={`mt-3 text-white ${getFontPreviewClass(data.font_choice)}`}>
+              {data.name} — menu preview text
+            </p>
+          </div>
+
+          {showPoweredByToggle ? (
+            <Toggle
+              label={'Show "Powered by Kaji" on menu page'}
+              checked={data.show_powered_by}
+              onChange={(v) => setData({ ...data, show_powered_by: v })}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">
+              &quot;Powered by Kaji&quot; is hidden on your plan.
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <SaveBtn
+              saving={saving}
+              onClick={() =>
+                save({
+                  primary_color: data.primary_color,
+                  logo_url: data.logo_url,
+                  banner_url: data.banner_url,
+                  font_choice: data.font_choice,
+                  show_powered_by: data.show_powered_by,
+                })
+              }
+            />
+            <a
+              href={orderUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700"
+            >
+              Preview my menu page →
+            </a>
+          </div>
         </div>
       )}
 

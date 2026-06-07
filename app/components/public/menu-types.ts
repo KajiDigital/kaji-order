@@ -37,7 +37,10 @@ export type Restaurant = {
   description?: string | null
   logo_url?: string | null
   banner_url?: string | null
-  brand_color: string
+  primary_color: string
+  secondary_color: string
+  font_choice: string
+  show_powered_by: boolean
   phone?: string | null
   email?: string | null
   isOpen: boolean

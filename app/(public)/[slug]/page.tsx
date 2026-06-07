@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { notFound } from 'next/navigation'
 import prisma from '@/app/lib/prisma'
 import { isRestaurantOpen } from '@/app/lib/hours'
+import { getPrimaryColor, getSecondaryColor, shouldShowPoweredBy } from '@/app/lib/branding'
 import { PublicMenuClient } from '@/app/components/public/PublicMenuClient'
 
 type Params = { params: Promise<{ slug: string }> }
@@ -43,7 +44,10 @@ export default async function PublicMenuPage({ params }: Params) {
         description: restaurant.description,
         logo_url: restaurant.logo_url,
         banner_url: restaurant.banner_url,
-        brand_color: restaurant.brand_color || '#c2410c',
+        primary_color: getPrimaryColor(restaurant),
+        secondary_color: getSecondaryColor(restaurant),
+        font_choice: restaurant.font_choice ?? 'default',
+        show_powered_by: shouldShowPoweredBy(restaurant),
         phone: restaurant.phone,
         email: restaurant.email,
         isOpen: openStatus.open && restaurant.collection_enabled,

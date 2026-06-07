@@ -41,6 +41,13 @@ export async function PATCH(request: Request) {
       ...(body.banner_url !== undefined && { banner_url: body.banner_url }),
       ...(body.description !== undefined && { description: body.description }),
       ...(body.brand_color !== undefined && { brand_color: body.brand_color }),
+      ...(body.primary_color !== undefined && {
+        primary_color: body.primary_color,
+        brand_color: body.primary_color,
+      }),
+      ...(body.secondary_color !== undefined && { secondary_color: body.secondary_color }),
+      ...(body.font_choice !== undefined && { font_choice: body.font_choice }),
+      ...(body.show_powered_by !== undefined && { show_powered_by: body.show_powered_by }),
       ...(body.opening_hours !== undefined && { opening_hours: body.opening_hours }),
       ...(body.holiday_mode !== undefined && { holiday_mode: body.holiday_mode }),
       ...(body.holiday_message !== undefined && { holiday_message: body.holiday_message }),
