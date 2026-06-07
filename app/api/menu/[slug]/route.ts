@@ -9,8 +9,8 @@ type Params = { params: Promise<{ slug: string }> }
 export async function GET(_request: Request, { params }: Params) {
   const { slug } = await params
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { slug },
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { slug, deleted_at: null },
     include: {
       menu_categories: {
         where: { is_active: true },

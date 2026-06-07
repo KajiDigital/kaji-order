@@ -119,6 +119,8 @@ model Restaurant {
   avg_prep_minutes           Int           @default(30)
   email_notifications        Boolean       @default(true)
   sound_alerts               Boolean       @default(true)
+  admin_notes                String?
+  deleted_at                 DateTime?
   created_at                 DateTime      @default(now())
   updated_at              DateTime      @updatedAt
 
@@ -144,6 +146,7 @@ model RestaurantStaff {
   role          StaffRole  @default(STAFF)
   invite_token  String?
   password_set  Boolean    @default(true)
+  last_login_at DateTime?
   created_at    DateTime   @default(now())
   updated_at    DateTime   @updatedAt
 

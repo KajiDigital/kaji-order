@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { formatOrderNumber, formatPence } from '@/app/lib/utils'
+import { useRouter } from 'next/navigation'
+import { formatOrderNumber, formatPence, getOrderUrl } from '@/app/lib/utils'
 
 type Order = {
   id: string
@@ -13,68 +14,242 @@ type Order = {
   created_at: string
 }
 
-type Restaurant = {
+type RestaurantData = {
   id: string
   name: string
   slug: string
+  status: string
+  contact_name?: string | null
   email?: string | null
+  phone?: string | null
+  restaurant_type?: string | null
   pricing_plan: string
   commission_pct: number
+  admin_notes?: string | null
+  created_at: string
   orders: Order[]
 }
 
-export function AdminRestaurantDetail({
-  restaurant,
-  commissionThisMonth,
-}: {
-  restaurant: Restaurant
+type Stats = {
+  totalOrders: number
+  ordersThisMonth: number
+  totalCommissionOwed: number
   commissionThisMonth: number
-}) {
-  const [commissionPct, setCommissionPct] = useState(restaurant.commission_pct)
-  const [saving, setSaving] = useState(false)
+  lastLogin: string | null
+}
 
-  async function saveCommission() {
+const PLANS = ['COMMISSION', 'MONTHLY', 'WEEKLY', 'BUNDLE'] as const
+const STATUSES = ['pending', 'active', 'suspended'] as const
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  hint,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  type?: string
+  hint?: string
+}) {
+  return (
+    <div>
+      <label className="text-xs text-slate-400">{label}</label>
+      {type === 'textarea' ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+        />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+        />
+      )}
+      {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+    </div>
+  )
+}
+
+export function AdminRestaurantDetail({
+  restaurant: initial,
+  stats,
+}: {
+  restaurant: RestaurantData
+  stats: Stats
+}) {
+  const router = useRouter()
+  const [data, setData] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+
+  async function saveAll() {
     setSaving(true)
-    await fetch(`/api/admin/restaurants/${restaurant.id}`, {
+    setMessage('')
+    const res = await fetch(`/api/admin/restaurants/${data.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commission_pct: commissionPct }),
+      body: JSON.stringify({
+        name: data.name,
+        contact_name: data.contact_name,
+        email: data.email,
+        phone: data.phone,
+        restaurant_type: data.restaurant_type,
+        slug: data.slug,
+        status: data.status,
+        pricing_plan: data.pricing_plan,
+        commission_pct: data.commission_pct,
+        admin_notes: data.admin_notes,
+      }),
     })
+    const json = await res.json()
     setSaving(false)
+    if (!res.ok) {
+      setMessage(json.error ?? 'Save failed')
+      return
+    }
+    setData({ ...data, ...json.restaurant })
+    setMessage('Saved')
+    router.refresh()
+  }
+
+  async function action(path: string, confirmMsg?: string) {
+    if (confirmMsg && !confirm(confirmMsg)) return
+    const res = await fetch(`/api/admin/restaurants/${data.id}/${path}`, { method: 'POST' })
+    const json = await res.json()
+    if (!res.ok) {
+      alert(json.error ?? 'Action failed')
+      return
+    }
+    if (path === 'impersonate' && json.redirect) {
+      window.location.href = json.redirect
+      return
+    }
+    if (path === 'delete') {
+      router.push('/admin/restaurants')
+      return
+    }
+    router.refresh()
+    setMessage(`Action completed: ${path}`)
   }
 
   return (
-    <div className="space-y-6">
-      <Link href="/admin" className="text-sm text-violet-400">← Back</Link>
-      <h1 className="text-2xl font-bold text-white">{restaurant.name}</h1>
-      <p className="text-slate-400">/{restaurant.slug} · {restaurant.pricing_plan}</p>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <h2 className="font-semibold text-white mb-2">Commission this month</h2>
-        <p className="text-2xl text-violet-400">{formatPence(commissionThisMonth)}</p>
-        <div className="flex gap-2 mt-4 items-end">
-          <div>
-            <label className="text-xs text-slate-400">Override commission %</label>
-            <input
-              type="number"
-              value={commissionPct}
-              onChange={(e) => setCommissionPct(parseInt(e.target.value, 10))}
-              className="block mt-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white w-24"
-            />
-          </div>
-          <button type="button" onClick={saveCommission} disabled={saving} className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm">
-            Save
-          </button>
-          <button type="button" className="px-4 py-2 bg-slate-800 text-slate-400 rounded-lg text-sm" disabled>
-            Generate invoice (coming soon)
-          </button>
+    <div className="space-y-8">
+      <Link href="/admin/restaurants" className="text-sm text-violet-400">← Back</Link>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">{data.name}</h1>
+          <p className="text-slate-400 text-sm capitalize">{data.status}</p>
         </div>
+        <button
+          type="button"
+          onClick={saveAll}
+          disabled={saving}
+          className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save all'}
+        </button>
       </div>
+      {message && <p className="text-sm text-emerald-400">{message}</p>}
 
-      <div>
+      {/* Section 1: Editable details */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-white">Restaurant details</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Restaurant name" value={data.name} onChange={(v) => setData({ ...data, name: v })} />
+          <Field label="Contact name" value={data.contact_name ?? ''} onChange={(v) => setData({ ...data, contact_name: v })} />
+          <Field label="Email" value={data.email ?? ''} onChange={(v) => setData({ ...data, email: v })} type="email" />
+          <Field label="Phone" value={data.phone ?? ''} onChange={(v) => setData({ ...data, phone: v })} />
+          <Field label="Restaurant type" value={data.restaurant_type ?? ''} onChange={(v) => setData({ ...data, restaurant_type: v })} />
+          <Field
+            label="Slug"
+            value={data.slug}
+            onChange={(v) => setData({ ...data, slug: v })}
+            hint={getOrderUrl(data.slug)}
+          />
+          <div>
+            <label className="text-xs text-slate-400">Status</label>
+            <select
+              value={data.status}
+              onChange={(e) => setData({ ...data, status: e.target.value })}
+              className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-slate-400">Plan</label>
+            <select
+              value={data.pricing_plan}
+              onChange={(e) => setData({ ...data, pricing_plan: e.target.value })}
+              className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              {PLANS.map((p) => (
+                <option key={p} value={p}>{p.toLowerCase()}</option>
+              ))}
+            </select>
+          </div>
+          <Field
+            label="Commission % (admin only)"
+            value={String(data.commission_pct)}
+            onChange={(v) => setData({ ...data, commission_pct: parseInt(v, 10) || 0 })}
+            type="number"
+          />
+        </div>
+        <Field
+          label="Internal notes (admin only)"
+          value={data.admin_notes ?? ''}
+          onChange={(v) => setData({ ...data, admin_notes: v })}
+          type="textarea"
+        />
+      </section>
+
+      {/* Section 2: Quick actions */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <h2 className="font-semibold text-white mb-4">Quick actions</h2>
+        <div className="flex flex-wrap gap-2">
+          <ActionBtn label="Send invite email" onClick={() => action('send-invite')} />
+          <ActionBtn label="Reset password" onClick={() => action('reset-password', 'Send password reset email?')} />
+          <ActionBtn label="Impersonate" onClick={() => action('impersonate')} variant="amber" />
+          <ActionBtn label="Suspend account" onClick={() => action('suspend', 'Suspend this account?')} variant="warn" />
+          <ActionBtn label="Delete account" onClick={() => action('delete', 'Soft delete this account?')} variant="danger" />
+          {data.email && (
+            <a href={`mailto:${data.email}`} className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-sm">
+              Contact
+            </a>
+          )}
+        </div>
+      </section>
+
+      {/* Section 3: Activity */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <h2 className="font-semibold text-white mb-4">Activity</h2>
+        <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <Stat label="Account created" value={new Date(data.created_at).toLocaleDateString('en-GB')} />
+          <Stat
+            label="Last login"
+            value={stats.lastLogin ? new Date(stats.lastLogin).toLocaleString('en-GB') : 'Never'}
+          />
+          <Stat label="Total orders" value={String(stats.totalOrders)} />
+          <Stat label="Orders this month" value={String(stats.ordersThisMonth)} />
+          <Stat label="Commission owed" value={formatPence(stats.totalCommissionOwed)} />
+          <Stat label="Commission this month" value={formatPence(stats.commissionThisMonth)} />
+        </dl>
+      </section>
+
+      {/* Recent orders */}
+      <section>
         <h2 className="font-semibold text-white mb-4">Recent orders</h2>
         <div className="space-y-2">
-          {restaurant.orders.map((order) => (
+          {data.orders.map((order) => (
             <div key={order.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex justify-between">
               <div>
                 <p className="text-white font-medium">{formatOrderNumber(order.order_number)}</p>
@@ -86,11 +261,42 @@ export function AdminRestaurantDetail({
               </div>
             </div>
           ))}
-          {restaurant.orders.length === 0 && (
+          {data.orders.length === 0 && (
             <p className="text-slate-500 text-sm">No orders yet.</p>
           )}
         </div>
-      </div>
+      </section>
     </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="text-white font-medium mt-0.5">{value}</dd>
+    </div>
+  )
+}
+
+function ActionBtn({
+  label,
+  onClick,
+  variant = 'default',
+}: {
+  label: string
+  onClick: () => void
+  variant?: 'default' | 'amber' | 'warn' | 'danger'
+}) {
+  const styles = {
+    default: 'bg-slate-800 text-slate-200 hover:bg-slate-700',
+    amber: 'bg-amber-600/20 text-amber-400 hover:bg-amber-600/30',
+    warn: 'bg-orange-600/20 text-orange-400 hover:bg-orange-600/30',
+    danger: 'bg-red-600/20 text-red-400 hover:bg-red-600/30',
+  }
+  return (
+    <button type="button" onClick={onClick} className={`px-3 py-1.5 rounded-lg text-sm ${styles[variant]}`}>
+      {label}
+    </button>
   )
 }

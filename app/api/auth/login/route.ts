@@ -26,12 +26,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
+    if (staff.restaurant.deleted_at) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    }
+
     if (staff.restaurant.status !== 'active') {
       return NextResponse.json(
         { error: "Your account is not yet active. We'll email you when approved." },
         { status: 403 }
       )
     }
+
+    await prisma.restaurantStaff.update({
+      where: { id: staff.id },
+      data: { last_login_at: new Date() },
+    })
 
     const token = signToken({
       staffId: staff.id,

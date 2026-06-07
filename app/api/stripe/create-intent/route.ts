@@ -39,7 +39,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const restaurant = await prisma.restaurant.findUnique({ where: { slug } })
+    const restaurant = await prisma.restaurant.findFirst({
+      where: { slug, deleted_at: null },
+    })
     if (!restaurant || restaurant.status !== 'active') {
       return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
     }

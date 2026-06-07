@@ -9,6 +9,7 @@ export default async function AdminPage() {
   today.setHours(0, 0, 0, 0)
 
   const restaurants = await prisma.restaurant.findMany({
+    where: { deleted_at: null },
     include: {
       orders: {
         where: { created_at: { gte: today } },

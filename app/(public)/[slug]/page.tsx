@@ -10,8 +10,8 @@ type Params = { params: Promise<{ slug: string }> }
 export default async function PublicMenuPage({ params }: Params) {
   const { slug } = await params
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { slug },
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { slug, deleted_at: null },
     include: {
       menu_categories: {
         where: { is_active: true },
@@ -32,7 +32,7 @@ export default async function PublicMenuPage({ params }: Params) {
     },
   })
 
-  if (!restaurant || restaurant.status !== 'active') notFound()
+  if (!restaurant || restaurant.status !== 'active' || restaurant.deleted_at) notFound()
 
   const openStatus = isRestaurantOpen(restaurant.opening_hours, restaurant.holiday_mode)
 
