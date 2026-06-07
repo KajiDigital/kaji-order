@@ -1,0 +1,117 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import {
+  getBasket,
+  saveBasket,
+  clearBasket,
+  basketSubtotal,
+  itemLineTotal,
+  type BasketItem,
+} from '@/app/lib/basket'
+import { formatPence } from '@/app/lib/utils'
+
+export default function BasketPage() {
+  const params = useParams()
+  const slug = params.slug as string
+  const [items, setItems] = useState<BasketItem[]>([])
+  const [orderNotes, setOrderNotes] = useState('')
+  const [restaurantName, setRestaurantName] = useState('')
+  const [minOrder, setMinOrder] = useState(0)
+  const [prepMins, setPrepMins] = useState(30)
+
+  useEffect(() => {
+    const basket = getBasket(slug)
+    if (basket) {
+      setItems(basket.items)
+      setOrderNotes(basket.orderNotes ?? '')
+    }
+    fetch(`/api/menu/${slug}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setRestaurantName(d.restaurant?.name ?? '')
+        setMinOrder(d.restaurant?.min_order_pence ?? 0)
+        setPrepMins(d.restaurant?.avg_prep_minutes ?? 30)
+      })
+  }, [slug])
+
+  function updateItems(next: BasketItem[]) {
+    setItems(next)
+    saveBasket(slug, { items: next, restaurantSlug: slug, orderNotes, updatedAt: new Date().toISOString() })
+  }
+
+  function removeItem(id: string) {
+    const next = items.filter((i) => i.id !== id)
+    updateItems(next)
+    if (next.length === 0) clearBasket(slug)
+  }
+
+  const subtotal = basketSubtotal(items)
+  const belowMin = subtotal < minOrder
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 max-w-lg mx-auto">
+      <Link href={`/${slug}`} className="text-sm text-violet-600">← Continue shopping</Link>
+      <h1 className="text-2xl font-bold text-slate-900 mt-4">{restaurantName || 'Your basket'}</h1>
+
+      {items.length === 0 ? (
+        <p className="text-slate-500 mt-8">Your basket is empty.</p>
+      ) : (
+        <>
+          <ul className="mt-6 space-y-3">
+            {items.map((item) => (
+              <li key={item.id} className="bg-white rounded-xl p-4 border">
+                <div className="flex justify-between">
+                  <div>
+                    <p className="font-medium text-slate-900">{item.quantity}x {item.name}</p>
+                    {item.modifiers.map((m) => (
+                      <p key={m.modifierId} className="text-xs text-slate-500">{m.name}</p>
+                    ))}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">{formatPence(itemLineTotal(item))}</p>
+                    <button type="button" onClick={() => removeItem(item.id)} className="text-xs text-red-500 mt-1">Remove</button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <textarea
+            placeholder="Order notes"
+            value={orderNotes}
+            onChange={(e) => {
+              setOrderNotes(e.target.value)
+              saveBasket(slug, { items, restaurantSlug: slug, orderNotes: e.target.value, updatedAt: new Date().toISOString() })
+            }}
+            className="w-full mt-4 border rounded-xl p-3 text-sm"
+            rows={2}
+          />
+
+          <div className="mt-4 bg-white rounded-xl p-4 border">
+            <p className="text-sm text-slate-600">Order type: <strong>Collection</strong></p>
+            <p className="text-sm text-slate-600 mt-1">Est. ready: ~{prepMins} minutes</p>
+            <div className="flex justify-between mt-3 font-bold text-slate-900">
+              <span>Total</span>
+              <span>{formatPence(subtotal)}</span>
+            </div>
+            {belowMin && (
+              <p className="text-red-500 text-sm mt-2">
+                Minimum order is {formatPence(minOrder)}
+              </p>
+            )}
+          </div>
+
+          <Link
+            href={belowMin ? '#' : `/${slug}/checkout`}
+            className={`block mt-4 text-center py-3 rounded-xl font-medium text-white ${belowMin ? 'bg-slate-300 pointer-events-none' : 'bg-violet-600'}`}
+          >
+            Proceed to checkout
+          </Link>
+        </>
+      )}
+    </div>
+  )
+}

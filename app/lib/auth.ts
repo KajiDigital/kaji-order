@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import prisma from './prisma'
 
@@ -13,6 +14,17 @@ export type SessionPayload = {
   role: string
 }
 
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12)
+}
+
+export async function verifyPassword(
+  password: string,
+  hash: string
+): Promise<boolean> {
+  return bcrypt.compare(password, hash)
+}
+
 export function signToken(payload: SessionPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: SESSION_EXPIRY })
 }
@@ -22,6 +34,18 @@ export function verifyToken(token: string): SessionPayload | null {
     return jwt.verify(token, JWT_SECRET) as SessionPayload
   } catch {
     return null
+  }
+}
+
+export function sessionCookieOptions(token: string) {
+  return {
+    name: SESSION_COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    maxAge: 60 * 60 * 24 * 7,
+    path: '/',
   }
 }
 

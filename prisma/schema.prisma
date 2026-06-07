@@ -57,6 +57,13 @@ enum PostcodeRuleType {
   EXCLUDE
 }
 
+enum StripePaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
 model AdminUser {
   id         String    @id @default(uuid())
   email      String    @unique
@@ -90,10 +97,16 @@ model Restaurant {
   holiday_mode            Boolean       @default(false)
   holiday_message         String?
   opening_hours           Json?
-  auto_accept_orders      Boolean       @default(false)
-  accept_timeout_minutes  Int           @default(10)
-  delivery_enabled        Boolean       @default(false)
-  created_at              DateTime      @default(now())
+  auto_accept_orders         Boolean       @default(false)
+  auto_accept_delay_minutes  Int           @default(5)
+  accept_timeout_minutes     Int           @default(10)
+  collection_enabled         Boolean       @default(true)
+  delivery_enabled           Boolean       @default(false)
+  min_order_pence            Int           @default(0)
+  avg_prep_minutes           Int           @default(30)
+  email_notifications        Boolean       @default(true)
+  sound_alerts               Boolean       @default(true)
+  created_at                 DateTime      @default(now())
   updated_at              DateTime      @updatedAt
 
   staff             RestaurantStaff[]
@@ -218,6 +231,7 @@ model OnlineOrder {
   commission_pct           Int
   commission_pence         Int
   stripe_payment_intent_id String?
+  stripe_payment_status    StripePaymentStatus @default(pending)
   estimated_ready_at       DateTime?
   reject_reason            String?
   delivery_address         String?

@@ -1,0 +1,16 @@
+{
+  "name": "Kaji Order",
+  "short_name": "Order",
+  "description": "Restaurant online ordering & KDS",
+  "start_url": "/dashboard/orders",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}
