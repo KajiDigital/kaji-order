@@ -53,20 +53,23 @@ function MenuItemRow({
   product,
   primary,
   recommended,
+  canOrder,
   onAdd,
   onOpen,
 }: {
   product: Product
   primary: string
   recommended: boolean
+  canOrder: boolean
   onAdd: () => void
   onOpen: () => void
 }) {
   const unavailable = !product.is_available
+  const orderingBlocked = !canOrder || unavailable
 
   function handleAdd(e: React.MouseEvent) {
     e.stopPropagation()
-    if (unavailable) return
+    if (orderingBlocked) return
     if (product.modifier_groups.length > 0) {
       onOpen()
     } else {
@@ -107,7 +110,7 @@ function MenuItemRow({
         </p>
       </div>
 
-      <AddButton primary={primary} onClick={handleAdd} disabled={unavailable} />
+      <AddButton primary={primary} onClick={handleAdd} disabled={orderingBlocked} />
 
       {unavailable && (
         <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/75">
@@ -204,6 +207,7 @@ export function PublicMenuClient({
     modifiers: BasketModifier[],
     notes: string
   ) {
+    if (!restaurant.isOpen) return
     const item: BasketItem = {
       id: `${product.id}-${Date.now()}`,
       menuItemId: product.id,
@@ -217,7 +221,6 @@ export function PublicMenuClient({
   }
 
   function openProduct(product: Product) {
-    if (!product.is_available) return
     setModalProduct(product)
   }
 
@@ -237,27 +240,11 @@ export function PublicMenuClient({
     carouselRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' })
   }
 
-  if (!restaurant.isOpen) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-50 p-6">
-        <div className="max-w-md text-center">
-          {restaurant.logo_url && (
-            <img
-              src={restaurant.logo_url}
-              alt=""
-              className="mx-auto mb-4 h-20 w-20 rounded-full object-cover ring-4 ring-white shadow-lg"
-            />
-          )}
-          <h1 className="text-2xl font-bold text-stone-900">{restaurant.name}</h1>
-          <p className="mt-4 text-stone-600">
-            {restaurant.holiday_mode && restaurant.holiday_message
-              ? restaurant.holiday_message
-              : "We're currently closed. Please check back during opening hours."}
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const canOrder = restaurant.isOpen
+  const closedMessage =
+    restaurant.holiday_mode && restaurant.holiday_message
+      ? restaurant.holiday_message
+      : restaurant.closedReason ?? "We're currently closed. You can browse the menu — ordering will be available during opening hours."
 
   const cartPanelProps = {
     slug: restaurant.slug,
@@ -315,8 +302,12 @@ export function PublicMenuClient({
                 </p>
               )}
             </div>
-            <span className="mb-1 shrink-0 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow">
-              Open
+            <span
+              className={`mb-1 shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-white shadow ${
+                canOrder ? 'bg-emerald-500' : 'bg-stone-600'
+              }`}
+            >
+              {canOrder ? 'Open' : 'Closed'}
             </span>
           </div>
         </div>
@@ -361,6 +352,12 @@ export function PublicMenuClient({
           )}
         </div>
       </div>
+
+      {!canOrder && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900 sm:px-6">
+          {closedMessage}
+        </div>
+      )}
 
       {/* Main layout */}
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6">
@@ -441,12 +438,12 @@ export function PublicMenuClient({
                       <button
                         type="button"
                         onClick={() =>
-                          product.modifier_groups.length > 0
+                          canOrder &&
+                          (product.modifier_groups.length > 0
                             ? openProduct(product)
-                            : product.is_available &&
-                              addItemDirect(product, 1, [], '')
+                            : product.is_available && addItemDirect(product, 1, [], ''))
                         }
-                        disabled={!product.is_available}
+                        disabled={!canOrder || !product.is_available}
                         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white shadow disabled:opacity-40"
                         style={{ backgroundColor: primary }}
                       >
@@ -533,6 +530,7 @@ export function PublicMenuClient({
                       product={product}
                       primary={primary}
                       recommended={recommendedIds.has(product.id)}
+                      canOrder={canOrder}
                       onOpen={() => openProduct(product)}
                       onAdd={() => addItemDirect(product, 1, [], '')}
                     />
@@ -544,15 +542,17 @@ export function PublicMenuClient({
         </main>
 
         {/* Desktop cart sidebar */}
+        {canOrder && (
         <aside className="hidden w-[300px] shrink-0 lg:block">
           <div className="sticky top-4">
             <CartPanel {...cartPanelProps} />
           </div>
         </aside>
+        )}
       </div>
 
       {/* Mobile floating cart */}
-      {count > 0 && (
+      {canOrder && count > 0 && (
         <button
           type="button"
           onClick={() => setMobileCartOpen(true)}
@@ -567,7 +567,7 @@ export function PublicMenuClient({
       )}
 
       {/* Mobile cart drawer */}
-      {mobileCartOpen && (
+      {canOrder && mobileCartOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-black/50"
@@ -596,6 +596,7 @@ export function PublicMenuClient({
         <ProductModal
           product={modalProduct}
           primary={primary}
+          canOrder={canOrder && modalProduct.is_available}
           onClose={() => setModalProduct(null)}
           onAdd={(qty, modifiers, notes) => {
             addItemDirect(modalProduct, qty, modifiers, notes)

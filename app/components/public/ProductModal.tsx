@@ -8,11 +8,12 @@ import type { BasketModifier } from '@/app/lib/basket'
 type Props = {
   product: Product
   primary: string
+  canOrder?: boolean
   onClose: () => void
   onAdd: (qty: number, modifiers: BasketModifier[], notes: string) => void
 }
 
-export function ProductModal({ product, primary, onClose, onAdd }: Props) {
+export function ProductModal({ product, primary, canOrder = true, onClose, onAdd }: Props) {
   const [qty, setQty] = useState(1)
   const [notes, setNotes] = useState('')
   const [selectedMods, setSelectedMods] = useState<Record<string, string[]>>(() => {
@@ -116,6 +117,7 @@ export function ProductModal({ product, primary, onClose, onAdd }: Props) {
                         type={isRadio ? 'radio' : 'checkbox'}
                         name={group.id}
                         checked={selected}
+                        disabled={!canOrder}
                         onChange={() => {
                           if (isRadio) {
                             setSelectedMods({ ...selectedMods, [group.id]: [mod.id] })
@@ -145,45 +147,57 @@ export function ProductModal({ product, primary, onClose, onAdd }: Props) {
             </div>
           ))}
 
-          <div className="mt-5 flex items-center gap-4">
-            <span className="text-sm font-medium text-stone-700">Quantity</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setQty(Math.max(1, qty - 1))}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-lg font-medium text-stone-700 hover:bg-stone-50"
-              >
-                −
-              </button>
-              <span className="w-8 text-center font-semibold">{qty}</span>
-              <button
-                type="button"
-                onClick={() => setQty(qty + 1)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-lg font-medium text-stone-700 hover:bg-stone-50"
-              >
-                +
-              </button>
-            </div>
-          </div>
+          {canOrder && (
+            <>
+              <div className="mt-5 flex items-center gap-4">
+                <span className="text-sm font-medium text-stone-700">Quantity</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQty(Math.max(1, qty - 1))}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-lg font-medium text-stone-700 hover:bg-stone-50"
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center font-semibold">{qty}</span>
+                  <button
+                    type="button"
+                    onClick={() => setQty(qty + 1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-lg font-medium text-stone-700 hover:bg-stone-50"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
 
-          <input
-            placeholder="Special instructions (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="mt-4 w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none"
-          />
+              <input
+                placeholder="Special instructions (optional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="mt-4 w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none"
+              />
+            </>
+          )}
         </div>
 
         <div className="border-t border-stone-100 p-4">
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={!product.is_available}
-            className="w-full rounded-xl py-3.5 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: primary }}
-          >
-            Add to basket · {formatPence(lineTotal)}
-          </button>
+          {canOrder ? (
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={!product.is_available}
+              className="w-full rounded-xl py-3.5 text-sm font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: primary }}
+            >
+              Add to basket · {formatPence(lineTotal)}
+            </button>
+          ) : (
+            <p className="text-center text-sm text-stone-500">
+              {!product.is_available
+                ? 'This item is currently unavailable.'
+                : 'Ordering is unavailable while the restaurant is closed.'}
+            </p>
+          )}
         </div>
       </div>
     </div>
