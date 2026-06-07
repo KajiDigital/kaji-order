@@ -9,7 +9,9 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json()
+    const body = await request.json()
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const password = typeof body.password === 'string' ? body.password : ''
 
     const admin = await prisma.adminUser.findUnique({ where: { email } })
     if (!admin || !(await verifyPassword(password, admin.password))) {

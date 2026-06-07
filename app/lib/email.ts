@@ -148,7 +148,12 @@ export async function sendRegistrationApproved(
   `
 
   if (!resend) {
-    console.log('[email] sendRegistrationApproved (no RESEND_API_KEY):', { to, subject })
+    console.log('[email] sendRegistrationApproved (no RESEND_API_KEY):', {
+      to,
+      subject,
+      tempPassword,
+      loginUrl,
+    })
     return
   }
 
