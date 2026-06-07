@@ -1,0 +1,304 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MenuSource {
+  manual
+  kaji_sync
+}
+
+enum PricingPlan {
+  COMMISSION
+  MONTHLY
+  WEEKLY
+  BUNDLE
+}
+
+enum StaffRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  SUPPORT
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY
+  COLLECTED
+  REJECTED
+  CANCELLED
+}
+
+enum OrderType {
+  COLLECTION
+  DELIVERY
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum PostcodeRuleType {
+  INCLUDE
+  EXCLUDE
+}
+
+model AdminUser {
+  id         String    @id @default(uuid())
+  email      String    @unique
+  password   String
+  role       AdminRole @default(SUPER_ADMIN)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  @@map("admin_users")
+}
+
+model Restaurant {
+  id                      String        @id @default(uuid())
+  slug                    String        @unique
+  name                    String
+  email                   String?
+  address                 String?
+  postcode                String?
+  phone                   String?
+  logo_url                String?
+  banner_url              String?
+  description             String?
+  brand_color             String        @default("#2563eb")
+  menu_source             MenuSource    @default(manual)
+  kaji_cloud_id           String?       @unique
+  pricing_plan            PricingPlan   @default(COMMISSION)
+  commission_pct          Int           @default(5)
+  stripe_account_id       String?
+  stripe_customer_id      String?
+  stripe_subscription_id  String?
+  holiday_mode            Boolean       @default(false)
+  holiday_message         String?
+  opening_hours           Json?
+  auto_accept_orders      Boolean       @default(false)
+  accept_timeout_minutes  Int           @default(10)
+  delivery_enabled        Boolean       @default(false)
+  created_at              DateTime      @default(now())
+  updated_at              DateTime      @updatedAt
+
+  staff             RestaurantStaff[]
+  menu_categories   MenuCategory[]
+  menu_items        MenuItem[]
+  modifier_groups   ModifierGroup[]
+  orders            OnlineOrder[]
+  commission_records CommissionRecord[]
+  delivery_zones    DeliveryZone[]
+  postcode_rules    PostcodeRule[]
+
+  @@map("restaurants")
+}
+
+model RestaurantStaff {
+  id            String     @id @default(uuid())
+  restaurant_id String
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  email         String     @unique
+  password      String
+  name          String
+  role          StaffRole  @default(STAFF)
+  invite_token  String?
+  password_set  Boolean    @default(true)
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+
+  @@index([restaurant_id])
+  @@map("restaurant_staff")
+}
+
+model MenuCategory {
+  id              String     @id @default(uuid())
+  restaurant_id   String
+  restaurant      Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  name            String
+  color           String     @default("#64748b")
+  sort_order      Int        @default(0)
+  is_active       Boolean    @default(true)
+  available_from  String?
+  available_until String?
+  created_at      DateTime   @default(now())
+  updated_at      DateTime   @updatedAt
+
+  items MenuItem[]
+
+  @@index([restaurant_id, sort_order])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id            String       @id @default(uuid())
+  restaurant_id String
+  restaurant    Restaurant   @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  category_id   String
+  category      MenuCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  price_pence   Int
+  image_url     String?
+  is_available  Boolean      @default(true)
+  sort_order    Int          @default(0)
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
+
+  modifier_groups ModifierGroup[]
+  order_items     OnlineOrderItem[]
+
+  @@index([restaurant_id, category_id])
+  @@map("menu_items")
+}
+
+model ModifierGroup {
+  id            String     @id @default(uuid())
+  restaurant_id String
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  menu_item_id  String
+  menu_item     MenuItem   @relation(fields: [menu_item_id], references: [id], onDelete: Cascade)
+  name          String
+  required      Boolean    @default(false)
+  min_select    Int        @default(0)
+  max_select    Int        @default(1)
+  sort_order    Int        @default(0)
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+
+  modifiers Modifier[]
+
+  @@index([menu_item_id])
+  @@map("modifier_groups")
+}
+
+model Modifier {
+  id                String        @id @default(uuid())
+  modifier_group_id String
+  modifier_group    ModifierGroup @relation(fields: [modifier_group_id], references: [id], onDelete: Cascade)
+  name              String
+  price_delta_pence Int           @default(0)
+  sort_order        Int           @default(0)
+  is_default        Boolean       @default(false)
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+
+  @@index([modifier_group_id])
+  @@map("modifiers")
+}
+
+model OnlineOrder {
+  id                       String      @id @default(uuid())
+  restaurant_id            String
+  restaurant               Restaurant  @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  order_number             Int
+  status                   OrderStatus @default(PENDING)
+  order_type               OrderType   @default(COLLECTION)
+  customer_name            String
+  customer_email           String
+  customer_phone           String?
+  notes                    String?
+  subtotal_pence           Int
+  delivery_fee_pence       Int         @default(0)
+  total_pence              Int
+  commission_pct           Int
+  commission_pence         Int
+  stripe_payment_intent_id String?
+  estimated_ready_at       DateTime?
+  reject_reason            String?
+  delivery_address         String?
+  delivery_postcode        String?
+  created_at               DateTime    @default(now())
+  updated_at               DateTime    @updatedAt
+
+  items              OnlineOrderItem[]
+  commission_records CommissionRecord[]
+
+  @@unique([restaurant_id, order_number])
+  @@index([restaurant_id, status, created_at])
+  @@map("online_orders")
+}
+
+model OnlineOrderItem {
+  id             String      @id @default(uuid())
+  order_id       String
+  order          OnlineOrder @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  menu_item_id   String?
+  menu_item      MenuItem?   @relation(fields: [menu_item_id], references: [id], onDelete: SetNull)
+  name           String
+  price_pence    Int
+  quantity       Int         @default(1)
+  modifiers_json Json?
+  notes          String?
+  created_at     DateTime    @default(now())
+
+  @@index([order_id])
+  @@map("online_order_items")
+}
+
+model CommissionRecord {
+  id                 String           @id @default(uuid())
+  restaurant_id      String
+  restaurant         Restaurant       @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  order_id           String?
+  order              OnlineOrder?     @relation(fields: [order_id], references: [id], onDelete: SetNull)
+  period_month       String
+  total_orders       Int              @default(0)
+  total_revenue_pence Int             @default(0)
+  commission_pence   Int              @default(0)
+  stripe_invoice_id  String?
+  status             CommissionStatus @default(PENDING)
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
+
+  @@index([restaurant_id, period_month])
+  @@map("commission_records")
+}
+
+model DeliveryZone {
+  id                  String     @id @default(uuid())
+  restaurant_id       String
+  restaurant          Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  name                String
+  radius_km           Float
+  delivery_fee_pence  Int        @default(0)
+  minimum_order_pence Int        @default(0)
+  is_active           Boolean    @default(true)
+  sort_order          Int        @default(0)
+  created_at          DateTime   @default(now())
+  updated_at          DateTime   @updatedAt
+
+  postcode_rules PostcodeRule[]
+
+  @@index([restaurant_id])
+  @@map("delivery_zones")
+}
+
+model PostcodeRule {
+  id               String           @id @default(uuid())
+  restaurant_id    String
+  restaurant       Restaurant       @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  delivery_zone_id String?
+  delivery_zone    DeliveryZone?    @relation(fields: [delivery_zone_id], references: [id], onDelete: SetNull)
+  rule_type        PostcodeRuleType
+  postcode_prefix  String
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+
+  @@index([restaurant_id])
+  @@map("postcode_rules")
+}
