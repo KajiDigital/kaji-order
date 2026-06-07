@@ -63,6 +63,8 @@ export async function POST(request: Request) {
       name,
       slug,
       email,
+      status: 'active',
+      contact_name: name,
       staff: {
         create: {
           email,

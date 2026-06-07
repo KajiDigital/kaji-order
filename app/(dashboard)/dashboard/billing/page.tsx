@@ -28,7 +28,7 @@ export default async function BillingPage() {
         <h2 className="font-semibold text-white mb-2">Current plan</h2>
         <p className="text-violet-400 text-lg">{restaurant?.pricing_plan}</p>
         <p className="text-sm text-slate-400 mt-1">
-          Commission rate: {restaurant?.commission_pct}%
+          Your agreed rate: {restaurant?.commission_pct}%
         </p>
       </div>
 

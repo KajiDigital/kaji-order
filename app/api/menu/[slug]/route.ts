@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: Params) {
     },
   })
 
-  if (!restaurant) {
+  if (!restaurant || restaurant.status !== 'active') {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 

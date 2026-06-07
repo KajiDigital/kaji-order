@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic'
 
-import Link from 'next/link'
+import { Suspense } from 'react'
 import prisma from '@/app/lib/prisma'
-import { formatPence } from '@/app/lib/utils'
+import { AdminRestaurantsClient } from '@/app/components/admin/AdminRestaurantsClient'
 
 export default async function AdminRestaurantsPage() {
   const today = new Date()
@@ -10,29 +10,32 @@ export default async function AdminRestaurantsPage() {
 
   const restaurants = await prisma.restaurant.findMany({
     include: {
-      orders: { where: { created_at: { gte: today } } },
+      orders: {
+        where: { created_at: { gte: today } },
+        select: { commission_pence: true },
+      },
     },
-    orderBy: { name: 'asc' },
+    orderBy: { created_at: 'desc' },
   })
 
+  const data = restaurants.map((r) => ({
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    email: r.email,
+    phone: r.phone,
+    contact_name: r.contact_name,
+    restaurant_type: r.restaurant_type,
+    description: r.description,
+    status: r.status,
+    pricing_plan: r.pricing_plan,
+    ordersToday: r.orders.length,
+    commissionToday: r.orders.reduce((s, o) => s + o.commission_pence, 0),
+  }))
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-white mb-6">All Restaurants</h1>
-      <div className="space-y-2">
-        {restaurants.map((r) => (
-          <Link
-            key={r.id}
-            href={`/admin/restaurants/${r.id}`}
-            className="block bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-violet-500"
-          >
-            <p className="font-medium text-white">{r.name}</p>
-            <p className="text-sm text-slate-500">
-              {r.email} · {r.pricing_plan} · {r.orders.length} orders today ·{' '}
-              {formatPence(r.orders.reduce((s, o) => s + o.commission_pence, 0))}
-            </p>
-          </Link>
-        ))}
-      </div>
-    </div>
+    <Suspense fallback={<p className="text-slate-400">Loading...</p>}>
+      <AdminRestaurantsClient restaurants={data} />
+    </Suspense>
   )
 }

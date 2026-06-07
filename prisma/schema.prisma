@@ -64,6 +64,16 @@ enum StripePaymentStatus {
   refunded
 }
 
+model PlatformSettings {
+  id                String   @id @default("platform")
+  registration_mode String   @default("request")
+  show_commission   Boolean  @default(false)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
 model AdminUser {
   id         String    @id @default(uuid())
   email      String    @unique
@@ -79,6 +89,9 @@ model Restaurant {
   id                      String        @id @default(uuid())
   slug                    String        @unique
   name                    String
+  status                  String        @default("pending")
+  contact_name            String?
+  restaurant_type         String?
   email                   String?
   address                 String?
   postcode                String?

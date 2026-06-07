@@ -32,7 +32,7 @@ export default async function PublicMenuPage({ params }: Params) {
     },
   })
 
-  if (!restaurant) notFound()
+  if (!restaurant || restaurant.status !== 'active') notFound()
 
   const openStatus = isRestaurantOpen(restaurant.opening_hours, restaurant.holiday_mode)
 

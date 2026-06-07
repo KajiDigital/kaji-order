@@ -86,6 +86,8 @@ Webhook: /api/stripe/webhook
 - /admin/restaurants/[id] — restaurant detail, commission override
 - /admin-login — admin authentication
 
+- /admin/settings — registration mode toggle
+
 ### Auth
 - /login — restaurant staff login
 - /register — multi-step restaurant registration
@@ -115,7 +117,11 @@ Webhook: /api/stripe/webhook
 | /api/stripe/webhook | POST | Payment confirmation |
 | /api/stripe/connect | POST | Stripe Connect onboarding |
 | /api/admin/restaurants | GET, POST | Admin restaurant list/create |
+| /api/admin/settings | GET, PATCH | Platform settings (registration mode) |
+| /api/admin/restaurants/[id]/approve | POST | Approve pending registration |
+| /api/admin/restaurants/[id]/reject | POST | Reject pending registration |
 | /api/admin/restaurants/[id] | GET, PATCH | Admin restaurant detail |
+| /api/settings/registration | GET | Public registration mode |
 
 ## Lib Modules
 - app/lib/prisma.ts — Prisma client singleton
@@ -216,7 +222,10 @@ Sprint 12 (planned)
 ## Models (see prisma/schema.prisma for full details)
 Restaurant, RestaurantStaff, MenuCategory, MenuItem,
 ModifierGroup, Modifier, OnlineOrder, OnlineOrderItem,
-CommissionRecord, DeliveryZone, PostcodeRule, AdminUser
+CommissionRecord, DeliveryZone, PostcodeRule, AdminUser, PlatformSettings
+
+Restaurant.status: pending | active | suspended
+PlatformSettings.registration_mode: request | self_serve
 
 Restaurant fields added Sprint 10:
 collection_enabled, min_order_pence, avg_prep_minutes,

@@ -37,6 +37,12 @@ export function AdminShell({
           >
             Restaurants
           </Link>
+          <Link
+            href="/admin/settings"
+            className={`text-sm ${pathname === '/admin/settings' ? 'text-white' : 'text-slate-400'}`}
+          >
+            Settings
+          </Link>
           <button type="button" onClick={logout} className="text-sm text-slate-400 hover:text-white">
             Sign out
           </button>

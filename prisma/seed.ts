@@ -16,7 +16,18 @@ async function main() {
     },
   })
 
+  await prisma.platformSettings.upsert({
+    where: { id: 'platform' },
+    create: {
+      id: 'platform',
+      registration_mode: 'request',
+      show_commission: false,
+    },
+    update: {},
+  })
+
   console.log('Seeded admin user: admin@kajipos.co.uk')
+  console.log('Seeded platform settings: registration_mode=request')
 }
 
 main()

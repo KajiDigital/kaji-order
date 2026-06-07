@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     }
 
     const restaurant = await prisma.restaurant.findUnique({ where: { slug } })
-    if (!restaurant) {
+    if (!restaurant || restaurant.status !== 'active') {
       return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
     }
 

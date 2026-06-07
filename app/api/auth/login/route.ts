@@ -26,6 +26,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
+    if (staff.restaurant.status !== 'active') {
+      return NextResponse.json(
+        { error: "Your account is not yet active. We'll email you when approved." },
+        { status: 403 }
+      )
+    }
+
     const token = signToken({
       staffId: staff.id,
       restaurantId: staff.restaurant_id,
