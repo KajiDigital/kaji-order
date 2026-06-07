@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
 import prisma from '@/app/lib/prisma'
-import { isRestaurantOpen } from '@/app/lib/hours'
+import { isRestaurantOpen, getClosedStatusMessage } from '@/app/lib/hours'
 import { getPrimaryColor, getSecondaryColor, shouldShowPoweredBy } from '@/app/lib/branding'
 import { PublicMenuClient } from '@/app/components/public/PublicMenuClient'
 
@@ -35,6 +35,14 @@ export default async function PublicMenuPage({ params }: Params) {
   if (!restaurant || restaurant.status !== 'active' || restaurant.deleted_at) notFound()
 
   const openStatus = isRestaurantOpen(restaurant.opening_hours, restaurant.holiday_mode)
+  const closedNotice = !openStatus.open
+    ? getClosedStatusMessage(
+        restaurant.opening_hours,
+        restaurant.holiday_mode,
+        restaurant.holiday_message,
+        openStatus.reason
+      )
+    : undefined
 
   return (
     <PublicMenuClient
@@ -52,6 +60,7 @@ export default async function PublicMenuPage({ params }: Params) {
         email: restaurant.email,
         isOpen: openStatus.open && restaurant.collection_enabled,
         closedReason: openStatus.reason,
+        closedNotice,
         holiday_mode: restaurant.holiday_mode,
         holiday_message: restaurant.holiday_message,
         min_order_pence: restaurant.min_order_pence,

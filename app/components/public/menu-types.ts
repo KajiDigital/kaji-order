@@ -45,6 +45,8 @@ export type Restaurant = {
   email?: string | null
   isOpen: boolean
   closedReason?: string
+  closedNotice?: { title: string; description: string }
+  opening_hours?: unknown
   holiday_mode: boolean
   holiday_message?: string | null
   min_order_pence: number

@@ -40,8 +40,8 @@ function AddButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-white shadow-sm transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-      style={{ backgroundColor: primary }}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-white shadow-sm transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+      style={{ backgroundColor: disabled ? '#a8a29e' : primary }}
       aria-label="Add to cart"
     >
       +
@@ -241,10 +241,11 @@ export function PublicMenuClient({
   }
 
   const canOrder = restaurant.isOpen
-  const closedMessage =
-    restaurant.holiday_mode && restaurant.holiday_message
-      ? restaurant.holiday_message
-      : restaurant.closedReason ?? "We're currently closed. You can browse the menu — ordering will be available during opening hours."
+  const closedNotice = restaurant.closedNotice ?? {
+    title: "We're currently closed",
+    description:
+      'You can browse our menu below. Please come back during opening hours to place an order.',
+  }
 
   const cartPanelProps = {
     slug: restaurant.slug,
@@ -354,8 +355,32 @@ export function PublicMenuClient({
       </div>
 
       {!canOrder && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900 sm:px-6">
-          {closedMessage}
+        <div className="border-b border-stone-200 bg-white px-4 py-4 sm:px-6">
+          <div className="mx-auto flex max-w-7xl items-start gap-4 rounded-xl border border-stone-200 bg-stone-50 p-4 shadow-sm sm:items-center">
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
+              style={{ backgroundColor: primary }}
+              aria-hidden
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-semibold text-stone-900">{closedNotice.title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                {closedNotice.description}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-stone-600">
+              Browse only
+            </span>
+          </div>
         </div>
       )}
 
@@ -444,8 +469,11 @@ export function PublicMenuClient({
                             : product.is_available && addItemDirect(product, 1, [], ''))
                         }
                         disabled={!canOrder || !product.is_available}
-                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white shadow disabled:opacity-40"
-                        style={{ backgroundColor: primary }}
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white shadow disabled:cursor-not-allowed disabled:opacity-40"
+                        style={{
+                          backgroundColor:
+                            !canOrder || !product.is_available ? '#a8a29e' : primary,
+                        }}
                       >
                         +
                       </button>
