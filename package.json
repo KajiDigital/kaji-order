@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_ENV=development next dev --port 3002",
-    "build": "cross-env NODE_ENV=production next build",
+    "build": "cross-env NODE_ENV=production prisma generate && next build",
     "start": "cross-env NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3002 next start",
     "postinstall": "prisma generate",
     "lint": "eslint",
