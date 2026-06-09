@@ -12,7 +12,7 @@
     "seed:mexican-house": "ts-node prisma/seed-mexican-house.ts"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

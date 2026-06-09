@@ -115,10 +115,12 @@ export async function processOrderRefund(options: RefundOptions): Promise<Refund
   })
 
   await sendRefundConfirmation(order.customer_email, {
+    restaurantId: order.restaurant_id,
     customerName: order.customer_name,
     restaurantName: order.restaurant.name,
     orderNumber: order.order_number,
     amountPence: refundAmount,
+    primaryColor: order.restaurant.primary_color ?? order.restaurant.brand_color ?? undefined,
   })
 
   return { success: true, refund_type: refundType, amount_pence: refundAmount }

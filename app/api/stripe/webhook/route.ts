@@ -5,6 +5,7 @@ import { getStripe } from '@/app/lib/stripe'
 import {
   sendOrderConfirmation,
   sendRestaurantNewOrder,
+  buildOrderEmailFromDb,
 } from '@/app/lib/email'
 import { getAppUrl } from '@/app/lib/utils'
 import { markOrderRefundedFromStripe } from '@/app/lib/refund-order'
@@ -50,28 +51,15 @@ export async function POST(request: Request) {
         data: { stripe_payment_status: 'captured' },
       })
 
-      const emailData = {
-        orderNumber: order.order_number,
-        restaurantName: order.restaurant.name,
-        customerName: order.customer_name,
-        customerEmail: order.customer_email,
-        items: order.items.map((i) => ({
-          name: i.name,
-          quantity: i.quantity,
-          pricePence: i.price_pence,
-        })),
-        totalPence: order.total_pence,
-        estimatedMinutes: order.restaurant.avg_prep_minutes,
-        notes: order.notes,
-      }
+      const emailData = buildOrderEmailFromDb(
+        order,
+        `${getAppUrl()}/dashboard/orders`
+      )
 
       await sendOrderConfirmation(order.customer_email, emailData)
 
       if (order.restaurant.email && order.restaurant.email_notifications) {
-        await sendRestaurantNewOrder(order.restaurant.email, {
-          ...emailData,
-          dashboardUrl: `${getAppUrl()}/dashboard/orders`,
-        })
+        await sendRestaurantNewOrder(order.restaurant.email, emailData)
       }
     }
   }

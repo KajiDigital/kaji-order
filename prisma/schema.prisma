@@ -145,8 +145,25 @@ model Restaurant {
   commission_records CommissionRecord[]
   delivery_zones    DeliveryZone[]
   postcode_rules    PostcodeRule[]
+  email_templates   EmailTemplate[]
 
   @@map("restaurants")
+}
+
+model EmailTemplate {
+  id              String      @id @default(uuid())
+  restaurant_id   String?
+  restaurant      Restaurant? @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  template_type   String
+  subject         String
+  html_body       String      @db.Text
+  is_active       Boolean     @default(true)
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  @@unique([restaurant_id, template_type])
+  @@index([template_type])
+  @@map("email_templates")
 }
 
 model RestaurantStaff {

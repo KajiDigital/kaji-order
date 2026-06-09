@@ -94,6 +94,7 @@ Webhook: /api/stripe/webhook
 - /admin — platform overview
 - /admin/restaurants — list all restaurants
 - /admin/restaurants/[id] — restaurant detail, commission override
+- /admin/restaurants/[id]/emails — email template editor
 - /admin-login — admin authentication
 
 - /admin/settings — registration mode toggle
@@ -133,13 +134,18 @@ Webhook: /api/stripe/webhook
 | /api/admin/restaurants/[id]/approve | POST | Approve pending registration |
 | /api/admin/restaurants/[id]/reject | POST | Reject pending registration |
 | /api/admin/restaurants/[id] | GET, PATCH | Admin restaurant detail |
+| /api/admin/restaurants/[id]/email-templates | GET, POST | List/save email templates |
+| /api/admin/restaurants/[id]/email-templates/[type] | PATCH, POST | Update/reset/preview/test template |
 | /api/settings/registration | GET | Public registration mode |
 
 ## Lib Modules
 - app/lib/prisma.ts — Prisma client singleton
 - app/lib/auth.ts — JWT staff sessions (kaji_order_session)
 - app/lib/admin-auth.ts — JWT admin sessions (kaji_order_admin_session)
-- app/lib/email.ts — Resend order emails
+- app/lib/email.ts — Resend order emails (uses template system)
+- app/lib/email-renderer.ts — Mustache-style template rendering + DB lookup
+- app/lib/email-templates/ — Template types, variables, default HTML
+- prisma/email-template-defaults.ts — Global default template HTML (seeded)
 - app/lib/stripe.ts — Stripe client
 - app/lib/basket.ts — localStorage basket helpers
 - app/lib/opening-hours.ts — UK timezone open/pre-order status (`getOpenStatus`)
@@ -169,7 +175,17 @@ PENDING → ACCEPTED → PREPARING → READY → COLLECTED
 - Legacy statuses `pending`/`paid` map to authorised/captured
 - CommissionRecord status set to REFUNDED on refund
 - Webhook `charge.refunded` confirms refund in DB
-- Customer email: refund amount + 3–5 working days notice
+- Customer email: refund amount + 3–5 working days notice (template: `refund_confirmation`)
+
+## Email Templates
+- `EmailTemplate` model: per-restaurant custom or global default (`restaurant_id = null`)
+- Template types: `order_confirmation`, `new_order_alert`, `refund_confirmation`
+- Renderer supports `{{variable}}`, `{{#if}}`, `{{#each}}`, and `[PRIMARY_COLOR]`
+- Global defaults seeded via `npx prisma db seed` (migration: `add_email_templates`)
+- Admin editor: `/admin/restaurants/[id]/emails` — edit subject/HTML, preview, send test, reset
+- Order confirmation: branded HTML with logo, items, service fee, status steps
+- New order alert: urgent design with Accept/Reject dashboard links
+- Fallback chain: restaurant custom → global DB → built-in defaults
 
 ## Opening Hours and Pre-orders
 - All hour checks use **Europe/London** timezone via `getOpenStatus()` in `app/lib/opening-hours.ts`
@@ -260,7 +276,8 @@ Sprint 12 (planned)
 ## Models (see prisma/schema.prisma for full details)
 Restaurant, RestaurantStaff, MenuCategory, MenuItem,
 ModifierGroup, Modifier, OnlineOrder, OnlineOrderItem,
-CommissionRecord, DeliveryZone, PostcodeRule, AdminUser, PlatformSettings
+CommissionRecord, DeliveryZone, PostcodeRule, AdminUser, PlatformSettings,
+EmailTemplate
 
 Restaurant.status: pending | active | suspended
 PlatformSettings.registration_mode: request | self_serve
@@ -297,3 +314,8 @@ Session 2 (June 2026):
 - Auth, dashboard, KDS, menu, public ordering, admin panel
 - Stripe + email integration (with dev fallbacks)
 - PWA manifest + QR/share in settings
+
+Session 3 (June 2026):
+- Professional HTML email templates (order confirmation, new order alert, refund)
+- EmailTemplate model + admin template editor with preview/test
+- Mustache-style renderer with global defaults seeded in DB

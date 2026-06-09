@@ -212,7 +212,14 @@ export function AdminRestaurantDetail({
           <h1 className="text-2xl font-bold text-white">{data.name}</h1>
           <p className="text-slate-400 text-sm capitalize">{data.status}</p>
         </div>
-        <button
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/admin/restaurants/${data.id}/emails`}
+            className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg text-sm hover:bg-slate-700"
+          >
+            Email templates
+          </Link>
+          <button
           type="button"
           onClick={saveAll}
           disabled={saving}
@@ -220,6 +227,7 @@ export function AdminRestaurantDetail({
         >
           {saving ? 'Saving...' : 'Save all'}
         </button>
+        </div>
       </div>
       {message && <p className="text-sm text-emerald-400">{message}</p>}
 
