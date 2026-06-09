@@ -42,6 +42,9 @@ type Stats = {
   ordersThisMonth: number
   totalCommissionOwed: number
   commissionThisMonth: number
+  serviceFeesThisMonth: number
+  totalPlatformThisMonth: number
+  platformServiceFeePence: number
   lastLogin: string | null
 }
 
@@ -243,6 +246,16 @@ export function AdminRestaurantDetail({
             onChange={(v) => setData({ ...data, commission_pct: parseInt(v, 10) || 0 })}
             type="number"
           />
+          <div>
+            <label className="text-xs text-slate-400">Service fee (platform)</label>
+            <p className="mt-1 text-sm text-white">{formatPence(stats.platformServiceFeePence)}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Set globally in{' '}
+              <Link href="/admin/settings" className="text-violet-400 hover:underline">
+                Platform Settings
+              </Link>
+            </p>
+          </div>
         </div>
         <Field
           label="Internal notes (admin only)"
@@ -352,7 +365,9 @@ export function AdminRestaurantDetail({
           <Stat label="Total orders" value={String(stats.totalOrders)} />
           <Stat label="Orders this month" value={String(stats.ordersThisMonth)} />
           <Stat label="Commission owed" value={formatPence(stats.totalCommissionOwed)} />
-          <Stat label="Commission this month" value={formatPence(stats.commissionThisMonth)} />
+          <Stat label="Food commission (month)" value={formatPence(stats.commissionThisMonth)} />
+          <Stat label="Service fees (month)" value={formatPence(stats.serviceFeesThisMonth)} />
+          <Stat label="Total platform (month)" value={formatPence(stats.totalPlatformThisMonth)} />
         </dl>
       </section>
 

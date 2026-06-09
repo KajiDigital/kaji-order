@@ -62,8 +62,18 @@ Used for:
 ## Stripe Connect
 Platform account: Kaji Digital
 Restaurant connected accounts via Express
-Automatic platform fee: commission_pct %
+Automatic platform fee: commission_pct % on food subtotal + service fee
 Webhook: /api/stripe/webhook
+
+## Service Fee
+- Default: 49p (£0.49) per order — configurable in Platform Settings (`service_fee_pence`)
+- Added to customer total at checkout (subtotal + service fee + delivery)
+- Commission calculated on **food subtotal only** (not service fee)
+- Stripe Connect `application_fee_amount` = food commission + service fee
+- Restaurant receives: subtotal − food commission
+- Platform keeps: food commission + service fee
+- Stored on `OnlineOrder.service_fee_pence`
+- `CommissionRecord` tracks: `food_commission_pence`, `service_fee_pence`, `total_platform_pence`
 
 ## Key Features
 ### Public Ordering
@@ -149,7 +159,9 @@ PENDING → ACCEPTED → PREPARING → READY → COLLECTED
          → CANCELLED (customer or timeout)
 
 ## Commission Tracking
-- Every order records commission_pence
+- Every order records food commission in `commission_pence` (OnlineOrder)
+- Service fee stored in `OnlineOrder.service_fee_pence`
+- `CommissionRecord` splits: food commission, service fee, total platform revenue
 - Monthly commission report in admin
 - Stripe invoice generated per restaurant
 - Stripe Connect automates collection (Sprint 12)
@@ -233,6 +245,15 @@ auto_accept_delay_minutes, email_notifications, sound_alerts
 
 OnlineOrder fields added Sprint 10:
 stripe_payment_status (pending | paid | failed | refunded)
+
+OnlineOrder fields added Sprint 11:
+service_fee_pence (default 49)
+
+PlatformSettings fields added Sprint 11:
+service_fee_pence (default 49)
+
+CommissionRecord fields added Sprint 11:
+food_commission_pence, service_fee_pence, total_platform_pence
 
 ## Session Log
 Session 1 (June 2026):

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
 import { isRestaurantOpen } from '@/app/lib/hours'
+import { getServiceFeePence } from '@/app/lib/platform'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,7 @@ export async function GET(_request: Request, { params }: Params) {
   }
 
   const openStatus = isRestaurantOpen(restaurant.opening_hours, restaurant.holiday_mode)
+  const serviceFeePence = await getServiceFeePence()
 
   return NextResponse.json({
     restaurant: {
@@ -51,6 +53,7 @@ export async function GET(_request: Request, { params }: Params) {
       min_order_pence: restaurant.min_order_pence,
       avg_prep_minutes: restaurant.avg_prep_minutes,
       collection_enabled: restaurant.collection_enabled,
+      service_fee_pence: serviceFeePence,
       isOpen: openStatus.open,
       closedReason: openStatus.reason,
     },

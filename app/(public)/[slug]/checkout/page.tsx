@@ -7,6 +7,8 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { getBasket, clearBasket, basketSubtotal, type BasketItem } from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
+import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
+import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 
 function CheckoutForm({ orderId, slug, total }: { orderId: string; slug: string; total: number }) {
   const stripe = useStripe()
@@ -65,6 +67,7 @@ export default function CheckoutPage() {
   const [orderId, setOrderId] = useState<string | null>(null)
   const [devMode, setDevMode] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
 
   useEffect(() => {
     const basket = getBasket(slug)
@@ -74,9 +77,13 @@ export default function CheckoutPage() {
     }
     setItems(basket.items)
     setNotes(basket.orderNotes ?? '')
+    fetch(`/api/menu/${slug}`)
+      .then((r) => r.json())
+      .then((d) => setServiceFeePence(d.restaurant?.service_fee_pence ?? DEFAULT_SERVICE_FEE_PENCE))
   }, [slug, router])
 
-  const total = basketSubtotal(items)
+  const subtotal = basketSubtotal(items)
+  const total = subtotal + serviceFeePence
 
   async function createOrder() {
     if (!name || !email) return
@@ -159,9 +166,8 @@ export default function CheckoutPage() {
               </li>
             ))}
           </ul>
-          <div className="flex justify-between font-bold mt-4 pt-4 border-t">
-            <span>Total</span>
-            <span>{formatPence(total)}</span>
+          <div className="mt-4 pt-4 border-t">
+            <OrderSummaryBreakdown subtotal={subtotal} serviceFeePence={serviceFeePence} />
           </div>
 
           {clientSecret && orderId && (

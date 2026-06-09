@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/app/lib/admin-auth'
 import prisma from '@/app/lib/prisma'
 import { logAdminChange } from '@/app/lib/audit'
+import { sumPlatformRevenue } from '@/app/lib/commission'
 import { slugify, getCommissionPct } from '@/app/lib/utils'
 import type { PricingPlan } from '@prisma/client'
 
@@ -39,21 +40,23 @@ export async function GET(_request: Request, { params }: Params) {
     },
   })
 
-  const totalCommissionOwed = restaurant.commission_records
-    .filter((r) => r.status === 'PENDING')
-    .reduce((s, r) => s + r.commission_pence, 0)
+  const totalCommissionOwed = sumPlatformRevenue(
+    restaurant.commission_records.filter((r) => r.status === 'PENDING')
+  )
 
-  const commissionThisMonth = restaurant.commission_records
-    .filter((r) => r.period_month === month)
-    .reduce((s, r) => s + r.commission_pence, 0)
+  const monthRevenue = sumPlatformRevenue(
+    restaurant.commission_records.filter((r) => r.period_month === month)
+  )
 
   return NextResponse.json({
     restaurant,
     stats: {
       totalOrders: restaurant._count.orders,
       ordersThisMonth,
-      totalCommissionOwed,
-      commissionThisMonth,
+      totalCommissionOwed: totalCommissionOwed.totalPlatform,
+      commissionThisMonth: monthRevenue.foodCommission,
+      serviceFeesThisMonth: monthRevenue.serviceFees,
+      totalPlatformThisMonth: monthRevenue.totalPlatform,
       lastLogin: restaurant.staff[0]?.last_login_at ?? null,
     },
   })

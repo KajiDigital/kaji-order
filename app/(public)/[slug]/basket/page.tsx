@@ -12,6 +12,8 @@ import {
   type BasketItem,
 } from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
+import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
+import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 
 export default function BasketPage() {
   const params = useParams()
@@ -21,6 +23,7 @@ export default function BasketPage() {
   const [restaurantName, setRestaurantName] = useState('')
   const [minOrder, setMinOrder] = useState(0)
   const [prepMins, setPrepMins] = useState(30)
+  const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
 
   useEffect(() => {
     const basket = getBasket(slug)
@@ -34,6 +37,7 @@ export default function BasketPage() {
         setRestaurantName(d.restaurant?.name ?? '')
         setMinOrder(d.restaurant?.min_order_pence ?? 0)
         setPrepMins(d.restaurant?.avg_prep_minutes ?? 30)
+        setServiceFeePence(d.restaurant?.service_fee_pence ?? DEFAULT_SERVICE_FEE_PENCE)
       })
   }, [slug])
 
@@ -93,9 +97,8 @@ export default function BasketPage() {
           <div className="mt-4 bg-white rounded-xl p-4 border">
             <p className="text-sm text-slate-600">Order type: <strong>Collection</strong></p>
             <p className="text-sm text-slate-600 mt-1">Est. ready: ~{prepMins} minutes</p>
-            <div className="flex justify-between mt-3 font-bold text-slate-900">
-              <span>Total</span>
-              <span>{formatPence(subtotal)}</span>
+            <div className="mt-3">
+              <OrderSummaryBreakdown subtotal={subtotal} serviceFeePence={serviceFeePence} />
             </div>
             {belowMin && (
               <p className="text-red-500 text-sm mt-2">

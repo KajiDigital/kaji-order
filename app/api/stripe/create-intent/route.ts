@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
 import { getNextOrderNumber } from '@/app/lib/orders'
 import { getStripe, stripeConfigured } from '@/app/lib/stripe'
+import { getServiceFeePence } from '@/app/lib/platform'
+import { calculateOrderTotals } from '@/app/lib/service-fee'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,10 +60,14 @@ export async function POST(request: Request) {
       )
     }
 
+    const serviceFeePence = await getServiceFeePence()
     const deliveryFee = 0
-    const total = subtotal + deliveryFee
-    const commissionPct = restaurant.commission_pct
-    const commissionPence = Math.round((total * commissionPct) / 100)
+    const totals = calculateOrderTotals(
+      subtotal,
+      restaurant.commission_pct,
+      serviceFeePence,
+      deliveryFee
+    )
     const orderNumber = await getNextOrderNumber(restaurant.id)
     const periodMonth = new Date().toISOString().slice(0, 7)
 
@@ -71,7 +77,7 @@ export async function POST(request: Request) {
     const stripe = getStripe()
     if (stripe && stripeConfigured()) {
       const intentParams: Parameters<typeof stripe.paymentIntents.create>[0] = {
-        amount: total,
+        amount: totals.total,
         currency: 'gbp',
         metadata: {
           restaurant_id: restaurant.id,
@@ -81,8 +87,8 @@ export async function POST(request: Request) {
         receipt_email: customer_email,
       }
 
-      if (restaurant.stripe_account_id && commissionPence > 0) {
-        intentParams.application_fee_amount = commissionPence
+      if (restaurant.stripe_account_id && totals.platformFeePence > 0) {
+        intentParams.application_fee_amount = totals.platformFeePence
         intentParams.transfer_data = { destination: restaurant.stripe_account_id }
       }
 
@@ -101,11 +107,12 @@ export async function POST(request: Request) {
         customer_email,
         customer_phone: customer_phone ?? null,
         notes: notes ?? null,
-        subtotal_pence: subtotal,
-        delivery_fee_pence: deliveryFee,
-        total_pence: total,
-        commission_pct: commissionPct,
-        commission_pence: commissionPence,
+        subtotal_pence: totals.subtotal,
+        service_fee_pence: totals.serviceFee,
+        delivery_fee_pence: totals.deliveryFee,
+        total_pence: totals.total,
+        commission_pct: restaurant.commission_pct,
+        commission_pence: totals.commissionPence,
         stripe_payment_intent_id: paymentIntentId,
         stripe_payment_status: stripe ? 'pending' : 'paid',
         items: {
@@ -123,8 +130,11 @@ export async function POST(request: Request) {
             restaurant_id: restaurant.id,
             period_month: periodMonth,
             total_orders: 1,
-            total_revenue_pence: total,
-            commission_pence: commissionPence,
+            total_revenue_pence: totals.subtotal,
+            food_commission_pence: totals.commissionPence,
+            service_fee_pence: totals.serviceFee,
+            total_platform_pence: totals.platformFeePence,
+            commission_pence: totals.platformFeePence,
             status: 'PENDING',
           },
         },

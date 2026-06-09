@@ -4,12 +4,14 @@ const DEFAULT_SETTINGS = {
   id: 'platform',
   registration_mode: 'request',
   show_commission: false,
+  service_fee_pence: 49,
 } as const
 
 export type PlatformSettings = {
   id: string
   registration_mode: string
   show_commission: boolean
+  service_fee_pence: number
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings> {
@@ -29,4 +31,9 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
 export async function isSelfServeRegistration(): Promise<boolean> {
   const settings = await getPlatformSettings()
   return settings.registration_mode === 'self_serve'
+}
+
+export async function getServiceFeePence(): Promise<number> {
+  const settings = await getPlatformSettings()
+  return settings.service_fee_pence ?? 49
 }

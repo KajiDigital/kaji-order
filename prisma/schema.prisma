@@ -68,6 +68,7 @@ model PlatformSettings {
   id                String   @id @default("platform")
   registration_mode String   @default("request")
   show_commission   Boolean  @default(false)
+  service_fee_pence Int      @default(49)
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
@@ -246,6 +247,7 @@ model OnlineOrder {
   customer_phone           String?
   notes                    String?
   subtotal_pence           Int
+  service_fee_pence        Int         @default(49)
   delivery_fee_pence       Int         @default(0)
   total_pence              Int
   commission_pct           Int
@@ -291,10 +293,13 @@ model CommissionRecord {
   order_id           String?
   order              OnlineOrder?     @relation(fields: [order_id], references: [id], onDelete: SetNull)
   period_month       String
-  total_orders       Int              @default(0)
-  total_revenue_pence Int             @default(0)
-  commission_pence   Int              @default(0)
-  stripe_invoice_id  String?
+  total_orders        Int              @default(0)
+  total_revenue_pence Int              @default(0)
+  food_commission_pence Int            @default(0)
+  service_fee_pence   Int              @default(0)
+  total_platform_pence Int             @default(0)
+  commission_pence    Int              @default(0)
+  stripe_invoice_id   String?
   status             CommissionStatus @default(PENDING)
   created_at         DateTime         @default(now())
   updated_at         DateTime         @updatedAt

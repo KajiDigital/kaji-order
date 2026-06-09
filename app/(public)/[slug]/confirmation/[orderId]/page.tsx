@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import prisma from '@/app/lib/prisma'
 import { formatOrderNumber, formatPence } from '@/app/lib/utils'
+import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
 
 type Params = { params: Promise<{ slug: string; orderId: string }> }
 
@@ -34,7 +35,13 @@ export default async function ConfirmationPage({ params }: Params) {
           ))}
         </ul>
 
-        <p className="font-bold text-slate-900 mt-4">{formatPence(order.total_pence)}</p>
+        <div className="mt-4 text-left">
+          <OrderSummaryBreakdown
+            subtotal={order.subtotal_pence}
+            serviceFeePence={order.service_fee_pence}
+            deliveryFeePence={order.delivery_fee_pence}
+          />
+        </div>
         <p className="text-slate-600 text-sm mt-4">
           Ready in ~{order.restaurant.avg_prep_minutes} minutes
         </p>

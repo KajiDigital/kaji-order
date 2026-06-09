@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
 import prisma from '@/app/lib/prisma'
+import { sumPlatformRevenue } from '@/app/lib/commission'
+import { getPlatformSettings } from '@/app/lib/platform'
 import { AdminRestaurantDetail } from '@/app/components/admin/AdminRestaurantDetail'
 
 type Params = { params: Promise<{ id: string }> }
@@ -29,13 +31,13 @@ export default async function AdminRestaurantPage({ params }: Params) {
     },
   })
 
-  const totalCommissionOwed = restaurant.commission_records
-    .filter((r) => r.status === 'PENDING')
-    .reduce((s, r) => s + r.commission_pence, 0)
+  const totalCommissionOwed = sumPlatformRevenue(
+    restaurant.commission_records.filter((r) => r.status === 'PENDING')
+  )
 
-  const commissionThisMonth = restaurant.commission_records
-    .filter((r) => r.period_month === month)
-    .reduce((s, r) => s + r.commission_pence, 0)
+  const monthRecords = restaurant.commission_records.filter((r) => r.period_month === month)
+  const monthRevenue = sumPlatformRevenue(monthRecords)
+  const platformSettings = await getPlatformSettings()
 
   return (
     <AdminRestaurantDetail
@@ -70,8 +72,11 @@ export default async function AdminRestaurantPage({ params }: Params) {
       stats={{
         totalOrders: restaurant._count.orders,
         ordersThisMonth,
-        totalCommissionOwed,
-        commissionThisMonth,
+        totalCommissionOwed: totalCommissionOwed.totalPlatform,
+        commissionThisMonth: monthRevenue.foodCommission,
+        serviceFeesThisMonth: monthRevenue.serviceFees,
+        totalPlatformThisMonth: monthRevenue.totalPlatform,
+        platformServiceFeePence: platformSettings.service_fee_pence,
         lastLogin: restaurant.staff[0]?.last_login_at?.toISOString() ?? null,
       }}
     />
