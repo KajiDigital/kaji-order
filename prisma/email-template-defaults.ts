@@ -35,29 +35,55 @@ const ORDER_CONFIRMATION_HTML = `<!DOCTYPE html>
     </div>
 
     <div style="background:[PRIMARY_COLOR]11;border-left:4px solid [PRIMARY_COLOR];padding:16px;margin:0 32px 24px;border-radius:4px;">
+      {{#if ready_at}}
+      <strong>⏱ Ready for collection at {{ready_at}}</strong><br>
+      <span style="color:#666;">That&apos;s approximately {{prep_time}} minutes from now</span><br>
+      <span style="color:#666;">{{order_type_message}}</span>
+      {{else}}
       <strong>⏱ Estimated time: {{prep_time}} minutes</strong><br>
       <span style="color:#666;">{{order_type_message}}</span>
+      {{/if}}
     </div>
 
-    <div style="padding:24px 32px;">
-      <h3 style="font-size:16px;text-transform:uppercase;letter-spacing:1px;color:#666;margin:0 0 16px;">Your Order</h3>
-      {{#each items}}
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">
-        <span style="font-weight:500;">{{quantity}}x {{name}}</span>
-        <span style="color:[PRIMARY_COLOR];font-weight:bold;">£{{price}}</span>
-      </div>
-      {{/each}}
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">
-        <span style="color:#666;">Subtotal</span>
-        <span>£{{subtotal}}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">
-        <span style="color:#666;">Service fee</span>
-        <span>£{{service_fee}}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:16px 0;font-size:18px;font-weight:bold;">
-        <span>Total</span>
-        <span style="color:[PRIMARY_COLOR];">£{{total}}</span>
+    <div style="padding:0 32px 24px;">
+      <div style="background:#fafafa;border-radius:8px;padding:20px;margin:16px 0;">
+        <div style="text-align:center;border-bottom:2px dashed #ddd;padding-bottom:12px;margin-bottom:12px;">
+          <p style="margin:0;font-size:11px;color:#999;letter-spacing:2px;text-transform:uppercase;">ORDER RECEIPT</p>
+          <p style="margin:4px 0 0;font-weight:bold;font-size:18px;">{{order_number}}</p>
+        </div>
+
+        {{#each items}}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dotted #eee;">
+          <span>
+            <span style="color:#999;margin-right:8px;font-size:13px;">{{quantity}}x</span>
+            <span style="color:#333;">{{name}}</span>
+          </span>
+          <span style="font-weight:600;">£{{price}}</span>
+        </div>
+        {{/each}}
+
+        <div style="display:flex;justify-content:space-between;padding:10px 0 4px;border-top:1px solid #ddd;margin-top:8px;">
+          <span style="color:#666;font-size:14px;">Subtotal</span>
+          <span style="color:#666;">£{{subtotal}}</span>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;padding:4px 0;">
+          <span style="color:#666;font-size:14px;">Service fee</span>
+          <span style="color:#666;">£{{service_fee}}</span>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;padding:12px 0 0;border-top:2px solid #333;margin-top:8px;">
+          <span style="font-weight:bold;font-size:16px;">TOTAL</span>
+          <span style="font-weight:bold;font-size:16px;color:{{primary_color}};">£{{total}}</span>
+        </div>
+
+        {{#if ready_at}}
+        <div style="background:{{primary_color}}22;border-radius:6px;padding:14px;margin-top:16px;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#666;">Ready for collection at</p>
+          <p style="margin:6px 0 0;font-size:22px;font-weight:bold;color:{{primary_color}};">{{ready_at}}</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#888;">Approximately {{prep_time}} minutes</p>
+        </div>
+        {{/if}}
       </div>
     </div>
 

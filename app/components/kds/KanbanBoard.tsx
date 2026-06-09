@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatOrderNumber, formatPence } from '@/app/lib/utils'
 import { canRefundOrder } from '@/app/lib/refunds'
 import { RefundDialog } from './RefundDialog'
+import { AcceptOrderModal } from './AcceptOrderModal'
+import { OrderTodayPanel, OrderArchivePanel } from './OrderHistoryPanel'
 
 type OrderItem = {
   id: string
@@ -29,11 +31,15 @@ type Order = {
   is_preorder: boolean
   preorder_for?: string | null
   delivery_address?: string | null
+  accept_by?: string | null
   created_at: string
   items: OrderItem[]
 }
 
 type RestaurantSettings = {
+  order_mode: string
+  acceptance_timer_mins: number
+  avg_prep_minutes: number
   auto_accept_orders: boolean
   auto_accept_delay_minutes: number
   accept_timeout_minutes: number
@@ -61,6 +67,26 @@ function playAlertSound() {
   }
 }
 
+function playUrgentAlert() {
+  try {
+    const ctx = new AudioContext()
+    for (let i = 0; i < 3; i++) {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 1100
+      gain.gain.value = 0.2
+      const start = ctx.currentTime + i * 0.3
+      osc.start(start)
+      osc.stop(start + 0.15)
+    }
+    setTimeout(() => ctx.close(), 1000)
+  } catch {
+    /* ignore */
+  }
+}
+
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
@@ -82,14 +108,22 @@ function renderOrderCard(
   onSelect: (order: Order) => void,
   action: (id: string, endpoint: string, body?: object) => Promise<void>,
   setSelected: (order: Order) => void,
-  settings: RestaurantSettings
+  settings: RestaurantSettings,
+  setAcceptTarget: (order: Order) => void
 ) {
+  const manualMode = settings.order_mode === 'manual'
+  const isPendingManual = col === 'PENDING' && !order.is_preorder && manualMode
+
   return (
     <button
       key={order.id}
       type="button"
       onClick={() => onSelect(order)}
-      className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-violet-500 transition-colors"
+      className={`w-full text-left bg-slate-800 border rounded-lg p-3 hover:border-violet-500 transition-colors ${
+        isPendingManual
+          ? 'border-red-500 animate-pulse ring-2 ring-red-500/50'
+          : 'border-slate-700'
+      }`}
     >
       <div className="flex justify-between items-start">
         <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
@@ -111,15 +145,28 @@ function renderOrderCard(
       {col === 'PENDING' && !order.is_preorder && (
         <Countdown
           createdAt={order.created_at}
-          timeoutMinutes={settings.accept_timeout_minutes}
-          autoAccept={settings.auto_accept_orders}
+          timeoutMinutes={
+            manualMode ? settings.acceptance_timer_mins : settings.accept_timeout_minutes
+          }
+          autoAccept={!manualMode && settings.auto_accept_orders}
           autoDelayMinutes={settings.auto_accept_delay_minutes}
+          acceptBy={order.accept_by}
+          manualMode={manualMode}
         />
       )}
       <div className="flex flex-wrap gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
         {col === 'PENDING' && (
           <>
-            <ActionBtn label="Accept" onClick={() => action(order.id, 'accept')} />
+            <ActionBtn
+              label="Accept"
+              onClick={() => {
+                if (manualMode) {
+                  setAcceptTarget(order)
+                } else {
+                  action(order.id, 'accept')
+                }
+              }}
+            />
             <ActionBtn label="Reject" variant="danger" onClick={() => setSelected(order)} />
           </>
         )}
@@ -142,18 +189,24 @@ function Countdown({
   timeoutMinutes,
   autoAccept,
   autoDelayMinutes,
+  acceptBy,
+  manualMode,
 }: {
   createdAt: string
   timeoutMinutes: number
   autoAccept: boolean
   autoDelayMinutes: number
+  acceptBy?: string | null
+  manualMode?: boolean
 }) {
   const [remaining, setRemaining] = useState(0)
 
   useEffect(() => {
-    const deadlineMs = autoAccept
-      ? new Date(createdAt).getTime() + autoDelayMinutes * 60 * 1000
-      : new Date(createdAt).getTime() + timeoutMinutes * 60 * 1000
+    const deadlineMs = acceptBy
+      ? new Date(acceptBy).getTime()
+      : autoAccept
+        ? new Date(createdAt).getTime() + autoDelayMinutes * 60 * 1000
+        : new Date(createdAt).getTime() + timeoutMinutes * 60 * 1000
 
     const tick = () => {
       setRemaining(Math.max(0, Math.floor((deadlineMs - Date.now()) / 1000)))
@@ -161,11 +214,15 @@ function Countdown({
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [createdAt, timeoutMinutes, autoAccept, autoDelayMinutes])
+  }, [createdAt, timeoutMinutes, autoAccept, autoDelayMinutes, acceptBy])
 
   const mins = Math.floor(remaining / 60)
   const secs = remaining % 60
-  const label = autoAccept ? 'Auto-accepting in' : 'Accept within'
+  const label = manualMode
+    ? 'Respond within'
+    : autoAccept
+      ? 'Auto-accepting in'
+      : 'Accept within'
 
   return (
     <p className={`text-xs mt-1 ${remaining < 60 ? 'text-red-400' : 'text-amber-400'}`}>
@@ -182,14 +239,15 @@ export function KanbanBoard({
   settings: RestaurantSettings
 }) {
   const [orders, setOrders] = useState(initialOrders)
-  const [historyOrders, setHistoryOrders] = useState<Order[]>([])
-  const [view, setView] = useState<'live' | 'refunded'>('live')
+  const [view, setView] = useState<'live' | 'today' | 'archive'>('live')
   const [selected, setSelected] = useState<Order | null>(null)
+  const [acceptTarget, setAcceptTarget] = useState<Order | null>(null)
   const [refundTarget, setRefundTarget] = useState<Order | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const knownPending = useRef(new Set(initialOrders.filter((o) => o.status === 'PENDING').map((o) => o.id)))
 
   const fetchOrders = useCallback(async () => {
+    await fetch('/api/orders/check-expired')
     const res = await fetch('/api/orders?view=active')
     if (!res.ok) return
     const data = await res.json()
@@ -198,7 +256,11 @@ export function KanbanBoard({
     if (settings.sound_alerts) {
       for (const o of newOrders) {
         if (o.status === 'PENDING' && !knownPending.current.has(o.id)) {
-          playAlertSound()
+          if (settings.order_mode === 'manual') {
+            playUrgentAlert()
+          } else {
+            playAlertSound()
+          }
           if (Notification.permission === 'granted') {
             new Notification('New order!', {
               body: `${formatOrderNumber(o.order_number)} — ${formatPence(o.total_pence)}`,
@@ -212,14 +274,7 @@ export function KanbanBoard({
       newOrders.filter((o) => o.status === 'PENDING').map((o) => o.id)
     )
     setOrders(newOrders)
-  }, [settings.sound_alerts])
-
-  const fetchHistory = useCallback(async () => {
-    const res = await fetch('/api/orders?view=refunded')
-    if (!res.ok) return
-    const data = await res.json()
-    setHistoryOrders(data.orders)
-  }, [])
+  }, [settings.sound_alerts, settings.order_mode])
 
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -233,12 +288,8 @@ export function KanbanBoard({
   }, [fetchOrders])
 
   useEffect(() => {
-    if (view === 'refunded') {
-      fetchHistory()
-    }
-  }, [view, fetchHistory])
+    if (settings.order_mode === 'manual') return
 
-  useEffect(() => {
     const timers = orders
       .filter((o) => o.status === 'PENDING')
       .map((order) => {
@@ -251,11 +302,14 @@ export function KanbanBoard({
         if (remaining <= 0) return null
 
         return setTimeout(async () => {
-          const action = settings.auto_accept_orders ? 'accept' : 'reject'
-          await fetch(`/api/orders/${order.id}/${action}`, {
+          const actionEndpoint = settings.auto_accept_orders ? 'accept' : 'reject'
+          await fetch(`/api/orders/${order.id}/${actionEndpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: action === 'reject' ? JSON.stringify({ reason: 'Order timed out' }) : undefined,
+            body:
+              actionEndpoint === 'reject'
+                ? JSON.stringify({ reason: 'Order timed out' })
+                : undefined,
           })
           fetchOrders()
         }, remaining)
@@ -272,7 +326,13 @@ export function KanbanBoard({
       body: body ? JSON.stringify(body) : undefined,
     })
     fetchOrders()
+    setAcceptTarget(null)
     setSelected(null)
+  }
+
+  async function handleAcceptWithPrep(prepTimeMins: number) {
+    if (!acceptTarget) return
+    await action(acceptTarget.id, 'accept', { prep_time_mins: prepTimeMins })
   }
 
   async function handleRefund(reason: string, _amountPence?: number) {
@@ -287,7 +347,6 @@ export function KanbanBoard({
       throw new Error(data.error ?? 'Refund failed')
     }
     await fetchOrders()
-    await fetchHistory()
     setSelected(null)
   }
 
@@ -311,12 +370,21 @@ export function KanbanBoard({
             </button>
             <button
               type="button"
-              onClick={() => setView('refunded')}
+              onClick={() => setView('today')}
               className={`px-3 py-1.5 rounded-md text-sm ${
-                view === 'refunded' ? 'bg-violet-600 text-white' : 'text-slate-400'
+                view === 'today' ? 'bg-violet-600 text-white' : 'text-slate-400'
               }`}
             >
-              Refunded
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('archive')}
+              className={`px-3 py-1.5 rounded-md text-sm ${
+                view === 'archive' ? 'bg-violet-600 text-white' : 'text-slate-400'
+              }`}
+            >
+              Archive
             </button>
           </div>
           {view === 'live' && (
@@ -328,7 +396,7 @@ export function KanbanBoard({
         </div>
       </div>
 
-      {view === 'live' ? (
+      {view === 'live' && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {COLUMNS.map((col) => {
             const colOrders = orders.filter((o) => o.status === col)
@@ -350,52 +418,38 @@ export function KanbanBoard({
                         Pre-orders waiting
                       </p>
                       {preorders.map((order) =>
-                        renderOrderCard(order, col, setSelected, action, setSelected, settings)
+                        renderOrderCard(
+                          order,
+                          col,
+                          setSelected,
+                          action,
+                          setSelected,
+                          settings,
+                          setAcceptTarget
+                        )
                       )}
                     </div>
                   )}
                   {regular.map((order) =>
-                    renderOrderCard(order, col, setSelected, action, setSelected, settings)
+                    renderOrderCard(
+                      order,
+                      col,
+                      setSelected,
+                      action,
+                      setSelected,
+                      settings,
+                      setAcceptTarget
+                    )
                   )}
                 </div>
               </div>
             )
           })}
         </div>
-      ) : (
-        <div className="space-y-3">
-          {historyOrders.length === 0 && (
-            <p className="text-slate-500 text-sm">No refunded or cancelled orders yet.</p>
-          )}
-          {historyOrders.map((order) => (
-            <button
-              key={order.id}
-              type="button"
-              onClick={() => setSelected(order)}
-              className="w-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-red-500/50"
-            >
-              <div className="flex justify-between items-start gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-red-600/20 text-red-400">
-                      {order.status}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-300 mt-1">{order.customer_name}</p>
-                  {order.refund_reason && (
-                    <p className="text-xs text-red-300 mt-1">Reason: {order.refund_reason}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-white">{formatPence(order.refund_amount_pence ?? order.total_pence)}</p>
-                  <p className="text-xs text-slate-500">{formatTime(order.created_at)}</p>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
       )}
+
+      {view === 'today' && <OrderTodayPanel />}
+      {view === 'archive' && <OrderArchivePanel />}
 
       {selected && (
         <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center p-4 z-50">
@@ -468,6 +522,15 @@ export function KanbanBoard({
           onClose={() => {
             setRefundTarget(null)
           }}
+        />
+      )}
+
+      {acceptTarget && (
+        <AcceptOrderModal
+          orderNumber={acceptTarget.order_number}
+          defaultPrepMins={settings.avg_prep_minutes}
+          onCancel={() => setAcceptTarget(null)}
+          onAccept={handleAcceptWithPrep}
         />
       )}
     </div>

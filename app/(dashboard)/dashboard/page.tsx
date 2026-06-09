@@ -34,7 +34,7 @@ export default async function DashboardPage() {
 
   const ordersCount = todayOrders.length
   const revenue = todayOrders.reduce((s, o) => s + o.total_pence, 0)
-  const commission = todayOrders.reduce((s, o) => s + o.commission_pence, 0)
+  const avgOrderValue = ordersCount > 0 ? revenue / ordersCount : 0
 
   const openStatus = getOpenStatus(
     restaurant.opening_hours,
@@ -76,7 +76,10 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="Orders today" value={String(ordersCount)} />
         <StatCard label="Revenue today" value={formatPence(revenue)} />
-        <StatCard label="Commission today" value={formatPence(commission)} />
+        <StatCard
+          label="Avg order value"
+          value={ordersCount > 0 ? formatPence(Math.round(avgOrderValue)) : '£0.00'}
+        />
       </div>
 
       <div className="flex flex-wrap gap-3">

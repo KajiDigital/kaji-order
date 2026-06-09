@@ -25,6 +25,7 @@ export default async function OrdersPage() {
     ...o,
     created_at: o.created_at.toISOString(),
     preorder_for: o.preorder_for?.toISOString() ?? null,
+    accept_by: o.accept_by?.toISOString() ?? null,
     stripe_payment_status: o.stripe_payment_status,
   }))
 
@@ -32,6 +33,9 @@ export default async function OrdersPage() {
     <KanbanBoard
       initialOrders={serialized}
       settings={{
+        order_mode: restaurant?.order_mode ?? 'instant',
+        acceptance_timer_mins: restaurant?.acceptance_timer_mins ?? 3,
+        avg_prep_minutes: restaurant?.avg_prep_minutes ?? 30,
         auto_accept_orders: restaurant?.auto_accept_orders ?? false,
         auto_accept_delay_minutes: restaurant?.auto_accept_delay_minutes ?? 5,
         accept_timeout_minutes: restaurant?.accept_timeout_minutes ?? 10,

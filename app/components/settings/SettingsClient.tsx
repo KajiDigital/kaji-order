@@ -36,6 +36,8 @@ type Restaurant = {
   delivery_enabled: boolean
   min_order_pence: number
   avg_prep_minutes: number
+  order_mode: string
+  acceptance_timer_mins: number
   auto_accept_orders: boolean
   auto_accept_delay_minutes: number
   accept_timeout_minutes: number
@@ -315,15 +317,55 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
           </div>
 
           <Field label="Min order (£)" value={String(data.min_order_pence / 100)} onChange={(v) => setData({ ...data, min_order_pence: Math.round(parseFloat(v || '0') * 100) })} />
-          <Field label="Avg prep time (mins)" value={String(data.avg_prep_minutes)} onChange={(v) => setData({ ...data, avg_prep_minutes: parseInt(v || '30', 10) })} />
-          <Toggle label="Auto-accept orders" checked={data.auto_accept_orders} onChange={(v) => save({ auto_accept_orders: v })} />
-          <Field label="Auto-accept delay (mins)" value={String(data.auto_accept_delay_minutes)} onChange={(v) => setData({ ...data, auto_accept_delay_minutes: parseInt(v || '5', 10) })} />
-          <Field label="Accept timeout (mins)" value={String(data.accept_timeout_minutes)} onChange={(v) => setData({ ...data, accept_timeout_minutes: parseInt(v || '10', 10) })} />
+          <Field label="Default prep time (mins)" value={String(data.avg_prep_minutes)} onChange={(v) => setData({ ...data, avg_prep_minutes: parseInt(v || '30', 10) })} />
+
+          <div className="border-t border-slate-800 pt-4 space-y-3">
+            <p className="text-sm font-medium text-white">Order acceptance mode</p>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="order_mode"
+                checked={data.order_mode === 'instant'}
+                onChange={() => setData({ ...data, order_mode: 'instant' })}
+                className="mt-1"
+              />
+              <span>
+                <span className="text-sm text-white block">Confirm orders automatically</span>
+                <span className="text-xs text-slate-500">Orders confirmed immediately after payment</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="order_mode"
+                checked={data.order_mode === 'manual'}
+                onChange={() => setData({ ...data, order_mode: 'manual' })}
+                className="mt-1"
+              />
+              <span>
+                <span className="text-sm text-white block">Manually accept each order</span>
+                <span className="text-xs text-slate-500">You review each order before confirming</span>
+              </span>
+            </label>
+            {data.order_mode === 'manual' && (
+              <Field
+                label="Acceptance timer (mins)"
+                value={String(data.acceptance_timer_mins)}
+                onChange={(v) =>
+                  setData({
+                    ...data,
+                    acceptance_timer_mins: Math.min(15, Math.max(1, parseInt(v || '3', 10))),
+                  })
+                }
+              />
+            )}
+          </div>
+
           <SaveBtn saving={saving} onClick={() => save({
             min_order_pence: data.min_order_pence,
             avg_prep_minutes: data.avg_prep_minutes,
-            auto_accept_delay_minutes: data.auto_accept_delay_minutes,
-            accept_timeout_minutes: data.accept_timeout_minutes,
+            order_mode: data.order_mode,
+            acceptance_timer_mins: data.acceptance_timer_mins,
             accept_preorders: data.accept_preorders,
             preorder_days_ahead: data.preorder_days_ahead,
             show_menu_when_closed: data.show_menu_when_closed,

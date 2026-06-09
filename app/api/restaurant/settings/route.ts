@@ -60,6 +60,10 @@ export async function PATCH(request: Request) {
       ...(body.delivery_enabled !== undefined && { delivery_enabled: body.delivery_enabled }),
       ...(body.min_order_pence !== undefined && { min_order_pence: body.min_order_pence }),
       ...(body.avg_prep_minutes !== undefined && { avg_prep_minutes: body.avg_prep_minutes }),
+      ...(body.order_mode !== undefined && { order_mode: body.order_mode }),
+      ...(body.acceptance_timer_mins !== undefined && {
+        acceptance_timer_mins: Math.min(15, Math.max(1, Number(body.acceptance_timer_mins) || 3)),
+      }),
       ...(body.auto_accept_orders !== undefined && { auto_accept_orders: body.auto_accept_orders }),
       ...(body.auto_accept_delay_minutes !== undefined && { auto_accept_delay_minutes: body.auto_accept_delay_minutes }),
       ...(body.accept_timeout_minutes !== undefined && { accept_timeout_minutes: body.accept_timeout_minutes }),

@@ -10,12 +10,27 @@ import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 
-function CheckoutForm({ orderId, slug, total }: { orderId: string; slug: string; total: number }) {
+function CheckoutForm({
+  orderId,
+  slug,
+  total,
+  orderMode,
+}: {
+  orderId: string
+  slug: string
+  total: number
+  orderMode: string
+}) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const successPath =
+    orderMode === 'manual'
+      ? `/${slug}/waiting/${orderId}`
+      : `/${slug}/confirmation/${orderId}`
 
   async function handlePay(e: React.FormEvent) {
     e.preventDefault()
@@ -25,7 +40,7 @@ function CheckoutForm({ orderId, slug, total }: { orderId: string; slug: string;
 
     const { error: submitError } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: `${window.location.origin}/${slug}/confirmation/${orderId}` },
+      confirmParams: { return_url: `${window.location.origin}${successPath}` },
       redirect: 'if_required',
     })
 
@@ -36,7 +51,7 @@ function CheckoutForm({ orderId, slug, total }: { orderId: string; slug: string;
     }
 
     clearBasket(slug)
-    router.push(`/${slug}/confirmation/${orderId}`)
+    router.push(successPath)
   }
 
   return (
@@ -65,7 +80,7 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState('')
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
-  const [devMode, setDevMode] = useState(false)
+  const [orderMode, setOrderMode] = useState('instant')
   const [loading, setLoading] = useState(false)
   const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
   const [isPreorderMode, setIsPreorderMode] = useState(false)
@@ -128,11 +143,16 @@ export default function CheckoutPage() {
     }
 
     setOrderId(data.orderId)
+    setOrderMode(data.orderMode ?? 'instant')
+
+    const successPath =
+      (data.orderMode ?? 'instant') === 'manual'
+        ? `/${slug}/waiting/${data.orderId}`
+        : `/${slug}/confirmation/${data.orderId}`
 
     if (data.devMode || !data.clientSecret) {
-      setDevMode(true)
       clearBasket(slug)
-      router.push(`/${slug}/confirmation/${data.orderId}`)
+      router.push(successPath)
       return
     }
 
@@ -159,7 +179,7 @@ export default function CheckoutPage() {
             <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
             <textarea placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border rounded-xl px-4 py-3" rows={2} />
           </div>
-          {!clientSecret && !devMode && (
+          {!clientSecret && !orderId && (
             <button
               type="button"
               onClick={createOrder}
@@ -188,7 +208,7 @@ export default function CheckoutPage() {
           {clientSecret && orderId && (
             <div className="mt-6">
               <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <CheckoutForm orderId={orderId} slug={slug} total={total} />
+                <CheckoutForm orderId={orderId} slug={slug} total={total} orderMode={orderMode} />
               </Elements>
             </div>
           )}

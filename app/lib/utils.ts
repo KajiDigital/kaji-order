@@ -34,6 +34,42 @@ export function getCommissionPct(plan: string, override?: number): number {
   return plan === 'COMMISSION' ? 5 : 0
 }
 
+/** ISO week number (1–53), Monday-based. */
+export function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
+}
+
+export function formatReadyAtTime(date: Date | string | null | undefined): string {
+  if (!date) return ''
+  const value = typeof date === 'string' ? new Date(date) : date
+  return value.toLocaleTimeString('en-GB', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Europe/London',
+  })
+}
+
+export function formatModifiersText(
+  modifiers?: { name: string; priceDeltaPence?: number }[]
+): string | null {
+  if (!modifiers?.length) return null
+  return modifiers.map((m) => m.name).join(', ')
+}
+
+export function getReportingFields(date = new Date()) {
+  return {
+    day_of_week: date.getDay(),
+    hour_of_day: date.getHours(),
+    week_number: getWeekNumber(date),
+    month_number: date.getMonth() + 1,
+  }
+}
+
 export const DAYS = [
   'monday',
   'tuesday',

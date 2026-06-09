@@ -5,6 +5,14 @@ import { getStripe, stripeConfigured } from '@/app/lib/stripe'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { calculateOrderTotals } from '@/app/lib/service-fee'
 import { getOpenStatus } from '@/app/lib/opening-hours'
+import { formatModifiersText, getReportingFields } from '@/app/lib/utils'
+import { buildPrepFields } from '@/app/lib/order-expiry'
+import {
+  sendOrderConfirmation,
+  sendRestaurantNewOrder,
+  buildOrderEmailFromDb,
+} from '@/app/lib/email'
+import { getAppUrl } from '@/app/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,6 +96,8 @@ export async function POST(request: Request) {
     )
     const orderNumber = await getNextOrderNumber(restaurant.id)
     const periodMonth = new Date().toISOString().slice(0, 7)
+    const reporting = getReportingFields()
+    const isInstant = restaurant.order_mode !== 'manual'
 
     let clientSecret: string | null = null
     let paymentIntentId: string | null = null
@@ -119,7 +129,7 @@ export async function POST(request: Request) {
       data: {
         restaurant_id: restaurant.id,
         order_number: orderNumber,
-        status: 'PENDING',
+        status: isInstant && !stripe ? 'ACCEPTED' : 'PENDING',
         order_type,
         customer_name,
         customer_email,
@@ -133,15 +143,23 @@ export async function POST(request: Request) {
         commission_pence: totals.commissionPence,
         stripe_payment_intent_id: paymentIntentId,
         stripe_payment_status: stripe ? 'authorised' : 'captured',
+        payment_method: 'CARD',
+        source: 'online',
+        ...reporting,
+        ...(isInstant && !stripe
+          ? buildPrepFields(restaurant.avg_prep_minutes ?? 30)
+          : {}),
         is_preorder: openStatus.isPreorderMode,
         preorder_for: openStatus.isPreorderMode ? openStatus.nextOpenAt : null,
         items: {
           create: items.map((item) => ({
             menu_item_id: item.menuItemId,
+            pos_item_id: item.menuItemId,
             name: item.name,
             price_pence: item.pricePence,
             quantity: item.quantity,
             modifiers_json: item.modifiers ?? [],
+            modifiers_text: formatModifiersText(item.modifiers),
             notes: item.notes ?? null,
           })),
         },
@@ -159,13 +177,29 @@ export async function POST(request: Request) {
           },
         },
       },
-      include: { items: true },
+      include: { items: true, restaurant: true },
     })
 
     if (!stripe) {
+      if (isInstant) {
+        const emailData = buildOrderEmailFromDb(
+          order,
+          `${getAppUrl()}/dashboard/orders`
+        )
+        emailData.estimatedMinutes = restaurant.avg_prep_minutes
+        emailData.readyAt = order.ready_at?.toISOString()
+        await sendOrderConfirmation(order.customer_email, emailData)
+      }
+      if (restaurant.email && restaurant.email_notifications) {
+        await sendRestaurantNewOrder(
+          restaurant.email,
+          buildOrderEmailFromDb(order, `${getAppUrl()}/dashboard/orders`)
+        )
+      }
       return NextResponse.json({
         clientSecret: null,
         orderId: order.id,
+        orderMode: restaurant.order_mode,
         devMode: true,
       })
     }
@@ -173,6 +207,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       clientSecret,
       orderId: order.id,
+      orderMode: restaurant.order_mode,
     })
   } catch (error) {
     console.error('create-intent error:', error)

@@ -81,14 +81,15 @@ Webhook: /api/stripe/webhook
 - /[slug]/basket — cart
 - /[slug]/checkout — payment
 - /[slug]/confirmation/[orderId] — confirmed
+- /[slug]/waiting/[orderId] — manual acceptance polling (PENDING → confirmation or cancel)
 - /[slug]/track/[id] — order status (Sprint 11)
 
 ### Restaurant Dashboard
-- /dashboard — overview
-- /dashboard/orders — Kanban KDS
+- /dashboard — overview (orders today, revenue today, **avg order value** — not commission)
+- /dashboard/orders — KDS with Live / Today / Archive tabs
 - /dashboard/menu — menu management
 - /dashboard/settings — profile, hours, ordering, notifications, share/QR
-- /dashboard/billing — subscription + commission + Stripe Connect
+- /dashboard/billing — subscription + **Platform fee** (commission) + Stripe Connect
 
 ### Admin Panel
 - /admin — platform overview
@@ -118,8 +119,10 @@ Webhook: /api/stripe/webhook
 | /api/menu/products/[id] | PATCH, DELETE | Update/delete product |
 | /api/orders | GET | Active orders for KDS |
 | /api/orders/[id] | GET | Order detail |
-| /api/orders/[id]/accept | POST | Accept order |
+| /api/orders/[id]/accept | POST | Accept order (`prep_time_mins` sets `ready_at`) |
 | /api/orders/[id]/reject | POST | Reject order |
+| /api/orders/[id]/status | GET | Public order status poll (waiting page) |
+| /api/orders/check-expired | GET | Cancel PENDING orders past `accept_by` |
 | /api/orders/[id]/preparing | POST | Mark preparing |
 | /api/orders/[id]/ready | POST | Mark ready |
 | /api/orders/[id]/collected | POST | Mark collected |
@@ -152,15 +155,58 @@ Webhook: /api/stripe/webhook
 - app/lib/hours.ts — re-exports from opening-hours.ts (deprecated direct use)
 - app/lib/utils.ts — Formatting, slugs, URLs
 - app/lib/orders.ts — Order number + ownership helpers
+- app/lib/order-expiry.ts — `accept_by` expiry, PI cancel, prep fields on accept
 
 ## KDS/Order Management
-- Mobile-first Kanban board
-- Sound alerts on new orders
+- Tabs: **Live** (Kanban, active statuses, ~15s refresh), **Today** (all today’s orders + stats), **Archive** (date range, search, filters, CSV export)
+- Mobile-first Kanban board (Live tab)
+- Sound alerts on new orders; urgent alert + accept countdown in **manual** mode
 - Browser push notifications
-- Dynamic countdown timers
-- Auto-accept configuration
+- Dynamic countdown timers (`accept_by`, prep)
+- Accept modal: chef picks prep minutes → `ready_at` + customer email
 - PWA (add to home screen)
 - Dark mode
+
+## Order acceptance modes
+Restaurant settings (Ordering tab): `order_mode` + `acceptance_timer_mins` (1–15, manual only).
+
+| Mode | Value | Behaviour |
+|------|-------|-----------|
+| Instant | `instant` (default) | Order confirmed after payment; prep from `avg_prep_minutes` / instant flow |
+| Manual | `manual` | Stays `PENDING` until accept/reject; `accept_by` = now + timer; customer on `/[slug]/waiting/[orderId]` |
+
+- **Accept:** `POST /api/orders/[id]/accept` with `{ prep_time_mins }` → `ready_at`, `estimated_time`, confirmation email
+- **Reject / timeout:** reject API or `check-expired` / status poll → `CANCELLED`, PaymentIntent cancelled
+- Checkout redirects to waiting page when `order_mode === 'manual'`
+
+## Waiting page flow
+`/[slug]/waiting/[orderId]` polls `GET /api/orders/[id]/status` every 3s.
+
+- **PENDING:** spinner, acceptance countdown (`accept_by`)
+- **ACCEPTED:** ready time + prep; redirect to confirmation after 3s
+- **REJECTED / CANCELLED:** not charged; link back to menu
+
+## kaji-order ↔ kaji-pos status mapping
+Future POS sync reference: `OnlineOrder.pos_order_id`, `OnlineOrderItem.pos_item_id`.
+
+| kaji-order | kaji-pos OrderStatus |
+|------------|----------------------|
+| PENDING | OPEN (incoming) |
+| ACCEPTED | OPEN (confirmed) |
+| PREPARING | OPEN (cooking) |
+| READY | PAID (ready for collection) |
+| COLLECTED | CLOSED |
+| REJECTED | CANCELLED |
+| CANCELLED | CANCELLED |
+
+**Order type:** `COLLECTION` → kaji-pos `TAKEAWAY`; `DELIVERY` → `DELIVERY`.
+
+## OnlineOrder reporting fields
+Populated at order creation (`getWeekNumber()` in `app/lib/utils.ts`) for analytics aligned with kaji-pos:
+
+- `payment_method` (default `CARD`), `source` (default `online`)
+- `day_of_week`, `hour_of_day`, `week_number`, `month_number`
+- Manual acceptance: `accept_by`, `prep_time_mins`, `estimated_time`, `ready_at`, `estimated_ready_at`
 
 ## Order Statuses
 PENDING → ACCEPTED → PREPARING → READY → COLLECTED
@@ -183,7 +229,7 @@ PENDING → ACCEPTED → PREPARING → READY → COLLECTED
 - Renderer supports `{{variable}}`, `{{#if}}`, `{{#each}}`, and `[PRIMARY_COLOR]`
 - Global defaults seeded via `npx prisma db seed` (migration: `add_email_templates`)
 - Admin editor: `/admin/restaurants/[id]/emails` — edit subject/HTML, preview, send test, reset
-- Order confirmation: branded HTML with logo, items, service fee, status steps
+- Order confirmation: receipt-style items block (`ORDER RECEIPT`), `ready_at` + prep when set
 - New order alert: urgent design with Accept/Reject dashboard links
 - Fallback chain: restaurant custom → global DB → built-in defaults
 
@@ -201,6 +247,7 @@ PENDING → ACCEPTED → PREPARING → READY → COLLECTED
 - Migration: `add_preorder_settings`
 
 ## Commission Tracking
+- Restaurant dashboard does **not** show commission; use **Platform fee** on `/dashboard/billing` only
 - Every order records food commission in `commission_pence` (OnlineOrder)
 - Service fee stored in `OnlineOrder.service_fee_pence`
 - `CommissionRecord` splits: food commission, service fee, total platform revenue
@@ -289,12 +336,21 @@ auto_accept_delay_minutes, email_notifications, sound_alerts
 Restaurant fields added Sprint 11:
 accept_preorders, preorder_days_ahead, show_menu_when_closed
 
+Restaurant fields (acceptance / prep):
+order_mode (`instant` | `manual`), acceptance_timer_mins
+
 OnlineOrder fields added Sprint 10:
 stripe_payment_status (pending | paid | failed | refunded)
 
 OnlineOrder fields added Sprint 11:
 service_fee_pence (default 49)
 is_preorder, preorder_for
+
+OnlineOrder fields (acceptance / reporting / POS):
+ready_at, estimated_ready_at, estimated_time, prep_time_mins, accept_by
+payment_method, source, day_of_week, hour_of_day, week_number, month_number, pos_order_id
+
+OnlineOrderItem: pos_item_id, modifiers_text
 
 PlatformSettings fields added Sprint 11:
 service_fee_pence (default 49)
@@ -319,3 +375,8 @@ Session 3 (June 2026):
 - Professional HTML email templates (order confirmation, new order alert, refund)
 - EmailTemplate model + admin template editor with preview/test
 - Mustache-style renderer with global defaults seeded in DB
+
+Session 4 (June 2026):
+- Order acceptance modes (instant/manual), waiting page, prep timer on accept
+- KDS Live/Today/Archive, order expiry API, reporting fields + POS status mapping docs
+- Dashboard avg order value; billing Platform fee label; receipt-style confirmation email

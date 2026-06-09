@@ -130,6 +130,8 @@ model Restaurant {
   delivery_enabled           Boolean       @default(false)
   min_order_pence            Int           @default(0)
   avg_prep_minutes           Int           @default(30)
+  order_mode                 String        @default("instant")
+  acceptance_timer_mins      Int           @default(3)
   email_notifications        Boolean       @default(true)
   sound_alerts               Boolean       @default(true)
   admin_notes                String?
@@ -280,6 +282,17 @@ model OnlineOrder {
   stripe_payment_intent_id String?
   stripe_payment_status    StripePaymentStatus @default(pending)
   estimated_ready_at       DateTime?
+  ready_at                 DateTime?
+  estimated_time           String?
+  prep_time_mins           Int?
+  accept_by                DateTime?
+  payment_method           String              @default("CARD")
+  source                   String              @default("online")
+  day_of_week              Int?
+  hour_of_day              Int?
+  week_number              Int?
+  month_number             Int?
+  pos_order_id             String?
   reject_reason            String?
   refund_reason            String?
   refund_amount_pence      Int?
@@ -304,6 +317,8 @@ model OnlineOrderItem {
   order          OnlineOrder @relation(fields: [order_id], references: [id], onDelete: Cascade)
   menu_item_id   String?
   menu_item      MenuItem?   @relation(fields: [menu_item_id], references: [id], onDelete: SetNull)
+  pos_item_id    String?
+  modifiers_text String?
   name           String
   price_pence    Int
   quantity       Int         @default(1)

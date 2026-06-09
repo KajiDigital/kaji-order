@@ -36,7 +36,7 @@ export default async function BillingPage() {
         <h2 className="font-semibold text-white mb-2">This month</h2>
         <p className="text-slate-300">Orders: {commission._count}</p>
         <p className="text-slate-300">Revenue: {formatPence(commission._sum.total_revenue_pence ?? 0)}</p>
-        <p className="text-slate-300">Commission: {formatPence(commission._sum.commission_pence ?? 0)}</p>
+        <p className="text-slate-300">Platform fee: {formatPence(commission._sum.commission_pence ?? 0)}</p>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">

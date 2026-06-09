@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { formatOrderNumber, getAppUrl } from './utils'
+import { formatOrderNumber, getAppUrl, formatReadyAtTime } from './utils'
 import { getPrimaryColor, shouldShowPoweredBy } from './branding'
 import {
   getTemplate,
@@ -40,6 +40,8 @@ export type OrderEmailData = {
   orderDate?: string
   dashboardUrl?: string
   pricingPlan?: string
+  readyAt?: string | null
+  prepTimeFormatted?: string | null
 }
 
 type RefundEmailData = {
@@ -93,6 +95,10 @@ function buildOrderVariables(order: OrderEmailData): Record<string, unknown> {
 
   const dashboardUrl = order.dashboardUrl ?? `${getAppUrl()}/dashboard/orders`
 
+  const readyAtFormatted = order.readyAt
+    ? formatReadyAtTime(order.readyAt)
+    : ''
+
   return {
     order_number: formatOrderNumber(order.orderNumber),
     order_date: formatOrderDate(order.orderDate),
@@ -103,6 +109,7 @@ function buildOrderVariables(order: OrderEmailData): Record<string, unknown> {
     customer_email: order.customerEmail,
     customer_phone: order.customerPhone ?? '',
     prep_time: String(order.estimatedMinutes ?? 30),
+    ready_at: readyAtFormatted,
     order_type_message: orderTypeMessage,
     order_type: orderTypeLabel,
     items: order.items.map((item) => ({
@@ -262,6 +269,34 @@ export async function sendRegistrationRejected(
   await resend.emails.send({ from: fromEmail, to, subject, html })
 }
 
+type CancellationEmailData = {
+  customerName: string
+  restaurantName: string
+  orderNumber: number
+  reason?: string
+}
+
+export async function sendOrderCancellation(
+  to: string,
+  data: CancellationEmailData
+): Promise<void> {
+  const subject = `Order not accepted — ${formatOrderNumber(data.orderNumber)}`
+  const html = `
+    <h2>Order not accepted</h2>
+    <p>Hi ${data.customerName},</p>
+    <p>Unfortunately <strong>${data.restaurantName}</strong> was unable to accept your order ${formatOrderNumber(data.orderNumber)}.</p>
+    <p>You have not been charged. If a payment was authorised, it will be released automatically.</p>
+    ${data.reason ? `<p><em>Reason: ${data.reason}</em></p>` : ''}
+  `
+
+  if (!resend) {
+    console.log('[email] sendOrderCancellation (no RESEND_API_KEY):', { to, subject })
+    return
+  }
+
+  await resend.emails.send({ from: fromEmail, to, subject, html })
+}
+
 export async function sendRefundConfirmation(
   to: string,
   data: RefundEmailData
@@ -297,6 +332,9 @@ export function buildOrderEmailFromDb(
     is_preorder: boolean
     preorder_for: Date | null
     created_at: Date
+    ready_at?: Date | null
+    prep_time_mins?: number | null
+    estimated_time?: string | null
     items: { name: string; quantity: number; price_pence: number }[]
     restaurant: {
       id: string
@@ -347,7 +385,7 @@ export function buildOrderEmailFromDb(
     subtotalPence: order.subtotal_pence,
     serviceFeePence: order.service_fee_pence,
     totalPence: order.total_pence,
-    estimatedMinutes: restaurant.avg_prep_minutes,
+    estimatedMinutes: order.prep_time_mins ?? restaurant.avg_prep_minutes,
     notes: order.notes,
     orderType: order.order_type,
     primaryColor: getPrimaryColor(restaurant),
@@ -361,6 +399,8 @@ export function buildOrderEmailFromDb(
     orderDate: order.created_at.toISOString(),
     dashboardUrl,
     pricingPlan: restaurant.pricing_plan,
+    readyAt: order.ready_at?.toISOString() ?? null,
+    prepTimeFormatted: order.estimated_time ?? null,
   }
 }
 

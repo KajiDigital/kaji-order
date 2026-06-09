@@ -9,6 +9,7 @@ import {
 } from '@/app/lib/email'
 import { getAppUrl } from '@/app/lib/utils'
 import { markOrderRefundedFromStripe } from '@/app/lib/refund-order'
+import { buildPrepFields } from '@/app/lib/order-expiry'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,20 +47,46 @@ export async function POST(request: Request) {
     })
 
     if (order) {
-      await prisma.onlineOrder.update({
-        where: { id: order.id },
-        data: { stripe_payment_status: 'captured' },
-      })
+      const restaurant = order.restaurant
+      const isInstant = restaurant.order_mode !== 'manual'
+      const prepMins = restaurant.avg_prep_minutes ?? 30
+      const dashboardUrl = `${getAppUrl()}/dashboard/orders`
 
-      const emailData = buildOrderEmailFromDb(
-        order,
-        `${getAppUrl()}/dashboard/orders`
-      )
+      if (isInstant) {
+        const prepFields = buildPrepFields(prepMins)
+        await prisma.onlineOrder.update({
+          where: { id: order.id },
+          data: {
+            stripe_payment_status: 'captured',
+            status: 'ACCEPTED',
+            ...prepFields,
+          },
+        })
 
-      await sendOrderConfirmation(order.customer_email, emailData)
+        const emailData = buildOrderEmailFromDb(order, dashboardUrl)
+        emailData.estimatedMinutes = prepMins
+        emailData.readyAt = prepFields.ready_at.toISOString()
+        emailData.prepTimeFormatted = prepFields.estimated_time
 
-      if (order.restaurant.email && order.restaurant.email_notifications) {
-        await sendRestaurantNewOrder(order.restaurant.email, emailData)
+        await sendOrderConfirmation(order.customer_email, emailData)
+      } else {
+        const acceptBy = new Date(
+          Date.now() + (restaurant.acceptance_timer_mins ?? 3) * 60_000
+        )
+        await prisma.onlineOrder.update({
+          where: { id: order.id },
+          data: {
+            stripe_payment_status: 'captured',
+            accept_by: acceptBy,
+          },
+        })
+      }
+
+      if (restaurant.email && restaurant.email_notifications) {
+        await sendRestaurantNewOrder(
+          restaurant.email,
+          buildOrderEmailFromDb(order, dashboardUrl)
+        )
       }
     }
   }
