@@ -24,6 +24,7 @@ export default function BasketPage() {
   const [minOrder, setMinOrder] = useState(0)
   const [prepMins, setPrepMins] = useState(30)
   const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
+  const [canOrder, setCanOrder] = useState(true)
 
   useEffect(() => {
     const basket = getBasket(slug)
@@ -38,6 +39,7 @@ export default function BasketPage() {
         setMinOrder(d.restaurant?.min_order_pence ?? 0)
         setPrepMins(d.restaurant?.avg_prep_minutes ?? 30)
         setServiceFeePence(d.restaurant?.service_fee_pence ?? DEFAULT_SERVICE_FEE_PENCE)
+        setCanOrder(Boolean(d.restaurant?.canOrder))
       })
   }, [slug])
 
@@ -54,6 +56,7 @@ export default function BasketPage() {
 
   const subtotal = basketSubtotal(items)
   const belowMin = subtotal < minOrder
+  const checkoutBlocked = belowMin || !canOrder
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 max-w-lg mx-auto">
@@ -105,11 +108,16 @@ export default function BasketPage() {
                 Minimum order is {formatPence(minOrder)}
               </p>
             )}
+            {!canOrder && (
+              <p className="text-amber-700 text-sm mt-2">
+                Checkout is unavailable right now. You can browse the menu on the restaurant page.
+              </p>
+            )}
           </div>
 
           <Link
-            href={belowMin ? '#' : `/${slug}/checkout`}
-            className={`block mt-4 text-center py-3 rounded-xl font-medium text-white ${belowMin ? 'bg-slate-300 pointer-events-none' : 'bg-violet-600'}`}
+            href={checkoutBlocked ? '#' : `/${slug}/checkout`}
+            className={`block mt-4 text-center py-3 rounded-xl font-medium text-white ${checkoutBlocked ? 'bg-slate-300 pointer-events-none' : 'bg-violet-600'}`}
           >
             Proceed to checkout
           </Link>

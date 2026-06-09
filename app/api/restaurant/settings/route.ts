@@ -52,6 +52,11 @@ export async function PATCH(request: Request) {
       ...(body.holiday_mode !== undefined && { holiday_mode: body.holiday_mode }),
       ...(body.holiday_message !== undefined && { holiday_message: body.holiday_message }),
       ...(body.collection_enabled !== undefined && { collection_enabled: body.collection_enabled }),
+      ...(body.accept_preorders !== undefined && { accept_preorders: body.accept_preorders }),
+      ...(body.preorder_days_ahead !== undefined && {
+        preorder_days_ahead: Math.min(7, Math.max(1, Number(body.preorder_days_ahead) || 1)),
+      }),
+      ...(body.show_menu_when_closed !== undefined && { show_menu_when_closed: body.show_menu_when_closed }),
       ...(body.delivery_enabled !== undefined && { delivery_enabled: body.delivery_enabled }),
       ...(body.min_order_pence !== undefined && { min_order_pence: body.min_order_pence }),
       ...(body.avg_prep_minutes !== undefined && { avg_prep_minutes: body.avg_prep_minutes }),

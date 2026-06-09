@@ -4,6 +4,7 @@ import { getNextOrderNumber } from '@/app/lib/orders'
 import { getStripe, stripeConfigured } from '@/app/lib/stripe'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { calculateOrderTotals } from '@/app/lib/service-fee'
+import { getOpenStatus } from '@/app/lib/opening-hours'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,23 @@ export async function POST(request: Request) {
     })
     if (!restaurant || restaurant.status !== 'active') {
       return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
+    }
+
+    const openStatus = getOpenStatus(
+      restaurant.opening_hours,
+      restaurant.holiday_mode,
+      restaurant.accept_preorders,
+      restaurant.show_menu_when_closed,
+      restaurant.collection_enabled,
+      restaurant.preorder_days_ahead,
+      restaurant.holiday_message
+    )
+
+    if (!openStatus.canOrder) {
+      return NextResponse.json(
+        { error: openStatus.statusMessage || 'Restaurant is not accepting orders right now' },
+        { status: 400 }
+      )
     }
 
     const subtotal = items.reduce((sum, item) => {
@@ -115,6 +133,8 @@ export async function POST(request: Request) {
         commission_pence: totals.commissionPence,
         stripe_payment_intent_id: paymentIntentId,
         stripe_payment_status: stripe ? 'authorised' : 'captured',
+        is_preorder: openStatus.isPreorderMode,
+        preorder_for: openStatus.isPreorderMode ? openStatus.nextOpenAt : null,
         items: {
           create: items.map((item) => ({
             menu_item_id: item.menuItemId,

@@ -124,6 +124,9 @@ model Restaurant {
   auto_accept_delay_minutes  Int           @default(5)
   accept_timeout_minutes     Int           @default(10)
   collection_enabled         Boolean       @default(true)
+  accept_preorders           Boolean       @default(false)
+  preorder_days_ahead        Int           @default(1)
+  show_menu_when_closed      Boolean       @default(true)
   delivery_enabled           Boolean       @default(false)
   min_order_pence            Int           @default(0)
   avg_prep_minutes           Int           @default(30)
@@ -263,6 +266,8 @@ model OnlineOrder {
   reject_reason            String?
   refund_reason            String?
   refund_amount_pence      Int?
+  is_preorder              Boolean     @default(false)
+  preorder_for             DateTime?
   delivery_address         String?
   delivery_postcode        String?
   created_at               DateTime    @default(now())

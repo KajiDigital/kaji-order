@@ -30,6 +30,9 @@ type Restaurant = {
   holiday_mode: boolean
   holiday_message?: string | null
   collection_enabled: boolean
+  accept_preorders: boolean
+  preorder_days_ahead: number
+  show_menu_when_closed: boolean
   delivery_enabled: boolean
   min_order_pence: number
   avg_prep_minutes: number
@@ -272,6 +275,45 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
         <div className="space-y-4 max-w-lg">
           <Toggle label="Collection enabled" checked={data.collection_enabled} onChange={(v) => save({ collection_enabled: v })} />
           <Toggle label="Delivery enabled (Phase 2)" checked={data.delivery_enabled} onChange={(v) => save({ delivery_enabled: v })} disabled />
+
+          <div className="border-t border-slate-800 pt-4 space-y-4">
+            <p className="text-sm font-medium text-white">When closed</p>
+            <Toggle
+              label="Show menu when closed"
+              checked={data.show_menu_when_closed}
+              onChange={(v) => save({ show_menu_when_closed: v })}
+            />
+            <p className="text-xs text-slate-500 -mt-2">
+              Off: customers see a closed page only. On: menu remains visible.
+            </p>
+            <Toggle
+              label="Accept pre-orders"
+              checked={data.accept_preorders}
+              onChange={(v) => save({ accept_preorders: v })}
+            />
+            <p className="text-xs text-slate-500 -mt-2">
+              On: customers can order outside opening hours. Orders are queued for when you open.
+            </p>
+            {data.accept_preorders && (
+              <div>
+                <label className="text-xs text-slate-400">Accept orders up to (days in advance)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={7}
+                  value={data.preorder_days_ahead}
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      preorder_days_ahead: Math.min(7, Math.max(1, parseInt(e.target.value, 10) || 1)),
+                    })
+                  }
+                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                />
+              </div>
+            )}
+          </div>
+
           <Field label="Min order (£)" value={String(data.min_order_pence / 100)} onChange={(v) => setData({ ...data, min_order_pence: Math.round(parseFloat(v || '0') * 100) })} />
           <Field label="Avg prep time (mins)" value={String(data.avg_prep_minutes)} onChange={(v) => setData({ ...data, avg_prep_minutes: parseInt(v || '30', 10) })} />
           <Toggle label="Auto-accept orders" checked={data.auto_accept_orders} onChange={(v) => save({ auto_accept_orders: v })} />
@@ -282,6 +324,9 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
             avg_prep_minutes: data.avg_prep_minutes,
             auto_accept_delay_minutes: data.auto_accept_delay_minutes,
             accept_timeout_minutes: data.accept_timeout_minutes,
+            accept_preorders: data.accept_preorders,
+            preorder_days_ahead: data.preorder_days_ahead,
+            show_menu_when_closed: data.show_menu_when_closed,
           })} />
         </div>
       )}

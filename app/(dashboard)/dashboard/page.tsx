@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { getSession } from '@/app/lib/auth'
 import prisma from '@/app/lib/prisma'
-import { isRestaurantOpen } from '@/app/lib/hours'
+import { getOpenStatus } from '@/app/lib/opening-hours'
 import { formatPence, formatOrderNumber, getOrderUrl } from '@/app/lib/utils'
 
 export default async function DashboardPage() {
@@ -36,13 +36,24 @@ export default async function DashboardPage() {
   const revenue = todayOrders.reduce((s, o) => s + o.total_pence, 0)
   const commission = todayOrders.reduce((s, o) => s + o.commission_pence, 0)
 
-  const openStatus = isRestaurantOpen(restaurant.opening_hours, restaurant.holiday_mode)
+  const openStatus = getOpenStatus(
+    restaurant.opening_hours,
+    restaurant.holiday_mode,
+    restaurant.accept_preorders,
+    restaurant.show_menu_when_closed,
+    restaurant.collection_enabled,
+    restaurant.preorder_days_ahead,
+    restaurant.holiday_message
+  )
   let statusLabel = 'Open'
   let statusColor = 'bg-emerald-500/20 text-emerald-400'
   if (restaurant.holiday_mode) {
     statusLabel = 'Holiday mode'
     statusColor = 'bg-amber-500/20 text-amber-400'
-  } else if (!openStatus.open) {
+  } else if (openStatus.isPreorderMode) {
+    statusLabel = 'Pre-orders open'
+    statusColor = 'bg-amber-500/20 text-amber-400'
+  } else if (!openStatus.isOpen) {
     statusLabel = 'Closed'
     statusColor = 'bg-slate-500/20 text-slate-400'
   }

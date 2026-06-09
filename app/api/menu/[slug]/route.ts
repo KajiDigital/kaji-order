@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
-import { isRestaurantOpen } from '@/app/lib/hours'
+import { getOpenStatus } from '@/app/lib/opening-hours'
 import { getServiceFeePence } from '@/app/lib/platform'
 
 export const dynamic = 'force-dynamic'
@@ -36,7 +36,15 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const openStatus = isRestaurantOpen(restaurant.opening_hours, restaurant.holiday_mode)
+  const openStatus = getOpenStatus(
+    restaurant.opening_hours,
+    restaurant.holiday_mode,
+    restaurant.accept_preorders,
+    restaurant.show_menu_when_closed,
+    restaurant.collection_enabled,
+    restaurant.preorder_days_ahead,
+    restaurant.holiday_message
+  )
   const serviceFeePence = await getServiceFeePence()
 
   return NextResponse.json({
@@ -53,9 +61,14 @@ export async function GET(_request: Request, { params }: Params) {
       min_order_pence: restaurant.min_order_pence,
       avg_prep_minutes: restaurant.avg_prep_minutes,
       collection_enabled: restaurant.collection_enabled,
+      accept_preorders: restaurant.accept_preorders,
+      show_menu_when_closed: restaurant.show_menu_when_closed,
       service_fee_pence: serviceFeePence,
-      isOpen: openStatus.open,
-      closedReason: openStatus.reason,
+      isLiveOpen: openStatus.isOpen,
+      canOrder: openStatus.canOrder,
+      isPreorderMode: openStatus.isPreorderMode,
+      nextOpenTime: openStatus.nextOpenTime,
+      closedReason: openStatus.closedReason,
     },
     categories: restaurant.menu_categories,
   })

@@ -142,7 +142,8 @@ Webhook: /api/stripe/webhook
 - app/lib/email.ts — Resend order emails
 - app/lib/stripe.ts — Stripe client
 - app/lib/basket.ts — localStorage basket helpers
-- app/lib/hours.ts — Opening hours validation
+- app/lib/opening-hours.ts — UK timezone open/pre-order status (`getOpenStatus`)
+- app/lib/hours.ts — re-exports from opening-hours.ts (deprecated direct use)
 - app/lib/utils.ts — Formatting, slugs, URLs
 - app/lib/orders.ts — Order number + ownership helpers
 
@@ -169,6 +170,19 @@ PENDING → ACCEPTED → PREPARING → READY → COLLECTED
 - CommissionRecord status set to REFUNDED on refund
 - Webhook `charge.refunded` confirms refund in DB
 - Customer email: refund amount + 3–5 working days notice
+
+## Opening Hours and Pre-orders
+- All hour checks use **Europe/London** timezone via `getOpenStatus()` in `app/lib/opening-hours.ts`
+- Supports both hour JSON formats: `{ monday: { openTime, closeTime } }` and `{ mon: { from, to } }`
+- Null/empty `opening_hours` → always open
+- Restaurant settings (Ordering tab):
+  - `show_menu_when_closed` — browse menu when closed vs closed page only
+  - `accept_preorders` — allow checkout outside hours (before open AND after close)
+  - `preorder_days_ahead` — max days ahead for next open slot (1–7)
+  - `collection_enabled` — master ordering switch (blocks all orders when false)
+- Pre-orders stored on `OnlineOrder.is_preorder` + `preorder_for`
+- Only blocked when `holiday_mode` or `collection_enabled = false`
+- Migration: `add_preorder_settings`
 
 ## Commission Tracking
 - Every order records food commission in `commission_pence` (OnlineOrder)
@@ -255,11 +269,15 @@ Restaurant fields added Sprint 10:
 collection_enabled, min_order_pence, avg_prep_minutes,
 auto_accept_delay_minutes, email_notifications, sound_alerts
 
+Restaurant fields added Sprint 11:
+accept_preorders, preorder_days_ahead, show_menu_when_closed
+
 OnlineOrder fields added Sprint 10:
 stripe_payment_status (pending | paid | failed | refunded)
 
 OnlineOrder fields added Sprint 11:
 service_fee_pence (default 49)
+is_preorder, preorder_for
 
 PlatformSettings fields added Sprint 11:
 service_fee_pence (default 49)

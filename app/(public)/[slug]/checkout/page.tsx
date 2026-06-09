@@ -68,6 +68,8 @@ export default function CheckoutPage() {
   const [devMode, setDevMode] = useState(false)
   const [loading, setLoading] = useState(false)
   const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
+  const [isPreorderMode, setIsPreorderMode] = useState(false)
+  const [nextOpenTime, setNextOpenTime] = useState<string | null>(null)
 
   useEffect(() => {
     const basket = getBasket(slug)
@@ -79,7 +81,14 @@ export default function CheckoutPage() {
     setNotes(basket.orderNotes ?? '')
     fetch(`/api/menu/${slug}`)
       .then((r) => r.json())
-      .then((d) => setServiceFeePence(d.restaurant?.service_fee_pence ?? DEFAULT_SERVICE_FEE_PENCE))
+      .then((d) => {
+        setServiceFeePence(d.restaurant?.service_fee_pence ?? DEFAULT_SERVICE_FEE_PENCE)
+        setIsPreorderMode(Boolean(d.restaurant?.isPreorderMode))
+        setNextOpenTime(d.restaurant?.nextOpenTime ?? null)
+        if (!d.restaurant?.canOrder) {
+          router.push(`/${slug}/basket`)
+        }
+      })
   }, [slug, router])
 
   const subtotal = basketSubtotal(items)
@@ -138,6 +147,12 @@ export default function CheckoutPage() {
         <div>
           <Link href={`/${slug}/basket`} className="text-sm text-violet-600">← Back to basket</Link>
           <h1 className="text-2xl font-bold text-slate-900 mt-4">Checkout</h1>
+          {isPreorderMode && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Pre-order — your order will be prepared when we open
+              {nextOpenTime ? ` at ${nextOpenTime}` : ''}.
+            </div>
+          )}
           <div className="mt-6 space-y-4">
             <input required placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
             <input required type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded-xl px-4 py-3" />

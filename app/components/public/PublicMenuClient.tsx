@@ -207,7 +207,7 @@ export function PublicMenuClient({
     modifiers: BasketModifier[],
     notes: string
   ) {
-    if (!restaurant.isOpen) return
+    if (!canOrder) return
     const item: BasketItem = {
       id: `${product.id}-${Date.now()}`,
       menuItemId: product.id,
@@ -240,12 +240,21 @@ export function PublicMenuClient({
     carouselRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' })
   }
 
-  const canOrder = restaurant.isOpen
+  const canOrder = restaurant.canOrder
+  const isLiveOpen = restaurant.isLiveOpen
+  const isPreorderMode = restaurant.isPreorderMode
   const closedNotice = restaurant.closedNotice ?? {
     title: "We're currently closed",
     description:
       'You can browse our menu below. Please come back during opening hours to place an order.',
+    badge: 'Browse only',
   }
+
+  const statusBadge = isLiveOpen
+    ? { label: 'Open', className: 'bg-emerald-500' }
+    : isPreorderMode
+      ? { label: 'Pre-order', className: 'bg-amber-500' }
+      : { label: 'Closed', className: 'bg-stone-600' }
 
   const cartPanelProps = {
     slug: restaurant.slug,
@@ -304,11 +313,9 @@ export function PublicMenuClient({
               )}
             </div>
             <span
-              className={`mb-1 shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-white shadow ${
-                canOrder ? 'bg-emerald-500' : 'bg-stone-600'
-              }`}
+              className={`mb-1 shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-white shadow ${statusBadge.className}`}
             >
-              {canOrder ? 'Open' : 'Closed'}
+              {statusBadge.label}
             </span>
           </div>
         </div>
@@ -354,7 +361,7 @@ export function PublicMenuClient({
         </div>
       </div>
 
-      {!canOrder && (
+      {!isLiveOpen && (
         <div className="border-b border-stone-200 bg-white px-4 py-4 sm:px-6">
           <div className="mx-auto flex max-w-7xl items-start gap-4 rounded-xl border border-stone-200 bg-stone-50 p-4 shadow-sm sm:items-center">
             <div
@@ -378,7 +385,7 @@ export function PublicMenuClient({
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-stone-600">
-              Browse only
+              {closedNotice.badge ?? (canOrder ? 'Pre-order' : 'Browse only')}
             </span>
           </div>
         </div>

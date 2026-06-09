@@ -2,9 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
 import prisma from '@/app/lib/prisma'
-import { isRestaurantOpen, getClosedStatusMessage } from '@/app/lib/hours'
+import { getOpenStatus } from '@/app/lib/opening-hours'
 import { getPrimaryColor, getSecondaryColor, shouldShowPoweredBy } from '@/app/lib/branding'
 import { PublicMenuClient } from '@/app/components/public/PublicMenuClient'
+import { PublicClosedPage } from '@/app/components/public/PublicClosedPage'
+import { getServiceFeePence } from '@/app/lib/platform'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -34,15 +36,31 @@ export default async function PublicMenuPage({ params }: Params) {
 
   if (!restaurant || restaurant.status !== 'active' || restaurant.deleted_at) notFound()
 
-  const openStatus = isRestaurantOpen(restaurant.opening_hours, restaurant.holiday_mode)
-  const closedNotice = !openStatus.open
-    ? getClosedStatusMessage(
-        restaurant.opening_hours,
-        restaurant.holiday_mode,
-        restaurant.holiday_message,
-        openStatus.reason
-      )
-    : undefined
+  const serviceFeePence = await getServiceFeePence()
+  const openStatus = getOpenStatus(
+    restaurant.opening_hours,
+    restaurant.holiday_mode,
+    restaurant.accept_preorders,
+    restaurant.show_menu_when_closed,
+    restaurant.collection_enabled,
+    restaurant.preorder_days_ahead,
+    restaurant.holiday_message
+  )
+
+  const primaryColor = getPrimaryColor(restaurant)
+
+  if (!openStatus.showMenu) {
+    return (
+      <PublicClosedPage
+        slug={restaurant.slug}
+        name={restaurant.name}
+        primaryColor={primaryColor}
+        statusMessage={openStatus.statusMessage}
+        nextOpenTime={openStatus.nextOpenTime}
+        nextOpenDay={openStatus.nextOpenDay}
+      />
+    )
+  }
 
   return (
     <PublicMenuClient
@@ -52,19 +70,25 @@ export default async function PublicMenuPage({ params }: Params) {
         description: restaurant.description,
         logo_url: restaurant.logo_url,
         banner_url: restaurant.banner_url,
-        primary_color: getPrimaryColor(restaurant),
+        primary_color: primaryColor,
         secondary_color: getSecondaryColor(restaurant),
         font_choice: restaurant.font_choice ?? 'default',
         show_powered_by: shouldShowPoweredBy(restaurant),
         phone: restaurant.phone,
         email: restaurant.email,
-        isOpen: openStatus.open && restaurant.collection_enabled,
-        closedReason: openStatus.reason,
-        closedNotice,
+        isLiveOpen: openStatus.isOpen,
+        canOrder: openStatus.canOrder,
+        isPreorderMode: openStatus.isPreorderMode,
+        closedReason: openStatus.closedReason,
+        closedNotice: openStatus.banner
+          ? { title: openStatus.banner.title, description: openStatus.banner.description, badge: openStatus.banner.badge }
+          : undefined,
+        nextOpenTime: openStatus.nextOpenTime,
         holiday_mode: restaurant.holiday_mode,
         holiday_message: restaurant.holiday_message,
         min_order_pence: restaurant.min_order_pence,
         avg_prep_minutes: restaurant.avg_prep_minutes,
+        service_fee_pence: serviceFeePence,
       }}
       categories={restaurant.menu_categories}
     />

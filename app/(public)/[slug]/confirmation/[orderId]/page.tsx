@@ -25,6 +25,21 @@ export default async function ConfirmationPage({ params }: Params) {
         <h1 className="text-2xl font-bold text-slate-900">Order confirmed!</h1>
         <p className="text-violet-600 font-semibold mt-2">{formatOrderNumber(order.order_number)}</p>
         <p className="text-slate-600 mt-1">{order.restaurant.name}</p>
+        {order.is_preorder && (
+          <p className="text-amber-700 text-sm mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+            Pre-order confirmed — we&apos;ll prepare your order when we open
+            {order.preorder_for
+              ? ` (${order.preorder_for.toLocaleString('en-GB', {
+                  timeZone: 'Europe/London',
+                  weekday: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true,
+                })})`
+              : ''}
+            .
+          </p>
+        )}
 
         <ul className="mt-6 text-left text-sm space-y-1">
           {order.items.map((item) => (

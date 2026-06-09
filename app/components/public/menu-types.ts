@@ -43,12 +43,15 @@ export type Restaurant = {
   show_powered_by: boolean
   phone?: string | null
   email?: string | null
-  isOpen: boolean
+  isLiveOpen: boolean
+  canOrder: boolean
+  isPreorderMode: boolean
   closedReason?: string
-  closedNotice?: { title: string; description: string }
-  opening_hours?: unknown
+  closedNotice?: { title: string; description: string; badge?: string }
+  nextOpenTime?: string | null
   holiday_mode: boolean
   holiday_message?: string | null
   min_order_pence: number
   avg_prep_minutes: number
+  service_fee_pence?: number
 }

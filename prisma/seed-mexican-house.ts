@@ -555,10 +555,23 @@ async function main() {
       primary_color: '#c2410c',
       brand_color: '#c2410c',
       banner_url: null,
+      show_menu_when_closed: true,
+      accept_preorders: false,
+      preorder_days_ahead: 1,
+      collection_enabled: true,
+      opening_hours: {
+        mon: { open: true, from: '11:00', to: '22:00' },
+        tue: { open: true, from: '11:00', to: '22:00' },
+        wed: { open: true, from: '11:00', to: '22:00' },
+        thu: { open: true, from: '11:00', to: '22:00' },
+        fri: { open: true, from: '11:00', to: '23:00' },
+        sat: { open: true, from: '11:00', to: '23:00' },
+        sun: { open: true, from: '12:00', to: '22:00' },
+      },
     },
   })
 
-  console.log('Updated Mexican House branding: primary_color=#c2410c')
+  console.log('Updated Mexican House branding and opening hours')
 }
 
 main()

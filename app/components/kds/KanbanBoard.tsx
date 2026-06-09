@@ -26,6 +26,8 @@ type Order = {
   stripe_payment_status: string
   refund_reason?: string | null
   refund_amount_pence?: number | null
+  is_preorder: boolean
+  preorder_for?: string | null
   delivery_address?: string | null
   created_at: string
   items: OrderItem[]
@@ -61,6 +63,78 @@ function playAlertSound() {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatPreorderTime(iso: string | null | undefined) {
+  if (!iso) return 'opening time'
+  return new Date(iso).toLocaleString('en-GB', {
+    timeZone: 'Europe/London',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function renderOrderCard(
+  order: Order,
+  col: (typeof COLUMNS)[number],
+  onSelect: (order: Order) => void,
+  action: (id: string, endpoint: string, body?: object) => Promise<void>,
+  setSelected: (order: Order) => void,
+  settings: RestaurantSettings
+) {
+  return (
+    <button
+      key={order.id}
+      type="button"
+      onClick={() => onSelect(order)}
+      className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-violet-500 transition-colors"
+    >
+      <div className="flex justify-between items-start">
+        <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
+        <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
+          {order.order_type}
+        </span>
+      </div>
+      {order.is_preorder && (
+        <p className="text-xs text-amber-400 mt-1">
+          🕐 Pre-order for {formatPreorderTime(order.preorder_for)}
+        </p>
+      )}
+      <p className="text-sm text-slate-300 mt-1">{order.customer_name}</p>
+      <p className="text-xs text-slate-500 mt-1 truncate">
+        {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+      </p>
+      <p className="text-sm font-medium text-violet-400 mt-2">{formatPence(order.total_pence)}</p>
+      <p className="text-xs text-slate-500">{formatTime(order.created_at)}</p>
+      {col === 'PENDING' && !order.is_preorder && (
+        <Countdown
+          createdAt={order.created_at}
+          timeoutMinutes={settings.accept_timeout_minutes}
+          autoAccept={settings.auto_accept_orders}
+          autoDelayMinutes={settings.auto_accept_delay_minutes}
+        />
+      )}
+      <div className="flex flex-wrap gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
+        {col === 'PENDING' && (
+          <>
+            <ActionBtn label="Accept" onClick={() => action(order.id, 'accept')} />
+            <ActionBtn label="Reject" variant="danger" onClick={() => setSelected(order)} />
+          </>
+        )}
+        {col === 'ACCEPTED' && (
+          <ActionBtn label="Start Preparing" onClick={() => action(order.id, 'preparing')} />
+        )}
+        {col === 'PREPARING' && (
+          <ActionBtn label="Mark Ready" onClick={() => action(order.id, 'ready')} />
+        )}
+        {col === 'READY' && (
+          <ActionBtn label="Collected" onClick={() => action(order.id, 'collected')} />
+        )}
+      </div>
+    </button>
+  )
 }
 
 function Countdown({
@@ -256,61 +330,37 @@ export function KanbanBoard({
 
       {view === 'live' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {COLUMNS.map((col) => (
-            <div key={col} className="bg-slate-900/50 rounded-xl p-3 min-h-[200px]">
-              <h2 className="text-xs font-semibold text-slate-400 mb-3 tracking-wide">{col}</h2>
-              <div className="space-y-3">
-                {orders
-                  .filter((o) => o.status === col)
-                  .map((order) => (
-                    <button
-                      key={order.id}
-                      type="button"
-                      onClick={() => setSelected(order)}
-                      className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-violet-500 transition-colors"
-                    >
-                      <div className="flex justify-between items-start">
-                        <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
-                          {order.order_type}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-300 mt-1">{order.customer_name}</p>
-                      <p className="text-xs text-slate-500 mt-1 truncate">
-                        {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+          {COLUMNS.map((col) => {
+            const colOrders = orders.filter((o) => o.status === col)
+            const preorders = col === 'PENDING' ? colOrders.filter((o) => o.is_preorder) : []
+            const regular = col === 'PENDING' ? colOrders.filter((o) => !o.is_preorder) : colOrders
+
+            return (
+              <div key={col} className="bg-slate-900/50 rounded-xl p-3 min-h-[200px]">
+                <h2 className="text-xs font-semibold text-slate-400 mb-3 tracking-wide">
+                  {col}
+                  {col === 'PENDING' && preorders.length > 0 && (
+                    <span className="ml-2 text-amber-400">({preorders.length} pre-orders)</span>
+                  )}
+                </h2>
+                <div className="space-y-3">
+                  {col === 'PENDING' && preorders.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+                        Pre-orders waiting
                       </p>
-                      <p className="text-sm font-medium text-violet-400 mt-2">{formatPence(order.total_pence)}</p>
-                      <p className="text-xs text-slate-500">{formatTime(order.created_at)}</p>
-                      {col === 'PENDING' && (
-                        <Countdown
-                          createdAt={order.created_at}
-                          timeoutMinutes={settings.accept_timeout_minutes}
-                          autoAccept={settings.auto_accept_orders}
-                          autoDelayMinutes={settings.auto_accept_delay_minutes}
-                        />
+                      {preorders.map((order) =>
+                        renderOrderCard(order, col, setSelected, action, setSelected, settings)
                       )}
-                      <div className="flex flex-wrap gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
-                        {col === 'PENDING' && (
-                          <>
-                            <ActionBtn label="Accept" onClick={() => action(order.id, 'accept')} />
-                            <ActionBtn label="Reject" variant="danger" onClick={() => setSelected(order)} />
-                          </>
-                        )}
-                        {col === 'ACCEPTED' && (
-                          <ActionBtn label="Start Preparing" onClick={() => action(order.id, 'preparing')} />
-                        )}
-                        {col === 'PREPARING' && (
-                          <ActionBtn label="Mark Ready" onClick={() => action(order.id, 'ready')} />
-                        )}
-                        {col === 'READY' && (
-                          <ActionBtn label="Collected" onClick={() => action(order.id, 'collected')} />
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                    </div>
+                  )}
+                  {regular.map((order) =>
+                    renderOrderCard(order, col, setSelected, action, setSelected, settings)
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="space-y-3">
@@ -361,6 +411,11 @@ export function KanbanBoard({
               <p className="text-sm text-slate-400 mt-2">{selected.delivery_address}</p>
             )}
             {selected.notes && <p className="text-sm text-amber-400 mt-2">Notes: {selected.notes}</p>}
+            {selected.is_preorder && (
+              <p className="text-sm text-amber-400 mt-2">
+                Pre-order for {formatPreorderTime(selected.preorder_for)}
+              </p>
+            )}
             {selected.refund_reason && (
               <p className="text-sm text-red-400 mt-2">Refund reason: {selected.refund_reason}</p>
             )}
