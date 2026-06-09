@@ -122,6 +122,8 @@ Webhook: /api/stripe/webhook
 | /api/orders/[id]/preparing | POST | Mark preparing |
 | /api/orders/[id]/ready | POST | Mark ready |
 | /api/orders/[id]/collected | POST | Mark collected |
+| /api/orders/[id]/refund | POST | Cancel or refund payment |
+| /api/admin/orders/[id]/refund | POST | Admin refund (partial OK) |
 | /api/restaurant/settings | GET, PATCH | Restaurant settings |
 | /api/stripe/create-intent | POST | Payment + order creation |
 | /api/stripe/webhook | POST | Payment confirmation |
@@ -155,8 +157,18 @@ Webhook: /api/stripe/webhook
 
 ## Order Statuses
 PENDING → ACCEPTED → PREPARING → READY → COLLECTED
-         → REJECTED (with reason + auto refund)
-         → CANCELLED (customer or timeout)
+         → REJECTED (with reason)
+         → CANCELLED (payment cancelled before capture)
+         → REFUNDED (payment refunded after capture)
+
+## Refunds
+- POST `/api/orders/[id]/refund` — restaurant staff (full refund only)
+- POST `/api/admin/orders/[id]/refund` — admin override (partial allowed)
+- Payment phases: `authorised` (cancel PI) | `captured` (Stripe refund) | `cancelled` | `refunded`
+- Legacy statuses `pending`/`paid` map to authorised/captured
+- CommissionRecord status set to REFUNDED on refund
+- Webhook `charge.refunded` confirms refund in DB
+- Customer email: refund amount + 3–5 working days notice
 
 ## Commission Tracking
 - Every order records food commission in `commission_pence` (OnlineOrder)

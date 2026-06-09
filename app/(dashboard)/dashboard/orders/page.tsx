@@ -24,6 +24,7 @@ export default async function OrdersPage() {
   const serialized = orders.map((o) => ({
     ...o,
     created_at: o.created_at.toISOString(),
+    stripe_payment_status: o.stripe_payment_status,
   }))
 
   return (

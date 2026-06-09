@@ -180,3 +180,30 @@ export async function sendRegistrationRejected(
 
   await resend.emails.send({ from: fromEmail, to, subject, html })
 }
+
+type RefundEmailData = {
+  customerName: string
+  restaurantName: string
+  orderNumber: number
+  amountPence: number
+}
+
+export async function sendRefundConfirmation(
+  to: string,
+  data: RefundEmailData
+): Promise<void> {
+  const subject = `Refund processed — ${formatOrderNumber(data.orderNumber)}`
+  const html = `
+    <h2>Refund processed</h2>
+    <p>Hi ${data.customerName},</p>
+    <p>Your refund of <strong>${formatPence(data.amountPence)}</strong> for order ${formatOrderNumber(data.orderNumber)} at <strong>${data.restaurantName}</strong> has been processed.</p>
+    <p>Please allow 3–5 working days for the refund to appear in your account.</p>
+  `
+
+  if (!resend) {
+    console.log('[email] sendRefundConfirmation (no RESEND_API_KEY):', { to, subject })
+    return
+  }
+
+  await resend.emails.send({ from: fromEmail, to, subject, html })
+}

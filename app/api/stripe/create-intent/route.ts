@@ -114,7 +114,7 @@ export async function POST(request: Request) {
         commission_pct: restaurant.commission_pct,
         commission_pence: totals.commissionPence,
         stripe_payment_intent_id: paymentIntentId,
-        stripe_payment_status: stripe ? 'pending' : 'paid',
+        stripe_payment_status: stripe ? 'authorised' : 'captured',
         items: {
           create: items.map((item) => ({
             menu_item_id: item.menuItemId,

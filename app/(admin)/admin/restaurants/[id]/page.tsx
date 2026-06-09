@@ -66,6 +66,9 @@ export default async function AdminRestaurantPage({ params }: Params) {
           customer_name: o.customer_name,
           total_pence: o.total_pence,
           status: o.status,
+          stripe_payment_status: o.stripe_payment_status,
+          refund_reason: o.refund_reason,
+          refund_amount_pence: o.refund_amount_pence,
           created_at: o.created_at.toISOString(),
         })),
       }}

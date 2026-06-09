@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatOrderNumber, formatPence } from '@/app/lib/utils'
+import { canRefundOrder } from '@/app/lib/refunds'
+import { RefundDialog } from './RefundDialog'
 
 type OrderItem = {
   id: string
@@ -21,6 +23,9 @@ type Order = {
   customer_email: string
   notes?: string | null
   total_pence: number
+  stripe_payment_status: string
+  refund_reason?: string | null
+  refund_amount_pence?: number | null
   delivery_address?: string | null
   created_at: string
   items: OrderItem[]
@@ -103,12 +108,15 @@ export function KanbanBoard({
   settings: RestaurantSettings
 }) {
   const [orders, setOrders] = useState(initialOrders)
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([])
+  const [view, setView] = useState<'live' | 'refunded'>('live')
   const [selected, setSelected] = useState<Order | null>(null)
+  const [refundTarget, setRefundTarget] = useState<Order | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const knownPending = useRef(new Set(initialOrders.filter((o) => o.status === 'PENDING').map((o) => o.id)))
 
   const fetchOrders = useCallback(async () => {
-    const res = await fetch('/api/orders')
+    const res = await fetch('/api/orders?view=active')
     if (!res.ok) return
     const data = await res.json()
     const newOrders: Order[] = data.orders
@@ -132,6 +140,13 @@ export function KanbanBoard({
     setOrders(newOrders)
   }, [settings.sound_alerts])
 
+  const fetchHistory = useCallback(async () => {
+    const res = await fetch('/api/orders?view=refunded')
+    if (!res.ok) return
+    const data = await res.json()
+    setHistoryOrders(data.orders)
+  }, [])
+
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission()
@@ -140,12 +155,14 @@ export function KanbanBoard({
 
   useEffect(() => {
     const poll = setInterval(fetchOrders, 15000)
-    const fastPoll = setInterval(fetchOrders, 10000)
-    return () => {
-      clearInterval(poll)
-      clearInterval(fastPoll)
-    }
+    return () => clearInterval(poll)
   }, [fetchOrders])
+
+  useEffect(() => {
+    if (view === 'refunded') {
+      fetchHistory()
+    }
+  }, [view, fetchHistory])
 
   useEffect(() => {
     const timers = orders
@@ -184,73 +201,151 @@ export function KanbanBoard({
     setSelected(null)
   }
 
+  async function handleRefund(reason: string, _amountPence?: number) {
+    if (!refundTarget) return
+    const res = await fetch(`/api/orders/${refundTarget.id}/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.error ?? 'Refund failed')
+    }
+    await fetchOrders()
+    await fetchHistory()
+    setSelected(null)
+  }
+
+  const showRefundButton = (order: Order) =>
+    canRefundOrder(order.status, order.stripe_payment_status as never)
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Orders</h1>
-        <span className="flex items-center gap-2 text-sm text-emerald-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          Live
-        </span>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1 bg-slate-900 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setView('live')}
+              className={`px-3 py-1.5 rounded-md text-sm ${
+                view === 'live' ? 'bg-violet-600 text-white' : 'text-slate-400'
+              }`}
+            >
+              Live
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('refunded')}
+              className={`px-3 py-1.5 rounded-md text-sm ${
+                view === 'refunded' ? 'bg-violet-600 text-white' : 'text-slate-400'
+              }`}
+            >
+              Refunded
+            </button>
+          </div>
+          {view === 'live' && (
+            <span className="flex items-center gap-2 text-sm text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Live
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {COLUMNS.map((col) => (
-          <div key={col} className="bg-slate-900/50 rounded-xl p-3 min-h-[200px]">
-            <h2 className="text-xs font-semibold text-slate-400 mb-3 tracking-wide">{col}</h2>
-            <div className="space-y-3">
-              {orders
-                .filter((o) => o.status === col)
-                .map((order) => (
-                  <button
-                    key={order.id}
-                    type="button"
-                    onClick={() => setSelected(order)}
-                    className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-violet-500 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
-                        {order.order_type}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-300 mt-1">{order.customer_name}</p>
-                    <p className="text-xs text-slate-500 mt-1 truncate">
-                      {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
-                    </p>
-                    <p className="text-sm font-medium text-violet-400 mt-2">{formatPence(order.total_pence)}</p>
-                    <p className="text-xs text-slate-500">{formatTime(order.created_at)}</p>
-                    {col === 'PENDING' && (
-                      <Countdown
-                        createdAt={order.created_at}
-                        timeoutMinutes={settings.accept_timeout_minutes}
-                        autoAccept={settings.auto_accept_orders}
-                        autoDelayMinutes={settings.auto_accept_delay_minutes}
-                      />
-                    )}
-                    <div className="flex flex-wrap gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
+      {view === 'live' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {COLUMNS.map((col) => (
+            <div key={col} className="bg-slate-900/50 rounded-xl p-3 min-h-[200px]">
+              <h2 className="text-xs font-semibold text-slate-400 mb-3 tracking-wide">{col}</h2>
+              <div className="space-y-3">
+                {orders
+                  .filter((o) => o.status === col)
+                  .map((order) => (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => setSelected(order)}
+                      className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-violet-500 transition-colors"
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
+                          {order.order_type}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-300 mt-1">{order.customer_name}</p>
+                      <p className="text-xs text-slate-500 mt-1 truncate">
+                        {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+                      </p>
+                      <p className="text-sm font-medium text-violet-400 mt-2">{formatPence(order.total_pence)}</p>
+                      <p className="text-xs text-slate-500">{formatTime(order.created_at)}</p>
                       {col === 'PENDING' && (
-                        <>
-                          <ActionBtn label="Accept" onClick={() => action(order.id, 'accept')} />
-                          <ActionBtn label="Reject" variant="danger" onClick={() => setSelected(order)} />
-                        </>
+                        <Countdown
+                          createdAt={order.created_at}
+                          timeoutMinutes={settings.accept_timeout_minutes}
+                          autoAccept={settings.auto_accept_orders}
+                          autoDelayMinutes={settings.auto_accept_delay_minutes}
+                        />
                       )}
-                      {col === 'ACCEPTED' && (
-                        <ActionBtn label="Start Preparing" onClick={() => action(order.id, 'preparing')} />
-                      )}
-                      {col === 'PREPARING' && (
-                        <ActionBtn label="Mark Ready" onClick={() => action(order.id, 'ready')} />
-                      )}
-                      {col === 'READY' && (
-                        <ActionBtn label="Collected" onClick={() => action(order.id, 'collected')} />
-                      )}
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex flex-wrap gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
+                        {col === 'PENDING' && (
+                          <>
+                            <ActionBtn label="Accept" onClick={() => action(order.id, 'accept')} />
+                            <ActionBtn label="Reject" variant="danger" onClick={() => setSelected(order)} />
+                          </>
+                        )}
+                        {col === 'ACCEPTED' && (
+                          <ActionBtn label="Start Preparing" onClick={() => action(order.id, 'preparing')} />
+                        )}
+                        {col === 'PREPARING' && (
+                          <ActionBtn label="Mark Ready" onClick={() => action(order.id, 'ready')} />
+                        )}
+                        {col === 'READY' && (
+                          <ActionBtn label="Collected" onClick={() => action(order.id, 'collected')} />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {historyOrders.length === 0 && (
+            <p className="text-slate-500 text-sm">No refunded or cancelled orders yet.</p>
+          )}
+          {historyOrders.map((order) => (
+            <button
+              key={order.id}
+              type="button"
+              onClick={() => setSelected(order)}
+              className="w-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-red-500/50"
+            >
+              <div className="flex justify-between items-start gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
+                    <span className="text-xs px-2 py-0.5 rounded bg-red-600/20 text-red-400">
+                      {order.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-300 mt-1">{order.customer_name}</p>
+                  {order.refund_reason && (
+                    <p className="text-xs text-red-300 mt-1">Reason: {order.refund_reason}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-white">{formatPence(order.refund_amount_pence ?? order.total_pence)}</p>
+                  <p className="text-xs text-slate-500">{formatTime(order.created_at)}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
       {selected && (
         <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center p-4 z-50">
@@ -266,6 +361,9 @@ export function KanbanBoard({
               <p className="text-sm text-slate-400 mt-2">{selected.delivery_address}</p>
             )}
             {selected.notes && <p className="text-sm text-amber-400 mt-2">Notes: {selected.notes}</p>}
+            {selected.refund_reason && (
+              <p className="text-sm text-red-400 mt-2">Refund reason: {selected.refund_reason}</p>
+            )}
             <ul className="mt-4 space-y-2">
               {selected.items.map((item) => (
                 <li key={item.id} className="flex justify-between text-sm">
@@ -294,8 +392,28 @@ export function KanbanBoard({
                 </button>
               </div>
             )}
+            {showRefundButton(selected) && (
+              <button
+                type="button"
+                onClick={() => setRefundTarget(selected)}
+                className="w-full mt-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm hover:bg-red-600/30"
+              >
+                Refund {formatPence(selected.total_pence)}
+              </button>
+            )}
           </div>
         </div>
+      )}
+
+      {refundTarget && (
+        <RefundDialog
+          customerName={refundTarget.customer_name}
+          amountPence={refundTarget.total_pence}
+          onConfirm={handleRefund}
+          onClose={() => {
+            setRefundTarget(null)
+          }}
+        />
       )}
     </div>
   )

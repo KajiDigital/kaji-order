@@ -7,6 +7,7 @@ import {
   sendRestaurantNewOrder,
 } from '@/app/lib/email'
 import { getAppUrl } from '@/app/lib/utils'
+import { markOrderRefundedFromStripe } from '@/app/lib/refund-order'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     if (order) {
       await prisma.onlineOrder.update({
         where: { id: order.id },
-        data: { stripe_payment_status: 'paid' },
+        data: { stripe_payment_status: 'captured' },
       })
 
       const emailData = {
@@ -72,6 +73,18 @@ export async function POST(request: Request) {
           dashboardUrl: `${getAppUrl()}/dashboard/orders`,
         })
       }
+    }
+  }
+
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object
+    const paymentIntentId =
+      typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent?.id
+
+    if (paymentIntentId) {
+      await markOrderRefundedFromStripe(paymentIntentId)
     }
   }
 

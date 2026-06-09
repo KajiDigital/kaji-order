@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatOrderNumber, formatPence, getOrderUrl } from '@/app/lib/utils'
 import { DEFAULT_PRIMARY, FONT_OPTIONS } from '@/app/lib/branding'
+import { canRefundOrder } from '@/app/lib/refunds'
+import { RefundDialog } from '@/app/components/kds/RefundDialog'
 
 type Order = {
   id: string
@@ -12,6 +14,9 @@ type Order = {
   customer_name: string
   total_pence: number
   status: string
+  stripe_payment_status: string
+  refund_reason?: string | null
+  refund_amount_pence?: number | null
   created_at: string
 }
 
@@ -104,6 +109,7 @@ export function AdminRestaurantDetail({
   const [saving, setSaving] = useState(false)
   const [savingBranding, setSavingBranding] = useState(false)
   const [message, setMessage] = useState('')
+  const [refundTarget, setRefundTarget] = useState<Order | null>(null)
 
   async function saveAll() {
     setSaving(true)
@@ -180,6 +186,22 @@ export function AdminRestaurantDetail({
     }
     router.refresh()
     setMessage(`Action completed: ${path}`)
+  }
+
+  async function handleAdminRefund(reason: string, amountPence?: number) {
+    if (!refundTarget) return
+    const res = await fetch(`/api/admin/orders/${refundTarget.id}/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason, amount_pence: amountPence }),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      throw new Error(json.error ?? 'Refund failed')
+    }
+    router.refresh()
+    setRefundTarget(null)
+    setMessage('Refund processed successfully')
   }
 
   return (
@@ -376,15 +398,31 @@ export function AdminRestaurantDetail({
         <h2 className="font-semibold text-white mb-4">Recent orders</h2>
         <div className="space-y-2">
           {data.orders.map((order) => (
-            <div key={order.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex justify-between">
-              <div>
-                <p className="text-white font-medium">{formatOrderNumber(order.order_number)}</p>
-                <p className="text-sm text-slate-400">{order.customer_name}</p>
+            <div key={order.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+              <div className="flex justify-between gap-4">
+                <div>
+                  <p className="text-white font-medium">{formatOrderNumber(order.order_number)}</p>
+                  <p className="text-sm text-slate-400">{order.customer_name}</p>
+                  {order.refund_reason && (
+                    <p className="text-xs text-red-400 mt-1">Refund: {order.refund_reason}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-white">{formatPence(order.total_pence)}</p>
+                  <p className={`text-xs ${order.status === 'REFUNDED' || order.status === 'CANCELLED' ? 'text-red-400' : 'text-slate-500'}`}>
+                    {order.status}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-white">{formatPence(order.total_pence)}</p>
-                <p className="text-xs text-slate-500">{order.status}</p>
-              </div>
+              {canRefundOrder(order.status, order.stripe_payment_status as never) && (
+                <button
+                  type="button"
+                  onClick={() => setRefundTarget(order)}
+                  className="mt-3 px-3 py-1.5 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/30"
+                >
+                  Refund
+                </button>
+              )}
             </div>
           ))}
           {data.orders.length === 0 && (
@@ -392,6 +430,17 @@ export function AdminRestaurantDetail({
           )}
         </div>
       </section>
+
+      {refundTarget && (
+        <RefundDialog
+          customerName={refundTarget.customer_name}
+          amountPence={refundTarget.total_pence}
+          maxAmountPence={refundTarget.total_pence}
+          allowPartial
+          onConfirm={handleAdminRefund}
+          onClose={() => setRefundTarget(null)}
+        />
+      )}
     </div>
   )
 }

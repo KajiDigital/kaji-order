@@ -39,6 +39,7 @@ enum OrderStatus {
   COLLECTED
   REJECTED
   CANCELLED
+  REFUNDED
 }
 
 enum OrderType {
@@ -50,6 +51,7 @@ enum CommissionStatus {
   PENDING
   PAID
   OVERDUE
+  REFUNDED
 }
 
 enum PostcodeRuleType {
@@ -59,8 +61,11 @@ enum PostcodeRuleType {
 
 enum StripePaymentStatus {
   pending
+  authorised
   paid
+  captured
   failed
+  cancelled
   refunded
 }
 
@@ -256,6 +261,8 @@ model OnlineOrder {
   stripe_payment_status    StripePaymentStatus @default(pending)
   estimated_ready_at       DateTime?
   reject_reason            String?
+  refund_reason            String?
+  refund_amount_pence      Int?
   delivery_address         String?
   delivery_postcode        String?
   created_at               DateTime    @default(now())
