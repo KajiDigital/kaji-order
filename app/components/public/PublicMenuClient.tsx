@@ -13,6 +13,7 @@ import {
 } from '@/app/lib/basket'
 import { CartPanel } from './CartPanel'
 import { ProductModal } from './ProductModal'
+import { PromotionsBanner } from './PromotionsBanner'
 import type { Category, MenuPromotion, Product, Restaurant } from './menu-types'
 import { getFontClass } from '@/app/lib/branding'
 
@@ -165,10 +166,12 @@ export function PublicMenuClient({
   restaurant,
   categories,
   promotions = [],
+  promotionBannerMessages = [],
 }: {
   restaurant: Restaurant
   categories: Category[]
   promotions?: MenuPromotion[]
+  promotionBannerMessages?: string[]
 }) {
   const primary = restaurant.primary_color
   const fontClass = getFontClass(restaurant.font_choice)
@@ -378,7 +381,9 @@ export function PublicMenuClient({
         </div>
       </div>
 
-      {orderPromos.length > 0 && (
+      <PromotionsBanner messages={promotionBannerMessages} />
+
+      {orderPromos.length > 0 && promotionBannerMessages.length === 0 && (
         <div className="border-b border-stone-200 bg-white px-4 py-3 sm:px-6">
           <div className="mx-auto flex max-w-7xl flex-wrap gap-2">
             {orderPromos.map((p) => (

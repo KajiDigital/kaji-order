@@ -17,12 +17,16 @@ import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreak
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 
 function buildPromoItems(items: BasketItem[]) {
-  return items.map((i) => ({
-    menuItemId: i.menuItemId,
-    categoryId: i.categoryId ?? '',
-    quantity: i.quantity,
-    lineTotalPence: itemLineTotal(i),
-  }))
+  return items.map((i) => {
+    const mods = i.modifiers.reduce((s, m) => s + m.priceDeltaPence, 0)
+    return {
+      menuItemId: i.menuItemId,
+      categoryId: i.categoryId ?? '',
+      quantity: i.quantity,
+      lineTotalPence: itemLineTotal(i),
+      unitPricePence: i.pricePence + mods,
+    }
+  })
 }
 
 export default function BasketPage() {
@@ -41,6 +45,12 @@ export default function BasketPage() {
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
   const [autoMessage, setAutoMessage] = useState('')
+  const [promoHints, setPromoHints] = useState<string[]>([])
+  const [freeItemClaim, setFreeItemClaim] = useState<{
+    itemId: string
+    itemName: string
+    pricePence: number
+  } | null>(null)
 
   const persistBasket = useCallback(
     (nextItems: BasketItem[], notes: string, discount: AppliedDiscount | null) => {
@@ -53,6 +63,26 @@ export default function BasketPage() {
       })
     },
     [slug]
+  )
+
+  const fetchHints = useCallback(
+    async (nextItems: BasketItem[]) => {
+      if (!restaurantId) return
+      const subtotal = basketSubtotal(nextItems)
+      const res = await fetch('/api/promotions/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug,
+          hints: true,
+          subtotal,
+          items: buildPromoItems(nextItems),
+        }),
+      })
+      const data = await res.json()
+      setPromoHints(data.hints ?? [])
+    },
+    [restaurantId, slug]
   )
 
   const refreshDiscounts = useCallback(
@@ -87,7 +117,15 @@ export default function BasketPage() {
             discount_type: data.discount_type,
           }
           setAppliedDiscount(discount)
-          setAutoMessage('')
+          setAutoMessage(
+            data.discount_type === 'BUY_X_GET_Y'
+              ? data.description
+              : data.discount_type === 'HAPPY_HOUR' && data.happy_hour_ends_in_mins
+                ? `${data.description} — ends in ${data.happy_hour_ends_in_mins} min`
+                : data.auto !== false && !data.coupon_code
+                  ? `${data.description} applied automatically 🎉`
+                  : ''
+          )
           persistBasket(nextItems, orderNotes, discount)
           return
         }
@@ -117,15 +155,59 @@ export default function BasketPage() {
           auto: true,
         }
         setAppliedDiscount(discount)
-        setAutoMessage(`${data.description} applied automatically 🎉`)
+        setAutoMessage(
+          data.discount_type === 'BUY_X_GET_Y'
+            ? data.description
+            : data.discount_type === 'HAPPY_HOUR' && data.happy_hour_ends_in_mins
+              ? `${data.description} — ends in ${data.happy_hour_ends_in_mins} min`
+              : `${data.description} applied automatically 🎉`
+        )
         persistBasket(nextItems, orderNotes, discount)
       } else {
         setAppliedDiscount(null)
         setAutoMessage('')
         persistBasket(nextItems, orderNotes, null)
       }
+
+      const freeRes = await fetch('/api/promotions/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug,
+          check_free_item: true,
+          subtotal,
+          items: promoItems,
+        }),
+      })
+      const freeData = await freeRes.json()
+      if (freeData.qualified && freeData.free_item_id) {
+        const hasItem = nextItems.some((i) => i.menuItemId === freeData.free_item_id)
+        if (!hasItem) {
+          fetch(`/api/menu/${slug}`)
+            .then((r) => r.json())
+            .then((menu) => {
+              for (const cat of menu.categories ?? []) {
+                const item = cat.items?.find((i: { id: string }) => i.id === freeData.free_item_id)
+                if (item) {
+                  setFreeItemClaim({
+                    itemId: item.id,
+                    itemName: item.name,
+                    pricePence: item.price_pence,
+                  })
+                  break
+                }
+              }
+            })
+        } else {
+          setFreeItemClaim(null)
+        }
+      } else {
+        setFreeItemClaim(null)
+      }
+
+      fetchHints(nextItems)
     },
-    [restaurantId, slug, orderNotes, persistBasket]
+    [restaurantId, slug, orderNotes, persistBasket, fetchHints]
   )
 
   useEffect(() => {
@@ -216,6 +298,22 @@ export default function BasketPage() {
     refreshDiscounts(items, null)
   }
 
+  function claimFreeItem() {
+    if (!freeItemClaim) return
+    const newItem: BasketItem = {
+      id: `${freeItemClaim.itemId}-free-${Date.now()}`,
+      menuItemId: freeItemClaim.itemId,
+      name: freeItemClaim.itemName,
+      pricePence: freeItemClaim.pricePence,
+      quantity: 1,
+      modifiers: [],
+    }
+    const next = [...items, newItem]
+    setItems(next)
+    setFreeItemClaim(null)
+    persistBasket(next, orderNotes, appliedDiscount)
+  }
+
   const subtotal = basketSubtotal(items)
   const discountPence = appliedDiscount?.discount_pence ?? 0
   const belowMin = subtotal < minOrder
@@ -288,10 +386,35 @@ export default function BasketPage() {
                 Remove coupon
               </button>
             )}
-            {autoMessage && !appliedDiscount?.coupon_code && (
+            {autoMessage && (
               <p className="text-emerald-600 text-sm">{autoMessage}</p>
             )}
           </div>
+
+          {promoHints.length > 0 && (
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
+              {promoHints.map((hint) => (
+                <p key={hint} className="text-sm text-amber-900">
+                  {hint}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {freeItemClaim && (
+            <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+              <p className="text-sm text-emerald-900 font-medium">
+                🎉 You qualify for free {freeItemClaim.itemName}!
+              </p>
+              <button
+                type="button"
+                onClick={claimFreeItem}
+                className="mt-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm"
+              >
+                Claim free {freeItemClaim.itemName}
+              </button>
+            </div>
+          )}
 
           <div className="mt-4 bg-white rounded-xl p-4 border">
             <p className="text-sm text-slate-600">Order type: <strong>Collection</strong></p>

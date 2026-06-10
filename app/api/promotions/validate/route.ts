@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
 import {
   findBestAutoPromotion,
+  getPromotionHints,
   validatePromotion,
   type PromoLineItem,
 } from '@/app/lib/promotions'
@@ -13,6 +14,7 @@ type ValidateItem = {
   categoryId: string
   quantity: number
   lineTotalPence: number
+  unitPricePence?: number
 }
 
 export async function POST(request: Request) {
@@ -21,6 +23,7 @@ export async function POST(request: Request) {
   const restaurantId = body.restaurant_id as string | undefined
   const code = body.code as string | undefined
   const autoApply = body.auto_apply === true
+  const includeHints = body.hints === true
   const items = (body.items ?? []) as ValidateItem[]
   const subtotalPence = Number(body.subtotal) || 0
 
@@ -46,7 +49,47 @@ export async function POST(request: Request) {
     categoryId: i.categoryId,
     quantity: i.quantity,
     lineTotalPence: i.lineTotalPence,
+    unitPricePence: i.unitPricePence,
   }))
+
+  const hints = includeHints
+    ? await getPromotionHints({
+        restaurantId: resolvedRestaurantId,
+        subtotalPence,
+        items: promoItems,
+      })
+    : undefined
+
+  if (includeHints && !code && !autoApply && !body.check_free_item) {
+    return NextResponse.json({ hints: hints ?? [] })
+  }
+
+  if (body.check_free_item === true) {
+    const freePromos = await prisma.promotion.findMany({
+      where: {
+        restaurant_id: resolvedRestaurantId,
+        active: true,
+        promo_type: 'FREE_ITEM',
+      },
+    })
+    for (const promo of freePromos) {
+      const result = await validatePromotion({
+        restaurantId: resolvedRestaurantId,
+        subtotalPence,
+        items: promoItems,
+        promotionId: promo.id,
+      })
+      if (result.free_item_qualified && result.free_item_id) {
+        return NextResponse.json({
+          qualified: true,
+          free_item_id: result.free_item_id,
+          promotion_id: promo.id,
+          hints,
+        })
+      }
+    }
+    return NextResponse.json({ qualified: false, hints })
+  }
 
   if (code) {
     const result = await validatePromotion({
@@ -55,7 +98,7 @@ export async function POST(request: Request) {
       items: promoItems,
       code,
     })
-    return NextResponse.json(result)
+    return NextResponse.json({ ...result, hints })
   }
 
   if (autoApply) {
@@ -65,17 +108,18 @@ export async function POST(request: Request) {
       items: promoItems,
     })
     if (best) {
-      return NextResponse.json(best)
+      return NextResponse.json({ ...best, hints })
     }
     return NextResponse.json({
       valid: false,
       discount_pence: 0,
       description: '',
+      hints,
     })
   }
 
   return NextResponse.json(
-    { valid: false, discount_pence: 0, description: '', error: 'Code or auto_apply required' },
+    { valid: false, discount_pence: 0, description: '', error: 'Code or auto_apply required', hints },
     { status: 400 }
   )
 }

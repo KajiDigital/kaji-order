@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       get_quantity: body.get_quantity ?? null,
       applies_to: body.applies_to ?? 'order',
       applicable_ids: body.applicable_ids ?? null,
+      promo_config: body.promo_config ?? null,
       min_order_pence: body.min_order_pence ?? null,
       max_uses: body.max_uses ?? null,
       max_uses_per_customer: body.max_uses_per_customer ?? null,

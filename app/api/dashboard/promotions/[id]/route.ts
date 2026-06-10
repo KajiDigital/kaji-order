@@ -36,6 +36,7 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(body.get_quantity !== undefined && { get_quantity: body.get_quantity }),
       ...(body.applies_to !== undefined && { applies_to: body.applies_to }),
       ...(body.applicable_ids !== undefined && { applicable_ids: body.applicable_ids }),
+      ...(body.promo_config !== undefined && { promo_config: body.promo_config }),
       ...(body.min_order_pence !== undefined && { min_order_pence: body.min_order_pence }),
       ...(body.max_uses !== undefined && { max_uses: body.max_uses }),
       ...(body.valid_from !== undefined && {

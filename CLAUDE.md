@@ -158,6 +158,11 @@ Webhook: /api/stripe/webhook
 - Commission calculated on **discounted** food subtotal (`app/lib/service-fee.ts`)
 - Dashboard: `/dashboard/promotions` — create, pause, delete; admin view on `/admin/restaurants/[id]`
 - Lib: `app/lib/promotions.ts` — validation, discount calculation, menu promos, usage increment
+- Lib: `app/lib/promotion-config.ts` — type-specific config, previews, banner text
+- Dashboard form: type-specific fields per promo (`PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `BUNDLE`, `FREE_ITEM`, `HAPPY_HOUR`) with live preview
+- Extended config stored in `promo_config` JSON (bundle choice groups, buy/get scopes, free item target)
+- Public menu: scrolling promotions banner; basket shows hints and free-item claim flow
+- Validate API: per-type discount logic, hints mode, free-item qualification check
 
 ### kaji-order ↔ kaji-pos promotions mapping (future sync)
 | kaji-order | kaji-pos Discount |

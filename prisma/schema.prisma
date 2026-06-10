@@ -167,6 +167,7 @@ model Promotion {
   get_quantity          Int?
   applies_to            String    @default("order")
   applicable_ids        Json?
+  promo_config          Json?
   min_order_pence       Int?
   max_uses              Int?
   max_uses_per_customer Int?

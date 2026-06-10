@@ -8,6 +8,7 @@ import { PublicMenuClient } from '@/app/components/public/PublicMenuClient'
 import { PublicClosedPage } from '@/app/components/public/PublicClosedPage'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { getMenuPromotions } from '@/app/lib/promotions'
+import { buildMenuBannerText } from '@/app/lib/promotion-config'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -63,6 +64,8 @@ export default async function PublicMenuPage({ params }: Params) {
     time_until: p.time_until,
   }))
 
+  const promotionBannerMessages = buildMenuBannerText(rawPromotions)
+
   if (!openStatus.showMenu) {
     return (
       <PublicClosedPage
@@ -106,6 +109,7 @@ export default async function PublicMenuPage({ params }: Params) {
       }}
       categories={restaurant.menu_categories}
       promotions={promotions}
+      promotionBannerMessages={promotionBannerMessages}
     />
   )
 }
