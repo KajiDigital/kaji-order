@@ -46,6 +46,7 @@ type Restaurant = {
 }
 
 const TAB_LABELS = ['Profile', 'Branding', 'Hours', 'Ordering', 'Notifications', 'Share'] as const
+const PREP_TIME_OPTIONS = [10, 15, 20, 25, 30, 45] as const
 
 export function SettingsClient({ initial }: { initial: Restaurant }) {
   const [tab, setTab] = useState<(typeof TAB_LABELS)[number]>('Profile')
@@ -317,7 +318,6 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
           </div>
 
           <Field label="Min order (£)" value={String(data.min_order_pence / 100)} onChange={(v) => setData({ ...data, min_order_pence: Math.round(parseFloat(v || '0') * 100) })} />
-          <Field label="Default prep time (mins)" value={String(data.avg_prep_minutes)} onChange={(v) => setData({ ...data, avg_prep_minutes: parseInt(v || '30', 10) })} />
 
           <div className="border-t border-slate-800 pt-4 space-y-3">
             <p className="text-sm font-medium text-white">Order acceptance mode</p>
@@ -347,6 +347,46 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
                 <span className="text-xs text-slate-500">You review each order before confirming</span>
               </span>
             </label>
+            {data.order_mode === 'instant' && (
+              <div className="space-y-3 pt-2">
+                <div>
+                  <p className="text-sm font-medium text-white">Default preparation time</p>
+                  <p className="text-xs text-slate-500">Used when orders are auto-confirmed</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {PREP_TIME_OPTIONS.map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setData({ ...data, avg_prep_minutes: mins })}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                        data.avg_prep_minutes === mins
+                          ? 'bg-violet-600 text-white'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      {mins}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">Custom (minutes)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={data.avg_prep_minutes}
+                    onChange={(e) =>
+                      setData({
+                        ...data,
+                        avg_prep_minutes: Math.min(120, Math.max(5, parseInt(e.target.value, 10) || 30)),
+                      })
+                    }
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                  />
+                </div>
+              </div>
+            )}
             {data.order_mode === 'manual' && (
               <Field
                 label="Acceptance timer (mins)"

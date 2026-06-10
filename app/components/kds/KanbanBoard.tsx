@@ -306,10 +306,11 @@ export function KanbanBoard({
           await fetch(`/api/orders/${order.id}/${actionEndpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:
+            body: JSON.stringify(
               actionEndpoint === 'reject'
-                ? JSON.stringify({ reason: 'Order timed out' })
-                : undefined,
+                ? { reason: 'Order timed out' }
+                : { prep_time_mins: settings.avg_prep_minutes }
+            ),
           })
           fetchOrders()
         }, remaining)

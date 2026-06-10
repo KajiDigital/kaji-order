@@ -172,10 +172,11 @@ Restaurant settings (Ordering tab): `order_mode` + `acceptance_timer_mins` (1–
 
 | Mode | Value | Behaviour |
 |------|-------|-----------|
-| Instant | `instant` (default) | Order confirmed after payment; prep from `avg_prep_minutes` / instant flow |
+| Instant | `instant` (default) | Order confirmed after payment; `ready_at` from `avg_prep_minutes` (Settings → default preparation time) |
 | Manual | `manual` | Stays `PENDING` until accept/reject; `accept_by` = now + timer; customer on `/[slug]/waiting/[orderId]` |
 
-- **Accept:** `POST /api/orders/[id]/accept` with `{ prep_time_mins }` → `ready_at`, `estimated_time`, confirmation email
+- **Instant prep:** `restaurant.avg_prep_minutes` → `prep_time_mins`, `ready_at`, `estimated_time` on webhook (`payment_intent.succeeded`) or dev create-intent; customer sees “Ready at 4:45pm” on confirmation + email
+- **Manual accept:** `POST /api/orders/[id]/accept` with `{ prep_time_mins }` (chef picks in KDS modal) → `ready_at`, `estimated_time`, confirmation email
 - **Reject / timeout:** reject API or `check-expired` / status poll → `CANCELLED`, PaymentIntent cancelled
 - Checkout redirects to waiting page when `order_mode === 'manual'`
 
