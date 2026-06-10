@@ -18,6 +18,13 @@ export default async function AdminRestaurantPage({ params }: Params) {
       staff: { select: { last_login_at: true }, take: 1, orderBy: { created_at: 'asc' } },
       orders: { orderBy: { created_at: 'desc' }, take: 50 },
       commission_records: true,
+      promotions: {
+        include: {
+          coupon_codes: true,
+          _count: { select: { order_discounts: true } },
+        },
+        orderBy: { created_at: 'desc' },
+      },
       _count: { select: { orders: true } },
     },
   })
@@ -60,6 +67,21 @@ export default async function AdminRestaurantPage({ params }: Params) {
         font_choice: restaurant.font_choice,
         show_powered_by: restaurant.show_powered_by,
         created_at: restaurant.created_at.toISOString(),
+        promotions: restaurant.promotions.map((p) => ({
+          id: p.id,
+          name: p.name,
+          promo_type: p.promo_type,
+          active: p.active,
+          uses_count: p.uses_count,
+          max_uses: p.max_uses,
+          badge_text: p.badge_text,
+          coupon_codes: p.coupon_codes.map((c) => ({
+            code: c.code,
+            uses_count: c.uses_count,
+            max_uses: c.max_uses,
+          })),
+          order_discount_count: p._count.order_discounts,
+        })),
         orders: restaurant.orders.map((o) => ({
           id: o.id,
           order_number: o.order_number,

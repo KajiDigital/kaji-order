@@ -572,6 +572,61 @@ async function main() {
   })
 
   console.log('Updated Mexican House branding and opening hours')
+
+  await prisma.promotion.upsert({
+    where: { id: 'mexican-house-promo-1' },
+    create: {
+      id: 'mexican-house-promo-1',
+      restaurant_id: restaurant.id,
+      name: '10% off your order',
+      description: 'Get 10% off your entire order',
+      promo_type: 'PERCENTAGE_OFF',
+      discount_pct: 10,
+      applies_to: 'order',
+      badge_text: '10% discount',
+      badge_color: '#ef4444',
+      show_on_menu: true,
+      active: true,
+    },
+    update: {},
+  })
+
+  await prisma.promotion.upsert({
+    where: { id: 'mexican-house-promo-2' },
+    create: {
+      id: 'mexican-house-promo-2',
+      restaurant_id: restaurant.id,
+      name: 'Free Churros over £30',
+      description: 'Spend over £30 and get free churros',
+      promo_type: 'FREE_ITEM',
+      applies_to: 'order',
+      min_order_pence: 3000,
+      badge_text: 'Free churros over £30',
+      badge_color: '#16a34a',
+      show_on_menu: true,
+      active: true,
+    },
+    update: {},
+  })
+
+  await prisma.couponCode.upsert({
+    where: {
+      restaurant_id_code: {
+        restaurant_id: restaurant.id,
+        code: 'MEXICAN10',
+      },
+    },
+    create: {
+      restaurant_id: restaurant.id,
+      promotion_id: 'mexican-house-promo-1',
+      code: 'MEXICAN10',
+      max_uses: 100,
+      active: true,
+    },
+    update: {},
+  })
+
+  console.log('Seeded Mexican House promotions and coupon MEXICAN10')
 }
 
 main()

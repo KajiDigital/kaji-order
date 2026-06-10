@@ -88,6 +88,7 @@ Webhook: /api/stripe/webhook
 - /dashboard — overview (orders today, revenue today, **avg order value** — not commission)
 - /dashboard/orders — KDS with Live / Today / Archive tabs
 - /dashboard/menu — menu management
+- /dashboard/promotions — deals, promotions, coupon codes
 - /dashboard/settings — profile, hours, ordering, notifications, share/QR
 - /dashboard/billing — subscription + **Platform fee** (commission) + Stripe Connect
 
@@ -140,6 +141,34 @@ Webhook: /api/stripe/webhook
 | /api/admin/restaurants/[id]/email-templates | GET, POST | List/save email templates |
 | /api/admin/restaurants/[id]/email-templates/[type] | PATCH, POST | Update/reset/preview/test template |
 | /api/settings/registration | GET | Public registration mode |
+| /api/dashboard/promotions | GET, POST | List/create promotions |
+| /api/dashboard/promotions/[id] | PATCH, DELETE | Update/pause/delete promotion |
+| /api/dashboard/promotions/[id]/coupons | GET, POST | Coupon codes for promotion |
+| /api/promotions/validate | POST | Validate coupon or auto-apply order discount |
+
+## Promotions & Coupon Codes
+- Models: `Promotion`, `CouponCode`, `OrderDiscount` (migration: `add_promotions_coupons`)
+- Promotion types: `PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `BUNDLE`, `FREE_ITEM`, `HAPPY_HOUR`
+- `applies_to`: `order` (whole order), `category`, `items` — with `applicable_ids` JSON
+- Conditions: min order, date range, days of week, happy-hour time range, max uses
+- Menu badges: `badge_text`, `badge_color`, `show_on_menu` — shown on public menu
+- Coupon flow: customer enters code on basket → `POST /api/promotions/validate` → stored in localStorage basket → passed to `create-intent`
+- Auto-apply: order-level promotions **without** linked coupon codes apply best discount at basket
+- Order fields: `discount_total`, `coupon_code`; `OrderDiscount` records audit trail
+- Commission calculated on **discounted** food subtotal (`app/lib/service-fee.ts`)
+- Dashboard: `/dashboard/promotions` — create, pause, delete; admin view on `/admin/restaurants/[id]`
+- Lib: `app/lib/promotions.ts` — validation, discount calculation, menu promos, usage increment
+
+### kaji-order ↔ kaji-pos promotions mapping (future sync)
+| kaji-order | kaji-pos Discount |
+|------------|-------------------|
+| `PERCENTAGE_OFF` | `discount_type: PERCENTAGE` |
+| `FIXED_OFF` | `discount_type: FIXED` |
+| `CouponCode.code` | `promo_code` |
+| `OrderDiscount` | POS order discount line |
+| `discount_pence` | same value on both systems |
+
+When an online order syncs to POS, `OrderDiscount` rows map to POS order discounts with matching `discount_pence`.
 
 ## Lib Modules
 - app/lib/prisma.ts — Prisma client singleton
@@ -156,6 +185,7 @@ Webhook: /api/stripe/webhook
 - app/lib/utils.ts — Formatting, slugs, URLs
 - app/lib/orders.ts — Order number + ownership helpers
 - app/lib/order-expiry.ts — `accept_by` expiry, PI cancel, prep fields on accept
+- app/lib/promotions.ts — promotion validation, discount calc, auto-apply, menu badges
 
 ## KDS/Order Management
 - Tabs: **Live** (Kanban, active statuses, ~15s refresh), **Today** (all today’s orders + stats), **Archive** (date range, search, filters, CSV export)
@@ -325,7 +355,7 @@ Sprint 12 (planned)
 Restaurant, RestaurantStaff, MenuCategory, MenuItem,
 ModifierGroup, Modifier, OnlineOrder, OnlineOrderItem,
 CommissionRecord, DeliveryZone, PostcodeRule, AdminUser, PlatformSettings,
-EmailTemplate
+EmailTemplate, Promotion, CouponCode, OrderDiscount
 
 Restaurant.status: pending | active | suspended
 PlatformSettings.registration_mode: request | self_serve
@@ -350,6 +380,9 @@ is_preorder, preorder_for
 OnlineOrder fields (acceptance / reporting / POS):
 ready_at, estimated_ready_at, estimated_time, prep_time_mins, accept_by
 payment_method, source, day_of_week, hour_of_day, week_number, month_number, pos_order_id
+
+OnlineOrder fields (promotions):
+discount_total, coupon_code; relation `discounts` → OrderDiscount
 
 OnlineOrderItem: pos_item_id, modifiers_text
 

@@ -9,6 +9,7 @@ export type BasketModifier = {
 export type BasketItem = {
   id: string
   menuItemId: string
+  categoryId?: string
   name: string
   pricePence: number
   quantity: number
@@ -16,10 +17,20 @@ export type BasketItem = {
   notes?: string
 }
 
+export type AppliedDiscount = {
+  promotion_id: string
+  coupon_code?: string
+  discount_pence: number
+  description: string
+  discount_type?: string
+  auto?: boolean
+}
+
 export type Basket = {
   items: BasketItem[]
   restaurantSlug: string
   orderNotes?: string
+  appliedDiscount?: AppliedDiscount | null
   updatedAt: string
 }
 

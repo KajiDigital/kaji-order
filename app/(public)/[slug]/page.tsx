@@ -7,6 +7,7 @@ import { getPrimaryColor, getSecondaryColor, shouldShowPoweredBy } from '@/app/l
 import { PublicMenuClient } from '@/app/components/public/PublicMenuClient'
 import { PublicClosedPage } from '@/app/components/public/PublicClosedPage'
 import { getServiceFeePence } from '@/app/lib/platform'
+import { getMenuPromotions } from '@/app/lib/promotions'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -48,6 +49,19 @@ export default async function PublicMenuPage({ params }: Params) {
   )
 
   const primaryColor = getPrimaryColor(restaurant)
+  const rawPromotions = await getMenuPromotions(restaurant.id)
+  const promotions = rawPromotions.map((p) => ({
+    id: p.id,
+    name: p.name,
+    applies_to: p.applies_to,
+    applicable_ids: Array.isArray(p.applicable_ids) ? (p.applicable_ids as string[]) : null,
+    badge_text: p.badge_text,
+    badge_color: p.badge_color,
+    promo_type: p.promo_type,
+    description: p.description,
+    time_from: p.time_from,
+    time_until: p.time_until,
+  }))
 
   if (!openStatus.showMenu) {
     return (
@@ -91,6 +105,7 @@ export default async function PublicMenuPage({ params }: Params) {
         service_fee_pence: serviceFeePence,
       }}
       categories={restaurant.menu_categories}
+      promotions={promotions}
     />
   )
 }

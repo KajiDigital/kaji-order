@@ -28,6 +28,7 @@ export function DashboardShell({
     { href: '/dashboard', label: 'Overview' },
     { href: '/dashboard/orders', label: 'Orders' },
     { href: '/dashboard/menu', label: 'Menu' },
+    { href: '/dashboard/promotions', label: 'Promotions' },
     { href: '/dashboard/settings', label: 'Settings' },
     { href: '/dashboard/billing', label: 'Billing' },
   ]

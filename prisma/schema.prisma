@@ -148,8 +148,79 @@ model Restaurant {
   delivery_zones    DeliveryZone[]
   postcode_rules    PostcodeRule[]
   email_templates   EmailTemplate[]
+  promotions        Promotion[]
 
   @@map("restaurants")
+}
+
+model Promotion {
+  id                    String    @id @default(uuid())
+  restaurant_id         String
+  restaurant            Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  name                  String
+  description           String?
+  promo_type            String
+  discount_pct          Float?
+  discount_pence        Int?
+  bundle_price          Int?
+  buy_quantity          Int?
+  get_quantity          Int?
+  applies_to            String    @default("order")
+  applicable_ids        Json?
+  min_order_pence       Int?
+  max_uses              Int?
+  max_uses_per_customer Int?
+  uses_count            Int       @default(0)
+  valid_from            DateTime?
+  valid_until           DateTime?
+  days_of_week          Json?
+  time_from             String?
+  time_until            String?
+  badge_text            String?
+  badge_color           String?
+  show_on_menu          Boolean   @default(true)
+  active                Boolean   @default(true)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  coupon_codes    CouponCode[]
+  order_discounts OrderDiscount[]
+
+  @@index([restaurant_id, active])
+  @@map("promotions")
+}
+
+model CouponCode {
+  id            String    @id @default(uuid())
+  restaurant_id String
+  promotion_id  String
+  promotion     Promotion @relation(fields: [promotion_id], references: [id], onDelete: Cascade)
+  code          String
+  uses_count    Int       @default(0)
+  max_uses      Int?
+  valid_from    DateTime?
+  valid_until   DateTime?
+  active        Boolean   @default(true)
+  created_at    DateTime  @default(now())
+
+  @@unique([restaurant_id, code])
+  @@map("coupon_codes")
+}
+
+model OrderDiscount {
+  id             String       @id @default(uuid())
+  order_id       String
+  order          OnlineOrder  @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  promotion_id   String?
+  promotion      Promotion?   @relation(fields: [promotion_id], references: [id], onDelete: SetNull)
+  coupon_code    String?
+  discount_type  String
+  discount_pence Int
+  description    String
+  created_at     DateTime     @default(now())
+
+  @@index([order_id])
+  @@map("order_discounts")
 }
 
 model EmailTemplate {
@@ -274,6 +345,8 @@ model OnlineOrder {
   customer_phone           String?
   notes                    String?
   subtotal_pence           Int
+  discount_total           Int         @default(0)
+  coupon_code              String?
   service_fee_pence        Int         @default(49)
   delivery_fee_pence       Int         @default(0)
   total_pence              Int
@@ -304,6 +377,7 @@ model OnlineOrder {
   updated_at               DateTime    @updatedAt
 
   items              OnlineOrderItem[]
+  discounts          OrderDiscount[]
   commission_records CommissionRecord[]
 
   @@unique([restaurant_id, order_number])

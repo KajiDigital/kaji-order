@@ -13,11 +13,13 @@ export function calculateOrderTotals(
   subtotal: number,
   commissionPct: number,
   serviceFeePence: number,
-  deliveryFee = 0
+  deliveryFee = 0,
+  discountPence = 0
 ): OrderTotals {
   const serviceFee = serviceFeePence
-  const total = subtotal + serviceFee + deliveryFee
-  const commissionPence = Math.round((subtotal * commissionPct) / 100)
+  const discountedSubtotal = Math.max(0, subtotal - discountPence)
+  const total = discountedSubtotal + serviceFee + deliveryFee
+  const commissionPence = Math.round((discountedSubtotal * commissionPct) / 100)
   const platformFeePence = commissionPence + serviceFee
 
   return {

@@ -13,6 +13,7 @@ import {
   buildOrderEmailFromDb,
 } from '@/app/lib/email'
 import { getAppUrl } from '@/app/lib/utils'
+import { incrementPromotionUsage, validatePromotion } from '@/app/lib/promotions'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,11 @@ export async function POST(request: Request) {
       customer_phone,
       notes,
       order_type = 'COLLECTION',
+      discount_pence: discountFromClient = 0,
+      coupon_code,
+      promotion_id,
+      discount_description,
+      discount_type,
     } = body as {
       slug: string
       items: CheckoutItem[]
@@ -44,6 +50,11 @@ export async function POST(request: Request) {
       customer_phone?: string
       notes?: string
       order_type?: 'COLLECTION' | 'DELIVERY'
+      discount_pence?: number
+      coupon_code?: string
+      promotion_id?: string
+      discount_description?: string
+      discount_type?: string
     }
 
     if (!slug || !items?.length || !customer_name || !customer_email) {
@@ -86,13 +97,57 @@ export async function POST(request: Request) {
       )
     }
 
+    const menuItemIds = items.map((i) => i.menuItemId)
+    const dbItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds }, restaurant_id: restaurant.id },
+      select: { id: true, category_id: true },
+    })
+    const categoryByItem = new Map(dbItems.map((i) => [i.id, i.category_id]))
+
+    const promoItems = items.map((item) => {
+      const modTotal = (item.modifiers ?? []).reduce((s, m) => s + m.priceDeltaPence, 0)
+      return {
+        menuItemId: item.menuItemId,
+        categoryId: categoryByItem.get(item.menuItemId) ?? '',
+        quantity: item.quantity,
+        lineTotalPence: (item.pricePence + modTotal) * item.quantity,
+      }
+    })
+
+    let discountPence = 0
+    let appliedPromotionId: string | null = null
+    let appliedCoupon: string | null = null
+    let appliedDescription = ''
+    let appliedDiscountType = ''
+
+    if (discountFromClient > 0 && (promotion_id || coupon_code)) {
+      const validation = await validatePromotion({
+        restaurantId: restaurant.id,
+        subtotalPence: subtotal,
+        items: promoItems,
+        code: coupon_code,
+        promotionId: promotion_id,
+      })
+
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error ?? 'Invalid discount' }, { status: 400 })
+      }
+
+      discountPence = validation.discount_pence
+      appliedPromotionId = validation.promotion_id ?? null
+      appliedCoupon = validation.coupon_code ?? null
+      appliedDescription = validation.description
+      appliedDiscountType = validation.discount_type ?? ''
+    }
+
     const serviceFeePence = await getServiceFeePence()
     const deliveryFee = 0
     const totals = calculateOrderTotals(
       subtotal,
       restaurant.commission_pct,
       serviceFeePence,
-      deliveryFee
+      deliveryFee,
+      discountPence
     )
     const orderNumber = await getNextOrderNumber(restaurant.id)
     const periodMonth = new Date().toISOString().slice(0, 7)
@@ -136,6 +191,8 @@ export async function POST(request: Request) {
         customer_phone: customer_phone ?? null,
         notes: notes ?? null,
         subtotal_pence: totals.subtotal,
+        discount_total: discountPence,
+        coupon_code: appliedCoupon,
         service_fee_pence: totals.serviceFee,
         delivery_fee_pence: totals.deliveryFee,
         total_pence: totals.total,
@@ -163,12 +220,24 @@ export async function POST(request: Request) {
             notes: item.notes ?? null,
           })),
         },
+        discounts:
+          discountPence > 0
+            ? {
+                create: {
+                  promotion_id: appliedPromotionId,
+                  coupon_code: appliedCoupon,
+                  discount_type: appliedDiscountType || 'PROMOTION',
+                  discount_pence: discountPence,
+                  description: appliedDescription || discount_description || 'Discount',
+                },
+              }
+            : undefined,
         commission_records: {
           create: {
             restaurant_id: restaurant.id,
             period_month: periodMonth,
             total_orders: 1,
-            total_revenue_pence: totals.subtotal,
+            total_revenue_pence: Math.max(0, totals.subtotal - discountPence),
             food_commission_pence: totals.commissionPence,
             service_fee_pence: totals.serviceFee,
             total_platform_pence: totals.platformFeePence,
@@ -179,6 +248,10 @@ export async function POST(request: Request) {
       },
       include: { items: true, restaurant: true },
     })
+
+    if (discountPence > 0 && appliedPromotionId) {
+      await incrementPromotionUsage(appliedPromotionId, appliedCoupon)
+    }
 
     if (!stripe) {
       if (isInstant) {

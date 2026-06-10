@@ -31,6 +31,19 @@ export type Category = {
   items: Product[]
 }
 
+export type MenuPromotion = {
+  id: string
+  name: string
+  applies_to: string
+  applicable_ids: string[] | null
+  badge_text: string | null
+  badge_color: string | null
+  promo_type: string
+  description?: string | null
+  time_from?: string | null
+  time_until?: string | null
+}
+
 export type Restaurant = {
   slug: string
   name: string

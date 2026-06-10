@@ -5,7 +5,13 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { getBasket, clearBasket, basketSubtotal, type BasketItem } from '@/app/lib/basket'
+import {
+  getBasket,
+  clearBasket,
+  basketSubtotal,
+  type AppliedDiscount,
+  type BasketItem,
+} from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
@@ -85,6 +91,7 @@ export default function CheckoutPage() {
   const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
   const [isPreorderMode, setIsPreorderMode] = useState(false)
   const [nextOpenTime, setNextOpenTime] = useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
 
   useEffect(() => {
     const basket = getBasket(slug)
@@ -94,6 +101,7 @@ export default function CheckoutPage() {
     }
     setItems(basket.items)
     setNotes(basket.orderNotes ?? '')
+    setAppliedDiscount(basket.appliedDiscount ?? null)
     fetch(`/api/menu/${slug}`)
       .then((r) => r.json())
       .then((d) => {
@@ -107,7 +115,13 @@ export default function CheckoutPage() {
   }, [slug, router])
 
   const subtotal = basketSubtotal(items)
-  const total = subtotal + serviceFeePence
+  const discountPence = appliedDiscount?.discount_pence ?? 0
+  const total = subtotal + serviceFeePence - discountPence
+  const discountLabel = appliedDiscount?.coupon_code
+    ? `Discount (${appliedDiscount.coupon_code})`
+    : appliedDiscount?.description
+      ? `Discount (${appliedDiscount.description})`
+      : 'Discount'
 
   async function createOrder() {
     if (!name || !email) return
@@ -131,6 +145,11 @@ export default function CheckoutPage() {
           modifiers: i.modifiers.map((m) => ({ name: m.name, priceDeltaPence: m.priceDeltaPence })),
           notes: i.notes,
         })),
+        discount_pence: discountPence,
+        coupon_code: appliedDiscount?.coupon_code,
+        promotion_id: appliedDiscount?.promotion_id,
+        discount_description: appliedDiscount?.description,
+        discount_type: appliedDiscount?.discount_type,
       }),
     })
 
@@ -202,7 +221,12 @@ export default function CheckoutPage() {
             ))}
           </ul>
           <div className="mt-4 pt-4 border-t">
-            <OrderSummaryBreakdown subtotal={subtotal} serviceFeePence={serviceFeePence} />
+            <OrderSummaryBreakdown
+              subtotal={subtotal}
+              serviceFeePence={serviceFeePence}
+              discountPence={discountPence}
+              discountLabel={discountLabel}
+            />
           </div>
 
           {clientSecret && orderId && (

@@ -26,14 +26,18 @@ export function OrderSummaryBreakdown({
   subtotal,
   serviceFeePence,
   deliveryFeePence = 0,
+  discountPence = 0,
+  discountLabel,
   className = '',
 }: {
   subtotal: number
   serviceFeePence: number
   deliveryFeePence?: number
+  discountPence?: number
+  discountLabel?: string
   className?: string
 }) {
-  const total = subtotal + serviceFeePence + deliveryFeePence
+  const total = subtotal + serviceFeePence + deliveryFeePence - discountPence
 
   return (
     <div className={`space-y-2 text-sm ${className}`}>
@@ -41,6 +45,12 @@ export function OrderSummaryBreakdown({
         <span>Subtotal</span>
         <span>{formatPence(subtotal)}</span>
       </div>
+      {discountPence > 0 && (
+        <div className="flex justify-between text-emerald-600">
+          <span>{discountLabel ?? 'Discount'}</span>
+          <span>-{formatPence(discountPence)}</span>
+        </div>
+      )}
       <div className="flex justify-between text-slate-600">
         <span className="flex items-center gap-1.5">
           Service fee

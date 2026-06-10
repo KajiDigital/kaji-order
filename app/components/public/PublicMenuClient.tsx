@@ -13,7 +13,7 @@ import {
 } from '@/app/lib/basket'
 import { CartPanel } from './CartPanel'
 import { ProductModal } from './ProductModal'
-import type { Category, Product, Restaurant } from './menu-types'
+import type { Category, MenuPromotion, Product, Restaurant } from './menu-types'
 import { getFontClass } from '@/app/lib/branding'
 
 function PlaceholderImage({ className }: { className?: string }) {
@@ -23,6 +23,39 @@ function PlaceholderImage({ className }: { className?: string }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
     </div>
+  )
+}
+
+function PromoBadge({ promo }: { promo: MenuPromotion }) {
+  const label =
+    promo.badge_text ??
+    (promo.promo_type === 'HAPPY_HOUR' && promo.time_from && promo.time_until
+      ? `Happy Hour ${promo.time_from.slice(0, 5)}-${promo.time_until.slice(0, 5)}`
+      : promo.name)
+
+  return (
+    <span
+      className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
+      style={{ backgroundColor: promo.badge_color ?? '#64748b' }}
+    >
+      {label}
+    </span>
+  )
+}
+
+function promosForCategory(promotions: MenuPromotion[], categoryId: string) {
+  return promotions.filter(
+    (p) =>
+      p.applies_to === 'order' ||
+      (p.applies_to === 'category' && p.applicable_ids?.includes(categoryId))
+  )
+}
+
+function promosForItem(promotions: MenuPromotion[], itemId: string, categoryId: string) {
+  return promotions.filter(
+    (p) =>
+      (p.applies_to === 'items' && p.applicable_ids?.includes(itemId)) ||
+      (p.applies_to === 'category' && p.applicable_ids?.includes(categoryId))
   )
 }
 
@@ -53,6 +86,7 @@ function MenuItemRow({
   product,
   primary,
   recommended,
+  promoBadges,
   canOrder,
   onAdd,
   onOpen,
@@ -60,6 +94,7 @@ function MenuItemRow({
   product: Product
   primary: string
   recommended: boolean
+  promoBadges: MenuPromotion[]
   canOrder: boolean
   onAdd: () => void
   onOpen: () => void
@@ -101,6 +136,9 @@ function MenuItemRow({
               ★ Recommended
             </span>
           )}
+          {promoBadges.map((p) => (
+            <PromoBadge key={p.id} promo={p} />
+          ))}
         </div>
         {product.description && (
           <p className="mt-0.5 line-clamp-2 text-sm text-stone-500">{product.description}</p>
@@ -126,9 +164,11 @@ function MenuItemRow({
 export function PublicMenuClient({
   restaurant,
   categories,
+  promotions = [],
 }: {
   restaurant: Restaurant
   categories: Category[]
+  promotions?: MenuPromotion[]
 }) {
   const primary = restaurant.primary_color
   const fontClass = getFontClass(restaurant.font_choice)
@@ -151,6 +191,21 @@ export function PublicMenuClient({
   )
 
   const recommendedItems = useMemo(() => allItems.slice(0, 6), [allItems])
+
+  const orderPromos = useMemo(
+    () => promotions.filter((p) => p.applies_to === 'order'),
+    [promotions]
+  )
+
+  const itemCategoryMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const cat of categories) {
+      for (const item of cat.items) {
+        map.set(item.id, cat.id)
+      }
+    }
+    return map
+  }, [categories])
 
   useEffect(() => {
     document.documentElement.style.setProperty('--primary', primary)
@@ -205,12 +260,14 @@ export function PublicMenuClient({
     product: Product,
     qty: number,
     modifiers: BasketModifier[],
-    notes: string
+    notes: string,
+    categoryId?: string
   ) {
     if (!canOrder) return
     const item: BasketItem = {
       id: `${product.id}-${Date.now()}`,
       menuItemId: product.id,
+      categoryId: categoryId ?? itemCategoryMap.get(product.id),
       name: product.name,
       pricePence: product.price_pence,
       quantity: qty,
@@ -320,6 +377,16 @@ export function PublicMenuClient({
           </div>
         </div>
       </div>
+
+      {orderPromos.length > 0 && (
+        <div className="border-b border-stone-200 bg-white px-4 py-3 sm:px-6">
+          <div className="mx-auto flex max-w-7xl flex-wrap gap-2">
+            {orderPromos.map((p) => (
+              <PromoBadge key={p.id} promo={p} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Info bar */}
       <div className="border-b border-stone-200 bg-white">
@@ -473,7 +540,14 @@ export function PublicMenuClient({
                           canOrder &&
                           (product.modifier_groups.length > 0
                             ? openProduct(product)
-                            : product.is_available && addItemDirect(product, 1, [], ''))
+                            : product.is_available &&
+                              addItemDirect(
+                                product,
+                                1,
+                                [],
+                                '',
+                                itemCategoryMap.get(product.id)
+                              ))
                         }
                         disabled={!canOrder || !product.is_available}
                         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white shadow disabled:cursor-not-allowed disabled:opacity-40"
@@ -556,7 +630,14 @@ export function PublicMenuClient({
             filteredCategories.map((cat) => (
               <section key={cat.id} className="mb-8">
                 {(activeCategory === 'all' || search) && (
-                  <h2 className="mb-3 text-xl font-bold text-stone-900">{cat.name}</h2>
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-bold text-stone-900">{cat.name}</h2>
+                    {promosForCategory(promotions, cat.id)
+                      .filter((p) => p.applies_to === 'category')
+                      .map((p) => (
+                        <PromoBadge key={p.id} promo={p} />
+                      ))}
+                  </div>
                 )}
                 <div className="space-y-3">
                   {cat.items.map((product) => (
@@ -565,9 +646,12 @@ export function PublicMenuClient({
                       product={product}
                       primary={primary}
                       recommended={recommendedIds.has(product.id)}
+                      promoBadges={promosForItem(promotions, product.id, cat.id).filter(
+                        (p) => p.applies_to === 'items'
+                      )}
                       canOrder={canOrder}
                       onOpen={() => openProduct(product)}
-                      onAdd={() => addItemDirect(product, 1, [], '')}
+                      onAdd={() => addItemDirect(product, 1, [], '', cat.id)}
                     />
                   ))}
                 </div>
@@ -634,7 +718,13 @@ export function PublicMenuClient({
           canOrder={canOrder && modalProduct.is_available}
           onClose={() => setModalProduct(null)}
           onAdd={(qty, modifiers, notes) => {
-            addItemDirect(modalProduct, qty, modifiers, notes)
+            addItemDirect(
+              modalProduct,
+              qty,
+              modifiers,
+              notes,
+              itemCategoryMap.get(modalProduct.id)
+            )
             setModalProduct(null)
           }}
         />

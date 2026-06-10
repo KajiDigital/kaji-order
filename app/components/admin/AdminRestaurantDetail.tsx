@@ -20,6 +20,18 @@ type Order = {
   created_at: string
 }
 
+type AdminPromotion = {
+  id: string
+  name: string
+  promo_type: string
+  active: boolean
+  uses_count: number
+  max_uses: number | null
+  badge_text: string | null
+  coupon_codes: { code: string; uses_count: number; max_uses: number | null }[]
+  order_discount_count: number
+}
+
 type RestaurantData = {
   id: string
   name: string
@@ -39,6 +51,7 @@ type RestaurantData = {
   font_choice?: string | null
   show_powered_by?: boolean
   created_at: string
+  promotions: AdminPromotion[]
   orders: Order[]
 }
 
@@ -379,6 +392,61 @@ export function AdminRestaurantDetail({
             <a href={`mailto:${data.email}`} className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-sm">
               Contact
             </a>
+          )}
+        </div>
+      </section>
+
+      {/* Promotions */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h2 className="font-semibold text-white">Promotions</h2>
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await fetch(`/api/admin/restaurants/${data.id}/impersonate`, { method: 'POST' })
+              const json = await res.json()
+              if (res.ok) {
+                window.location.href = '/dashboard/promotions'
+              } else {
+                alert(json.error ?? 'Failed to impersonate')
+              }
+            }}
+            className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm"
+          >
+            Create on behalf
+          </button>
+        </div>
+        <div className="space-y-3">
+          {data.promotions.map((promo) => (
+            <div key={promo.id} className="border border-slate-800 rounded-lg p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-white font-medium">{promo.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {promo.promo_type.replace(/_/g, ' ')}
+                    {!promo.active && ' · Paused'}
+                  </p>
+                  {promo.badge_text && (
+                    <p className="text-xs text-slate-400 mt-1">Badge: {promo.badge_text}</p>
+                  )}
+                  {promo.coupon_codes.length > 0 && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      Codes:{' '}
+                      {promo.coupon_codes
+                        .map((c) => `${c.code} (${c.uses_count}${c.max_uses ? `/${c.max_uses}` : ''})`)
+                        .join(', ')}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right text-sm">
+                  <p className="text-white">{promo.uses_count} uses</p>
+                  <p className="text-slate-500 text-xs">{promo.order_discount_count} orders</p>
+                </div>
+              </div>
+            </div>
+          ))}
+          {data.promotions.length === 0 && (
+            <p className="text-slate-500 text-sm">No promotions configured.</p>
           )}
         </div>
       </section>
