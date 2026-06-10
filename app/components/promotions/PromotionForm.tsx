@@ -105,8 +105,8 @@ function PreviewBox({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-violet-300 mb-2">{title}</p>
-      {lines.filter(Boolean).map((line) => (
-        <p key={line} className="text-sm text-violet-100">
+      {lines.filter(Boolean).map((line, index) => (
+        <p key={index} className="text-sm text-violet-100">
           {line}
         </p>
       ))}
@@ -672,7 +672,6 @@ export function PromotionForm({
             title="Example preview"
             lines={[
               `Buy ${form.buy_quantity} get ${form.get_quantity} free`,
-              preview.example ?? '',
               'Buy 3 for the price of 2',
             ]}
           />
