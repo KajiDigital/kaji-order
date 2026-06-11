@@ -352,7 +352,11 @@ export function buildPayloadFromForm(form: PromotionFormState) {
   }
 
   if (form.promo_type === 'BUNDLE') {
-    promo_config.bundleGroups = form.bundleGroups
+    promo_config.bundleGroups = form.bundleGroups.map((g) => ({
+      ...g,
+      categoryIds: g.categoryIds ?? [],
+      itemIds: g.itemIds ?? [],
+    }))
   }
 
   if (form.promo_type === 'FREE_ITEM') {
@@ -439,6 +443,7 @@ export function PromotionForm({
           required: true,
           minSelect: 1,
           maxSelect: 1,
+          categoryIds: [],
           itemIds: [],
         },
       ],
@@ -759,23 +764,72 @@ export function PromotionForm({
                       />
                     </label>
                   </div>
-                  <p className="text-xs text-slate-400">Items to choose from:</p>
-                  <div className="max-h-40 overflow-y-auto space-y-1">
-                    {allItems.map((item) => (
-                      <label key={item.id} className="flex items-center gap-2 text-xs text-slate-400">
+                  <p className="text-xs text-slate-400">Categories (all items in category included):</p>
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                    {categories.map((cat) => (
+                      <label key={cat.id} className="flex items-center gap-2 text-xs text-slate-400">
                         <input
                           type="checkbox"
-                          checked={group.itemIds.includes(item.id)}
-                          onChange={(e) =>
-                            updateBundleGroup(group.id, {
-                              itemIds: e.target.checked
-                                ? [...group.itemIds, item.id]
-                                : group.itemIds.filter((id) => id !== item.id),
-                            })
-                          }
+                          checked={(group.categoryIds ?? []).includes(cat.id)}
+                          onChange={(e) => {
+                            const categoryIds = group.categoryIds ?? []
+                            const itemIds = group.itemIds ?? []
+                            if (e.target.checked) {
+                              const catItemIds = new Set(cat.items.map((i) => i.id))
+                              updateBundleGroup(group.id, {
+                                categoryIds: [...categoryIds, cat.id],
+                                itemIds: itemIds.filter((id) => !catItemIds.has(id)),
+                              })
+                            } else {
+                              updateBundleGroup(group.id, {
+                                categoryIds: categoryIds.filter((id) => id !== cat.id),
+                              })
+                            }
+                          }}
                         />
-                        {item.name} — £{(item.price_pence / 100).toFixed(2)}
+                        {cat.name} ({cat.items.length} items)
                       </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-400">Or pick individual items:</p>
+                  <div className="max-h-48 overflow-y-auto space-y-3">
+                    {categories.map((cat) => (
+                      <div key={cat.id}>
+                        <p className="text-xs font-medium text-slate-500 mb-1">{cat.name}</p>
+                        <div className="space-y-1">
+                          {cat.items.map((item) => {
+                            const categorySelected = (group.categoryIds ?? []).includes(cat.id)
+                            const itemSelected =
+                              categorySelected || (group.itemIds ?? []).includes(item.id)
+                            return (
+                              <label
+                                key={item.id}
+                                className={`flex items-center gap-2 text-xs ${
+                                  categorySelected ? 'text-slate-500' : 'text-slate-400'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={itemSelected}
+                                  disabled={categorySelected}
+                                  onChange={(e) => {
+                                    const itemIds = group.itemIds ?? []
+                                    updateBundleGroup(group.id, {
+                                      itemIds: e.target.checked
+                                        ? [...itemIds, item.id]
+                                        : itemIds.filter((id) => id !== item.id),
+                                    })
+                                  }}
+                                />
+                                {item.name} — £{(item.price_pence / 100).toFixed(2)}
+                                {categorySelected && (
+                                  <span className="text-slate-600">(via category)</span>
+                                )}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
                     ))}
                   </div>
                   <button

@@ -5,6 +5,7 @@ import {
   parsePromoConfig,
   formatDaysOfWeek,
   formatTimeRange,
+  bundleGroupIncludesItem,
   type PromoConfig,
 } from './promotion-config'
 
@@ -218,7 +219,12 @@ function calcBundle(promo: Promotion, items: PromoLineItem[]): number {
 
   for (const group of groups) {
     const groupItems = items.filter(
-      (i) => group.itemIds.includes(i.menuItemId) && !usedItemIds.has(i.menuItemId)
+      (i) =>
+        bundleGroupIncludesItem(
+          { ...group, categoryIds: group.categoryIds ?? [] },
+          i.menuItemId,
+          i.categoryId
+        ) && !usedItemIds.has(i.menuItemId)
     )
     const qty = groupItems.reduce((s, i) => s + i.quantity, 0)
     if (group.required && qty < group.minSelect) return 0
