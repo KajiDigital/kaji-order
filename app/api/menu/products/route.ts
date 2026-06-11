@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     price,
     image_url,
     is_available,
+    is_bundle,
     modifier_groups,
   } = body
 
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
       price_pence: pence,
       image_url: image_url ?? null,
       is_available: is_available ?? true,
+      is_bundle: is_bundle ?? false,
       modifier_groups: modifier_groups?.length
         ? {
             create: modifier_groups.map(

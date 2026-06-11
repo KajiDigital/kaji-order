@@ -92,7 +92,6 @@ export function buildPromotionPreview(
     | 'promo_type'
     | 'discount_pct'
     | 'discount_pence'
-    | 'bundle_price'
     | 'buy_quantity'
     | 'get_quantity'
     | 'applies_to'
@@ -144,13 +143,6 @@ export function buildPromotionPreview(
         if (cat) example = `Buy any ${buy} ${cat.name.toLowerCase()}, get ${get} free`
       }
       return { summary: example, example }
-    }
-    case 'BUNDLE': {
-      const price = ((promo.bundle_price ?? 0) / 100).toFixed(2)
-      return {
-        summary: `${promo.badge_text ?? promo.name} — £${price} fixed price`,
-        example: `Customer pays £${price} regardless of individual item prices`,
-      }
     }
     case 'FREE_ITEM': {
       let itemName = 'free item'

@@ -15,6 +15,7 @@ type ItemDef = {
   name: string
   price_pence: number
   description: string
+  is_bundle?: boolean
   modifierGroups?: ModifierGroupDef[]
 }
 
@@ -23,6 +24,44 @@ type CategoryDef = {
   sort_order: number
   color: string
   items: ItemDef[]
+}
+
+const SET_MEAL_STARTERS: ModifierGroupDef = {
+  name: 'Select Starter',
+  required: true,
+  max_select: 1,
+  modifiers: [
+    { name: 'Garlic Bread', price_delta_pence: 0 },
+    { name: 'Halloumi Fries', price_delta_pence: 0 },
+    { name: 'Jalapeno Poppers (5pcs)', price_delta_pence: 0 },
+    { name: 'Classic Nachos', price_delta_pence: 0 },
+    { name: 'Mexican Rice', price_delta_pence: 0 },
+  ],
+}
+
+const SET_MEAL_MAINS: ModifierGroupDef = {
+  name: 'Select Main',
+  required: true,
+  max_select: 1,
+  modifiers: [
+    { name: 'Chicken Chimichanga', price_delta_pence: 0 },
+    { name: 'Beef Chimichanga', price_delta_pence: 0 },
+    { name: 'Chicken Enchiladas', price_delta_pence: 0 },
+    { name: 'Beef Enchiladas', price_delta_pence: 0 },
+    { name: 'Chicken Fajitas', price_delta_pence: 0 },
+    { name: 'Beef Fajitas', price_delta_pence: 0 },
+  ],
+}
+
+const SET_MEAL_DESSERTS: ModifierGroupDef = {
+  name: 'Select Dessert',
+  required: true,
+  max_select: 1,
+  modifiers: [
+    { name: 'Churros (4pcs)', price_delta_pence: 0 },
+    { name: 'Chocolate Brownie', price_delta_pence: 0 },
+    { name: 'Cheesecake', price_delta_pence: 0 },
+  ],
 }
 
 const WING_SAUCE: ModifierGroupDef = {
@@ -105,6 +144,27 @@ const CHURROS_SAUCE: ModifierGroupDef = {
 }
 
 const categories: CategoryDef[] = [
+  {
+    name: 'Set Meals',
+    sort_order: 0,
+    color: '#b45309',
+    items: [
+      {
+        name: 'Mexican House Two Course Meal',
+        price_pence: 1495,
+        description: 'Choose a starter and main for one fixed price.',
+        is_bundle: true,
+        modifierGroups: [SET_MEAL_STARTERS, SET_MEAL_MAINS],
+      },
+      {
+        name: 'Mexican House Two Course Meal with Dessert',
+        price_pence: 1795,
+        description: 'Choose a starter, main and dessert for one fixed price.',
+        is_bundle: true,
+        modifierGroups: [SET_MEAL_STARTERS, SET_MEAL_MAINS, SET_MEAL_DESSERTS],
+      },
+    ],
+  },
   {
     name: 'Starters',
     sort_order: 0,
@@ -514,6 +574,7 @@ async function main() {
           name: itemDef.name,
           description: itemDef.description,
           price_pence: itemDef.price_pence,
+          is_bundle: itemDef.is_bundle ?? false,
           sort_order: i,
         },
       })

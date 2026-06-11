@@ -288,6 +288,7 @@ model MenuItem {
   price_pence   Int
   image_url     String?
   is_available  Boolean      @default(true)
+  is_bundle     Boolean      @default(false)
   sort_order    Int          @default(0)
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt

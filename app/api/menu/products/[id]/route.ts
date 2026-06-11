@@ -33,6 +33,7 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(body.price !== undefined && { price_pence: parsePoundsToPence(body.price) }),
       ...(body.image_url !== undefined && { image_url: body.image_url }),
       ...(body.is_available !== undefined && { is_available: body.is_available }),
+      ...(body.is_bundle !== undefined && { is_bundle: body.is_bundle }),
       ...(body.sort_order !== undefined && { sort_order: body.sort_order }),
     },
     include: {

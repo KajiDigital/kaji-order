@@ -145,7 +145,6 @@ export function PromotionsManager() {
               promo_type: promo.promo_type,
               discount_pct: promo.discount_pct,
               discount_pence: promo.discount_pence,
-              bundle_price: null,
               buy_quantity: null,
               get_quantity: null,
               applies_to: promo.applies_to,

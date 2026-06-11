@@ -6,7 +6,6 @@ import {
   DAY_LABELS,
   penceToPoundsInput,
   poundsToPence,
-  type BundleChoiceGroup,
   type MenuCategoryOption,
   type PromoScope,
 } from '@/app/lib/promotion-config'
@@ -16,7 +15,6 @@ const PROMO_TYPES = [
   { value: 'PERCENTAGE_OFF', label: '% Off' },
   { value: 'FIXED_OFF', label: '£ Off' },
   { value: 'BUY_X_GET_Y', label: 'Buy X Get Y' },
-  { value: 'BUNDLE', label: 'Bundle' },
   { value: 'FREE_ITEM', label: 'Free Item' },
   { value: 'HAPPY_HOUR', label: 'Happy Hour' },
 ] as const
@@ -28,8 +26,6 @@ export type PromotionFormState = {
   discount_pct: number
   discount_pence: number
   discount_pounds: string
-  bundle_price: number
-  bundle_pounds: string
   buy_quantity: number
   get_quantity: number
   applies_to: 'order' | 'category' | 'items'
@@ -58,7 +54,6 @@ export type PromotionFormState = {
   freeItemCategoryId: string
   freeItemMenuItemId: string
   freeItemLimit: 'order' | 'daily'
-  bundleGroups: BundleChoiceGroup[]
 }
 
 export const emptyPromotionForm = (): PromotionFormState => ({
@@ -68,8 +63,6 @@ export const emptyPromotionForm = (): PromotionFormState => ({
   discount_pct: 10,
   discount_pence: 500,
   discount_pounds: '5.00',
-  bundle_price: 1495,
-  bundle_pounds: '14.95',
   buy_quantity: 2,
   get_quantity: 1,
   applies_to: 'order',
@@ -98,7 +91,6 @@ export const emptyPromotionForm = (): PromotionFormState => ({
   freeItemCategoryId: '',
   freeItemMenuItemId: '',
   freeItemLimit: 'order',
-  bundleGroups: [],
 })
 
 function PreviewBox({ title, lines }: { title: string; lines: string[] }) {
@@ -351,14 +343,6 @@ export function buildPayloadFromForm(form: PromotionFormState) {
     promo_config.freeItemMode = form.freeItemMode
   }
 
-  if (form.promo_type === 'BUNDLE') {
-    promo_config.bundleGroups = form.bundleGroups.map((g) => ({
-      ...g,
-      categoryIds: g.categoryIds ?? [],
-      itemIds: g.itemIds ?? [],
-    }))
-  }
-
   if (form.promo_type === 'FREE_ITEM') {
     promo_config.freeItemScope = form.freeItemScope
     promo_config.freeItemCategoryId = form.freeItemCategoryId || undefined
@@ -375,7 +359,6 @@ export function buildPayloadFromForm(form: PromotionFormState) {
         ? form.discount_pct
         : null,
     discount_pence: form.promo_type === 'FIXED_OFF' ? form.discount_pence : null,
-    bundle_price: form.promo_type === 'BUNDLE' ? form.bundle_price : null,
     buy_quantity: form.promo_type === 'BUY_X_GET_Y' ? form.buy_quantity : null,
     get_quantity: form.promo_type === 'BUY_X_GET_Y' ? form.get_quantity : null,
     applies_to: form.applies_to,
@@ -410,7 +393,6 @@ export function PromotionForm({
           promo_type: form.promo_type,
           discount_pct: form.discount_pct,
           discount_pence: form.discount_pence,
-          bundle_price: form.bundle_price,
           buy_quantity: form.buy_quantity,
           get_quantity: form.get_quantity,
           applies_to: form.applies_to,
@@ -431,31 +413,6 @@ export function PromotionForm({
     () => categories.flatMap((c) => c.items.map((i) => ({ ...i, categoryName: c.name }))),
     [categories]
   )
-
-  function addBundleGroup() {
-    setForm({
-      ...form,
-      bundleGroups: [
-        ...form.bundleGroups,
-        {
-          id: `g-${Date.now()}`,
-          name: 'Select item',
-          required: true,
-          minSelect: 1,
-          maxSelect: 1,
-          categoryIds: [],
-          itemIds: [],
-        },
-      ],
-    })
-  }
-
-  function updateBundleGroup(id: string, patch: Partial<BundleChoiceGroup>) {
-    setForm({
-      ...form,
-      bundleGroups: form.bundleGroups.map((g) => (g.id === id ? { ...g, ...patch } : g)),
-    })
-  }
 
   return (
     <div className="space-y-6">
@@ -683,172 +640,6 @@ export function PromotionForm({
           <p className="text-xs text-slate-500">
             In basket: cheapest qualifying items are discounted automatically.
           </p>
-        </>
-      )}
-
-      {form.promo_type === 'BUNDLE' && (
-        <>
-          <Section title="Bundle fixed price">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-300">£</span>
-              <input
-                type="text"
-                value={form.bundle_pounds}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    bundle_pounds: e.target.value,
-                    bundle_price: poundsToPence(e.target.value),
-                  })
-                }
-                className={`${inputClass()} w-32`}
-              />
-            </div>
-            <p className="text-xs text-slate-500">
-              Customer pays this price regardless of individual item prices.
-            </p>
-          </Section>
-          <Section title="Bundle includes">
-            <button
-              type="button"
-              onClick={addBundleGroup}
-              className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
-            >
-              + Add choice group
-            </button>
-            <div className="space-y-3">
-              {form.bundleGroups.map((group) => (
-                <div key={group.id} className="rounded-xl border border-slate-700 p-4 space-y-3">
-                  <input
-                    placeholder="Group name e.g. Select Starter"
-                    value={group.name}
-                    onChange={(e) => updateBundleGroup(group.id, { name: e.target.value })}
-                    className={inputClass()}
-                  />
-                  <div className="grid grid-cols-3 gap-2">
-                    <label className="text-xs text-slate-400">
-                      Required
-                      <select
-                        value={group.required ? 'yes' : 'no'}
-                        onChange={(e) =>
-                          updateBundleGroup(group.id, { required: e.target.value === 'yes' })
-                        }
-                        className={`${inputClass()} mt-1`}
-                      >
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
-                      </select>
-                    </label>
-                    <label className="text-xs text-slate-400">
-                      Min
-                      <input
-                        type="number"
-                        min={0}
-                        value={group.minSelect}
-                        onChange={(e) =>
-                          updateBundleGroup(group.id, { minSelect: Number(e.target.value) })
-                        }
-                        className={`${inputClass()} mt-1`}
-                      />
-                    </label>
-                    <label className="text-xs text-slate-400">
-                      Max
-                      <input
-                        type="number"
-                        min={1}
-                        value={group.maxSelect}
-                        onChange={(e) =>
-                          updateBundleGroup(group.id, { maxSelect: Number(e.target.value) })
-                        }
-                        className={`${inputClass()} mt-1`}
-                      />
-                    </label>
-                  </div>
-                  <p className="text-xs text-slate-400">Categories (all items in category included):</p>
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                    {categories.map((cat) => (
-                      <label key={cat.id} className="flex items-center gap-2 text-xs text-slate-400">
-                        <input
-                          type="checkbox"
-                          checked={(group.categoryIds ?? []).includes(cat.id)}
-                          onChange={(e) => {
-                            const categoryIds = group.categoryIds ?? []
-                            const itemIds = group.itemIds ?? []
-                            if (e.target.checked) {
-                              const catItemIds = new Set(cat.items.map((i) => i.id))
-                              updateBundleGroup(group.id, {
-                                categoryIds: [...categoryIds, cat.id],
-                                itemIds: itemIds.filter((id) => !catItemIds.has(id)),
-                              })
-                            } else {
-                              updateBundleGroup(group.id, {
-                                categoryIds: categoryIds.filter((id) => id !== cat.id),
-                              })
-                            }
-                          }}
-                        />
-                        {cat.name} ({cat.items.length} items)
-                      </label>
-                    ))}
-                  </div>
-                  <p className="text-xs text-slate-400">Or pick individual items:</p>
-                  <div className="max-h-48 overflow-y-auto space-y-3">
-                    {categories.map((cat) => (
-                      <div key={cat.id}>
-                        <p className="text-xs font-medium text-slate-500 mb-1">{cat.name}</p>
-                        <div className="space-y-1">
-                          {cat.items.map((item) => {
-                            const categorySelected = (group.categoryIds ?? []).includes(cat.id)
-                            const itemSelected =
-                              categorySelected || (group.itemIds ?? []).includes(item.id)
-                            return (
-                              <label
-                                key={item.id}
-                                className={`flex items-center gap-2 text-xs ${
-                                  categorySelected ? 'text-slate-500' : 'text-slate-400'
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={itemSelected}
-                                  disabled={categorySelected}
-                                  onChange={(e) => {
-                                    const itemIds = group.itemIds ?? []
-                                    updateBundleGroup(group.id, {
-                                      itemIds: e.target.checked
-                                        ? [...itemIds, item.id]
-                                        : itemIds.filter((id) => id !== item.id),
-                                    })
-                                  }}
-                                />
-                                {item.name} — £{(item.price_pence / 100).toFixed(2)}
-                                {categorySelected && (
-                                  <span className="text-slate-600">(via category)</span>
-                                )}
-                              </label>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        bundleGroups: form.bundleGroups.filter((g) => g.id !== group.id),
-                      })
-                    }
-                    className="text-xs text-red-400"
-                  >
-                    Remove group
-                  </button>
-                </div>
-              ))}
-            </div>
-          </Section>
-          <PreviewBox title="Example preview" lines={[preview.example ?? preview.summary]} />
         </>
       )}
 

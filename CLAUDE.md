@@ -148,7 +148,8 @@ Webhook: /api/stripe/webhook
 
 ## Promotions & Coupon Codes
 - Models: `Promotion`, `CouponCode`, `OrderDiscount` (migration: `add_promotions_coupons`)
-- Promotion types: `PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `BUNDLE`, `FREE_ITEM`, `HAPPY_HOUR`
+- Promotion types: `PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `FREE_ITEM`, `HAPPY_HOUR`
+- Set meals / bundles are **menu items** (`MenuItem.is_bundle = true`) with modifier groups — not promotions
 - `applies_to`: `order` (whole order), `category`, `items` — with `applicable_ids` JSON
 - Conditions: min order, date range, days of week, happy-hour time range, max uses
 - Menu badges: `badge_text`, `badge_color`, `show_on_menu` — shown on public menu
@@ -159,8 +160,9 @@ Webhook: /api/stripe/webhook
 - Dashboard: `/dashboard/promotions` — create, pause, delete; admin view on `/admin/restaurants/[id]`
 - Lib: `app/lib/promotions.ts` — validation, discount calculation, menu promos, usage increment
 - Lib: `app/lib/promotion-config.ts` — type-specific config, previews, banner text
-- Dashboard form: type-specific fields per promo (`PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `BUNDLE`, `FREE_ITEM`, `HAPPY_HOUR`) with live preview
-- Extended config stored in `promo_config` JSON (bundle choice groups, buy/get scopes, free item target)
+- Dashboard form: type-specific fields per promo (`PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `FREE_ITEM`, `HAPPY_HOUR`) with live preview
+- Extended config stored in `promo_config` JSON (buy/get scopes, free item target)
+- Set meals: Menu → Add item → enable “Set meal / bundle” → add modifier groups (`Select Starter`, `Select Main`); fixed `price_pence`; public menu shows “Set meal” badge
 - Public menu: scrolling promotions banner; basket shows hints and free-item claim flow
 - Validate API: per-type discount logic, hints mode, free-item qualification check
 
@@ -388,6 +390,9 @@ payment_method, source, day_of_week, hour_of_day, week_number, month_number, pos
 
 OnlineOrder fields (promotions):
 discount_total, coupon_code; relation `discounts` → OrderDiscount
+
+MenuItem fields (set meals):
+is_bundle — fixed-price combo with modifier choice groups; shown as “Set meal” on public menu
 
 OnlineOrderItem: pos_item_id, modifiers_text
 

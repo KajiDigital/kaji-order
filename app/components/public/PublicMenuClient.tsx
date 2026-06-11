@@ -83,6 +83,17 @@ function AddButton({
   )
 }
 
+function formatSetMealChoices(groups: Product['modifier_groups']): string {
+  const labels = groups.map((g) =>
+    g.name.replace(/^select\s+(your\s+)?/i, '').trim()
+  )
+  return labels.join(' + ')
+}
+
+function isSetMeal(product: Product): boolean {
+  return Boolean(product.is_bundle && product.modifier_groups.length >= 2)
+}
+
 function MenuItemRow({
   product,
   primary,
@@ -102,6 +113,7 @@ function MenuItemRow({
 }) {
   const unavailable = !product.is_available
   const orderingBlocked = !canOrder || unavailable
+  const setMeal = isSetMeal(product)
 
   function handleAdd(e: React.MouseEvent) {
     e.stopPropagation()
@@ -117,7 +129,11 @@ function MenuItemRow({
     <button
       type="button"
       onClick={onOpen}
-      className="relative flex w-full gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md"
+      className={`relative flex w-full gap-3 rounded-xl border bg-white text-left shadow-sm transition-shadow hover:shadow-md ${
+        setMeal
+          ? 'border-2 border-amber-200 bg-amber-50/40 p-4'
+          : 'border-stone-200 p-3'
+      }`}
     >
       {product.image_url ? (
         <img
@@ -132,6 +148,11 @@ function MenuItemRow({
       <div className="min-w-0 flex-1 py-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-bold text-stone-900">{product.name}</p>
+          {setMeal && (
+            <span className="inline-flex rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              Set meal
+            </span>
+          )}
           {recommended && (
             <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
               ★ Recommended
@@ -141,6 +162,16 @@ function MenuItemRow({
             <PromoBadge key={p.id} promo={p} />
           ))}
         </div>
+        {setMeal && (
+          <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+            Build your meal
+          </p>
+        )}
+        {setMeal && (
+          <p className="mt-0.5 text-xs text-amber-800/80">
+            Choose: {formatSetMealChoices(product.modifier_groups)}
+          </p>
+        )}
         {product.description && (
           <p className="mt-0.5 line-clamp-2 text-sm text-stone-500">{product.description}</p>
         )}

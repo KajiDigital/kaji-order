@@ -21,6 +21,7 @@ export type Product = {
   price_pence: number
   image_url?: string | null
   is_available: boolean
+  is_bundle?: boolean
   modifier_groups: ModifierGroup[]
 }
 

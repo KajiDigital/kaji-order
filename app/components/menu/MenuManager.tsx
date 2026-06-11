@@ -19,6 +19,7 @@ type Product = {
   price_pence: number
   image_url?: string | null
   is_available: boolean
+  is_bundle?: boolean
   modifier_groups?: ModifierGroup[]
 }
 type Category = {
@@ -153,7 +154,14 @@ export function MenuManager() {
                 {selected.items.map((product) => (
                   <div key={product.id} className="flex items-center justify-between bg-slate-800 rounded-lg p-3">
                     <div>
-                      <p className="text-white font-medium">{product.name}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-white font-medium">{product.name}</p>
+                        {product.is_bundle && (
+                          <span className="text-[10px] uppercase tracking-wide bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
+                            Set meal
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-violet-400">{formatPence(product.price_pence)}</p>
                     </div>
                     <div className="flex gap-2">
@@ -220,6 +228,7 @@ function ProductForm({
   const [price, setPrice] = useState(product ? (product.price_pence / 100).toFixed(2) : '')
   const [imageUrl, setImageUrl] = useState(product?.image_url ?? '')
   const [groups, setGroups] = useState<ModifierGroup[]>(product?.modifier_groups ?? [])
+  const [isBundle, setIsBundle] = useState(product?.is_bundle ?? false)
   const [saving, setSaving] = useState(false)
 
   async function save() {
@@ -229,6 +238,7 @@ function ProductForm({
       name,
       description,
       price,
+      is_bundle: isBundle,
       image_url: imageUrl || null,
       modifier_groups: groups.map((g) => ({
         name: g.name,
@@ -266,7 +276,19 @@ function ProductForm({
         <h3 className="text-lg font-bold text-white">{product ? 'Edit product' : 'Add product'}</h3>
         <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white" />
         <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white" rows={2} />
-        <input placeholder="Price (£)" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white" />
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input type="checkbox" checked={isBundle} onChange={(e) => setIsBundle(e.target.checked)} />
+          This is a set meal / bundle
+        </label>
+        <label className="block text-sm text-slate-400">
+          {isBundle ? 'Bundle price (includes all choices)' : 'Price (£)'}
+          <input
+            placeholder={isBundle ? '14.95' : '9.99'}
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+          />
+        </label>
         <input placeholder="Image URL" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white" />
 
         <div>
@@ -280,6 +302,10 @@ function ProductForm({
               + Group
             </button>
           </div>
+          <p className="text-xs text-amber-200/80 mb-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+            💡 Tip: Use modifier groups to create bundle meals and set menus. Set a fixed item price
+            and add &apos;Select Starter&apos;, &apos;Select Main&apos; groups.
+          </p>
           {groups.map((g, gi) => (
             <div key={gi} className="bg-slate-800 rounded-lg p-3 mb-2 space-y-2">
               <input value={g.name} onChange={(e) => { const ng = [...groups]; ng[gi] = { ...g, name: e.target.value }; setGroups(ng) }} className="w-full bg-slate-700 rounded px-2 py-1 text-white text-sm" placeholder="Group name" />
