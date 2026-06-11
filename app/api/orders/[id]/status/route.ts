@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
       prep_time_mins: true,
       accept_by: true,
       items: {
-        select: { name: true, quantity: true, price_pence: true },
+        select: { name: true, quantity: true, base_price: true, total_price: true, selections: true },
       },
       restaurant: {
         select: { slug: true, order_mode: true, name: true, logo_url: true },

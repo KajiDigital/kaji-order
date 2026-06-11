@@ -18,7 +18,7 @@ type StatusResponse = {
 type OrderDetail = {
   customer_name: string
   total_pence: number
-  items: { name: string; quantity: number; price_pence: number }[]
+  items: { name: string; quantity: number; base_price: number; total_price: number }[]
   restaurant: { name: string; logo_url?: string | null }
 }
 
@@ -155,7 +155,7 @@ export default function WaitingPage() {
                 {order.items.map((item, i) => (
                   <li key={i} className="flex justify-between text-slate-700">
                     <span>{item.quantity}x {item.name}</span>
-                    <span>{formatPence(item.price_pence * item.quantity)}</span>
+                    <span>{formatPence(item.total_price || item.base_price * item.quantity)}</span>
                   </li>
                 ))}
                 <li className="flex justify-between font-bold pt-2 border-t">

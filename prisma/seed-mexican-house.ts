@@ -2,13 +2,20 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-type ModifierDef = { name: string; price_delta_pence: number }
+type OptionDef = { name: string; price_delta_pence: number; is_default?: boolean }
 
-type ModifierGroupDef = {
+type OptionGroupDef = {
+  name: string
+  group_type?: string
+  required: boolean
+  max_selections?: number
+  options: OptionDef[]
+}
+
+type ComboGroupDef = {
   name: string
   required: boolean
-  max_select: number
-  modifiers: ModifierDef[]
+  itemNames: string[]
 }
 
 type ItemDef = {
@@ -16,7 +23,8 @@ type ItemDef = {
   price_pence: number
   description: string
   is_bundle?: boolean
-  modifierGroups?: ModifierGroupDef[]
+  optionGroups?: OptionGroupDef[]
+  comboGroups?: ComboGroupDef[]
 }
 
 type CategoryDef = {
@@ -26,80 +34,100 @@ type CategoryDef = {
   items: ItemDef[]
 }
 
-const SET_MEAL_STARTERS: ModifierGroupDef = {
+const SET_MEAL_STARTERS: ComboGroupDef = {
   name: 'Select Starter',
   required: true,
-  max_select: 1,
-  modifiers: [
-    { name: 'Garlic Bread', price_delta_pence: 0 },
-    { name: 'Halloumi Fries', price_delta_pence: 0 },
-    { name: 'Jalapeno Poppers (5pcs)', price_delta_pence: 0 },
-    { name: 'Classic Nachos', price_delta_pence: 0 },
-    { name: 'Mexican Rice', price_delta_pence: 0 },
+  itemNames: [
+    'Garlic Bread',
+    'Halloumi Fries',
+    'Jalapeno Poppers (5pcs)',
+    'Mozzarella Sticks (5pcs)',
+    'Chicken Wings (6pcs)',
   ],
 }
 
-const SET_MEAL_MAINS: ModifierGroupDef = {
+const SET_MEAL_MAINS: ComboGroupDef = {
   name: 'Select Main',
   required: true,
-  max_select: 1,
-  modifiers: [
-    { name: 'Chicken Chimichanga', price_delta_pence: 0 },
-    { name: 'Beef Chimichanga', price_delta_pence: 0 },
-    { name: 'Chicken Enchiladas', price_delta_pence: 0 },
-    { name: 'Beef Enchiladas', price_delta_pence: 0 },
-    { name: 'Chicken Fajitas', price_delta_pence: 0 },
-    { name: 'Beef Fajitas', price_delta_pence: 0 },
+  itemNames: [
+    'Chicken Chimichanga',
+    'Beef Chimichanga',
+    'Chicken Enchiladas',
+    'Beef Enchiladas',
+    'Chicken Fajitas',
+    'Beef Fajitas',
   ],
 }
 
-const SET_MEAL_DESSERTS: ModifierGroupDef = {
+const SET_MEAL_DESSERTS: ComboGroupDef = {
   name: 'Select Dessert',
   required: true,
-  max_select: 1,
-  modifiers: [
-    { name: 'Churros (4pcs)', price_delta_pence: 0 },
-    { name: 'Chocolate Brownie', price_delta_pence: 0 },
-    { name: 'Cheesecake', price_delta_pence: 0 },
-  ],
+  itemNames: ['Churros (4pcs)', 'Chocolate Brownie', 'Cheesecake'],
 }
 
-const WING_SAUCE: ModifierGroupDef = {
+const WING_SAUCE: OptionGroupDef = {
   name: 'Choice of sauce',
   required: true,
-  max_select: 1,
-  modifiers: [
+  options: [
     { name: 'BBQ', price_delta_pence: 0 },
     { name: 'Buffalo', price_delta_pence: 0 },
     { name: 'Lemon & Herb', price_delta_pence: 0 },
   ],
 }
 
-const CHICKEN_STYLE: ModifierGroupDef = {
+const CHICKEN_STYLE: OptionGroupDef = {
   name: 'Chicken style',
   required: true,
-  max_select: 1,
-  modifiers: [
+  options: [
     { name: 'Grilled', price_delta_pence: 0 },
     { name: 'Crispy fried', price_delta_pence: 0 },
   ],
 }
 
-const CHIMICHANGA_FILLING: ModifierGroupDef = {
+const CHIMICHANGA_FILLING: OptionGroupDef = {
   name: 'Filling',
   required: true,
-  max_select: 1,
-  modifiers: [
-    { name: 'Chicken', price_delta_pence: 0 },
-    { name: 'Beef', price_delta_pence: 0 },
+  options: [
+    { name: 'Spicy Beef', price_delta_pence: 0, is_default: true },
+    { name: 'Spicy Chicken', price_delta_pence: 0 },
+    { name: 'Spicy Vegetable', price_delta_pence: 0 },
   ],
 }
 
-const DIP_CHOICE: ModifierGroupDef = {
+const FAJITAS_MEAT: OptionGroupDef = {
+  name: 'Meat',
+  required: true,
+  options: [
+    { name: 'Chicken', price_delta_pence: 0, is_default: true },
+    { name: 'Lamb', price_delta_pence: 200 },
+    { name: 'Prawn', price_delta_pence: 200 },
+    { name: 'Vegetable', price_delta_pence: -200 },
+  ],
+}
+
+const SKEWER_MEAT: OptionGroupDef = {
+  name: 'Meat',
+  required: true,
+  options: [
+    { name: 'Chicken', price_delta_pence: 0, is_default: true },
+    { name: 'Lamb', price_delta_pence: 200 },
+  ],
+}
+
+const TACOS_FILLING: OptionGroupDef = {
+  name: 'Filling',
+  required: true,
+  options: [
+    { name: 'Spicy Beef', price_delta_pence: 0, is_default: true },
+    { name: 'Chipotle Chicken', price_delta_pence: 0 },
+    { name: 'Spicy Vegetable', price_delta_pence: 0 },
+  ],
+}
+
+const DIP_CHOICE: OptionGroupDef = {
   name: 'Dip choice',
   required: true,
-  max_select: 1,
-  modifiers: [
+  options: [
     { name: 'Salsa', price_delta_pence: 0 },
     { name: 'Sour Cream', price_delta_pence: 0 },
     { name: 'Guacamole', price_delta_pence: 0 },
@@ -109,11 +137,10 @@ const DIP_CHOICE: ModifierGroupDef = {
   ],
 }
 
-const SOFT_DRINK: ModifierGroupDef = {
-  name: 'Drink choice',
+const SOFT_DRINK: OptionGroupDef = {
+  name: 'Choice of drink',
   required: true,
-  max_select: 1,
-  modifiers: [
+  options: [
     { name: 'Coke', price_delta_pence: 0 },
     { name: 'Diet Coke', price_delta_pence: 0 },
     { name: 'Fanta Orange', price_delta_pence: 0 },
@@ -121,11 +148,17 @@ const SOFT_DRINK: ModifierGroupDef = {
   ],
 }
 
-const JARRITOS_FLAVOUR: ModifierGroupDef = {
+const DESSERT_OPTIONAL: OptionGroupDef = {
+  name: 'Choice of dessert',
+  required: false,
+  group_type: 'OPTIONAL',
+  options: [{ name: 'Ice cream', price_delta_pence: 0 }],
+}
+
+const JARRITOS_FLAVOUR: OptionGroupDef = {
   name: 'Flavour',
   required: true,
-  max_select: 1,
-  modifiers: [
+  options: [
     { name: 'Lime', price_delta_pence: 0 },
     { name: 'Mango', price_delta_pence: 0 },
     { name: 'Pineapple', price_delta_pence: 0 },
@@ -133,11 +166,10 @@ const JARRITOS_FLAVOUR: ModifierGroupDef = {
   ],
 }
 
-const CHURROS_SAUCE: ModifierGroupDef = {
+const CHURROS_SAUCE: OptionGroupDef = {
   name: 'Dipping sauce',
   required: true,
-  max_select: 1,
-  modifiers: [
+  options: [
     { name: 'Chocolate', price_delta_pence: 0 },
     { name: 'Caramel', price_delta_pence: 0 },
   ],
@@ -154,14 +186,14 @@ const categories: CategoryDef[] = [
         price_pence: 1495,
         description: 'Choose a starter and main for one fixed price.',
         is_bundle: true,
-        modifierGroups: [SET_MEAL_STARTERS, SET_MEAL_MAINS],
+        comboGroups: [SET_MEAL_STARTERS, SET_MEAL_MAINS],
       },
       {
         name: 'Mexican House Two Course Meal with Dessert',
         price_pence: 1795,
         description: 'Choose a starter, main and dessert for one fixed price.',
         is_bundle: true,
-        modifierGroups: [SET_MEAL_STARTERS, SET_MEAL_MAINS, SET_MEAL_DESSERTS],
+        comboGroups: [SET_MEAL_STARTERS, SET_MEAL_MAINS, SET_MEAL_DESSERTS],
       },
     ],
   },
@@ -175,13 +207,13 @@ const categories: CategoryDef[] = [
         price_pence: 595,
         description:
           'Succulent chicken wings tossed in your choice of sauce: BBQ, Buffalo, or Lemon & Herb.',
-        modifierGroups: [WING_SAUCE],
+        optionGroups: [WING_SAUCE],
       },
       {
         name: 'Chicken Wings (10pcs)',
         price_pence: 895,
         description: 'Succulent chicken wings tossed in your choice of sauce.',
-        modifierGroups: [WING_SAUCE],
+        optionGroups: [WING_SAUCE],
       },
       {
         name: 'Mozzarella Sticks (5pcs)',
@@ -411,7 +443,7 @@ const categories: CategoryDef[] = [
         price_pence: 995,
         description:
           'Choose between grilled or crispy fried chicken breast. Served with fries.',
-        modifierGroups: [CHICKEN_STYLE],
+        optionGroups: [CHICKEN_STYLE],
       },
     ],
   },
@@ -431,7 +463,7 @@ const categories: CategoryDef[] = [
         price_pence: 1145,
         description:
           'A deep-fried burrito filled with your choice of chicken or beef, topped with salsa and sour cream.',
-        modifierGroups: [CHIMICHANGA_FILLING],
+        optionGroups: [CHIMICHANGA_FILLING],
       },
       {
         name: 'Mexican Paella',
@@ -460,7 +492,7 @@ const categories: CategoryDef[] = [
         name: 'Extra Dips',
         price_pence: 95,
         description: 'Choice of Salsa, Sour Cream, Guacamole, Garlic Mayo, BBQ, or Buffalo.',
-        modifierGroups: [DIP_CHOICE],
+        optionGroups: [DIP_CHOICE],
       },
     ],
   },
@@ -496,7 +528,7 @@ const categories: CategoryDef[] = [
         price_pence: 545,
         description:
           'Mexican doughnuts dusted in cinnamon sugar, served with chocolate or caramel dipping sauce.',
-        modifierGroups: [CHURROS_SAUCE],
+        optionGroups: [CHURROS_SAUCE],
       },
       {
         name: 'Chocolate Brownie',
@@ -519,14 +551,14 @@ const categories: CategoryDef[] = [
         name: 'Soft Drinks (330ml Can)',
         price_pence: 150,
         description: 'Coke, Diet Coke, Fanta Orange, Sprite.',
-        modifierGroups: [SOFT_DRINK],
+        optionGroups: [SOFT_DRINK],
       },
       { name: 'Water (500ml)', price_pence: 120, description: 'Still bottled water.' },
       {
         name: 'Jarritos (370ml)',
         price_pence: 295,
         description: 'Authentic Mexican soda. Flavours: Lime, Mango, Pineapple, Guava.',
-        modifierGroups: [JARRITOS_FLAVOUR],
+        optionGroups: [JARRITOS_FLAVOUR],
       },
     ],
   },
@@ -554,6 +586,7 @@ async function main() {
   })
 
   let itemCount = 0
+  const itemIdByName = new Map<string, string>()
 
   for (const categoryDef of categories) {
     const category = await prisma.menuCategory.create({
@@ -573,35 +606,72 @@ async function main() {
           category_id: category.id,
           name: itemDef.name,
           description: itemDef.description,
-          price_pence: itemDef.price_pence,
+          base_price: itemDef.price_pence,
           is_bundle: itemDef.is_bundle ?? false,
+          pricing_type: itemDef.is_bundle ? 'BUNDLE' : 'OPTIONS',
           sort_order: i,
         },
       })
+      itemIdByName.set(itemDef.name, menuItem.id)
       itemCount++
 
-      if (itemDef.modifierGroups) {
-        for (let g = 0; g < itemDef.modifierGroups.length; g++) {
-          const groupDef = itemDef.modifierGroups[g]
-          await prisma.modifierGroup.create({
+      if (itemDef.optionGroups) {
+        for (let g = 0; g < itemDef.optionGroups.length; g++) {
+          const groupDef = itemDef.optionGroups[g]
+          await prisma.optionGroup.create({
             data: {
-              restaurant_id: restaurant.id,
-              menu_item_id: menuItem.id,
+              item_id: menuItem.id,
               name: groupDef.name,
+              group_type: groupDef.group_type ?? 'SINGLE',
               required: groupDef.required,
-              min_select: groupDef.required ? 1 : 0,
-              max_select: groupDef.max_select,
+              min_selections: groupDef.required ? 1 : 0,
+              max_selections: groupDef.max_selections ?? 1,
               sort_order: g,
-              modifiers: {
-                create: groupDef.modifiers.map((mod, m) => ({
-                  name: mod.name,
-                  price_delta_pence: mod.price_delta_pence,
-                  sort_order: m,
+              options: {
+                create: groupDef.options.map((opt, o) => ({
+                  name: opt.name,
+                  price_delta: opt.price_delta_pence,
+                  is_default: opt.is_default ?? false,
+                  sort_order: o,
                 })),
               },
             },
           })
         }
+      }
+    }
+  }
+
+  // Second pass: combo groups need linked menu item IDs
+  for (const categoryDef of categories) {
+    for (const itemDef of categoryDef.items) {
+      if (!itemDef.comboGroups?.length) continue
+      const bundleId = itemIdByName.get(itemDef.name)
+      if (!bundleId) continue
+
+      for (let g = 0; g < itemDef.comboGroups.length; g++) {
+        const groupDef = itemDef.comboGroups[g]
+        const linkedIds = groupDef.itemNames
+          .map((n) => itemIdByName.get(n))
+          .filter(Boolean) as string[]
+
+        await prisma.comboGroup.create({
+          data: {
+            item_id: bundleId,
+            name: groupDef.name,
+            required: groupDef.required,
+            min_items: groupDef.required ? 1 : 0,
+            max_items: 1,
+            source_type: 'ITEMS',
+            sort_order: g,
+            combo_options: {
+              create: linkedIds.map((menuItemId, o) => ({
+                menu_item_id: menuItemId,
+                sort_order: o,
+              })),
+            },
+          },
+        })
       }
     }
   }

@@ -335,7 +335,7 @@ export function buildOrderEmailFromDb(
     ready_at?: Date | null
     prep_time_mins?: number | null
     estimated_time?: string | null
-    items: { name: string; quantity: number; price_pence: number }[]
+    items: { name: string; quantity: number; total_price: number; base_price?: number }[]
     restaurant: {
       id: string
       name: string
@@ -380,7 +380,7 @@ export function buildOrderEmailFromDb(
     items: order.items.map((i) => ({
       name: i.name,
       quantity: i.quantity,
-      pricePence: i.price_pence,
+      pricePence: i.total_price || i.base_price || 0,
     })),
     subtotalPence: order.subtotal_pence,
     serviceFeePence: order.service_fee_pence,

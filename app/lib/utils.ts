@@ -61,6 +61,9 @@ export function formatModifiersText(
   return modifiers.map((m) => m.name).join(', ')
 }
 
+/** @deprecated use formatSelectionsText from menu-selections */
+export { formatSelectionsText } from './menu-selections'
+
 export function getReportingFields(date = new Date()) {
   return {
     day_of_week: date.getDay(),

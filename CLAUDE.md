@@ -149,7 +149,7 @@ Webhook: /api/stripe/webhook
 ## Promotions & Coupon Codes
 - Models: `Promotion`, `CouponCode`, `OrderDiscount` (migration: `add_promotions_coupons`)
 - Promotion types: `PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `FREE_ITEM`, `HAPPY_HOUR`
-- Set meals / bundles are **menu items** (`MenuItem.is_bundle = true`) with modifier groups — not promotions
+- Set meals / bundles are **menu items** (`MenuItem.is_bundle = true`) with **ComboGroup** courses — not promotions
 - `applies_to`: `order` (whole order), `category`, `items` — with `applicable_ids` JSON
 - Conditions: min order, date range, days of week, happy-hour time range, max uses
 - Menu badges: `badge_text`, `badge_color`, `show_on_menu` — shown on public menu
@@ -162,7 +162,8 @@ Webhook: /api/stripe/webhook
 - Lib: `app/lib/promotion-config.ts` — type-specific config, previews, banner text
 - Dashboard form: type-specific fields per promo (`PERCENTAGE_OFF`, `FIXED_OFF`, `BUY_X_GET_Y`, `FREE_ITEM`, `HAPPY_HOUR`) with live preview
 - Extended config stored in `promo_config` JSON (buy/get scopes, free item target)
-- Set meals: Menu → Add item → enable “Set meal / bundle” → add modifier groups (`Select Starter`, `Select Main`); fixed `price_pence`; public menu shows “Set meal” badge
+- Set meals: Menu → 4-tab item form → Combo tab with course groups (ITEMS / CATEGORY / ANY source); fixed `base_price`; public menu shows “Set meal” badge
+- Legacy `BUNDLE` promotion type in DB is ignored (returns no discount); use menu items instead
 - Public menu: scrolling promotions banner; basket shows hints and free-item claim flow
 - Validate API: per-type discount logic, hints mode, free-item qualification check
 
@@ -358,9 +359,50 @@ Sprint 12 (planned)
 - White label custom domains
 - Multi-site per restaurant
 
+## Dynamic Menu System (migration: `redesign_menu_system`)
+
+### Schema
+- **OptionGroup + Option** — product customisation (size, filling, extras). Types: `SINGLE`, `MULTIPLE`, `OPTIONAL`
+- **ComboGroup + ComboOption** — set meals only. `source_type`: `ITEMS` | `CATEGORY` | `ANY`
+- **MenuItem** — `base_price` (@map `price_pence`), `available` (@map `is_available`), dietary flags, `pricing_type` (`FIXED` | `OPTIONS` | `BUNDLE`)
+- **OnlineOrderItem** — `base_price`, `options_price`, `total_price`, `selections` (@map `modifiers_json`), `modifiers_text` (computed for emails/KDS)
+- **Deprecated (keep 30 days):** `ModifierGroup`, `Modifier` — migrated via `prisma/scripts/migrate-modifiers-to-options.ts`
+
+### Selection snapshot (basket + orders)
+```json
+[
+  { "kind": "option", "group": "Filling", "option": "Spicy Beef", "price_delta": 0 },
+  { "kind": "combo", "group": "Select Starter", "item_id": "...", "item_name": "Garlic Bread", "price_delta": 0 }
+]
+```
+
+### Pricing rules
+- **OPTIONS:** total = base_price + sum(option price_deltas)
+- **BUNDLE:** total = base_price (combo picks are display-only)
+- **FIXED:** total = base_price
+
+### Lib modules
+- `app/lib/menu-types.ts` — shared types
+- `app/lib/menu-pricing.ts` — price calculation, min/max preview
+- `app/lib/menu-selections.ts` — validation, display formatting
+- `app/lib/menu-api.ts` — serialize, CRUD helpers
+- `app/lib/menu-checkout.ts` — server-side basket validation
+
+### Basket localStorage
+- Key: `kaji-basket-v2-{slug}` (v2 shape with `selections`)
+
+### kaji-order ↔ kaji-pos menu mapping (future sync)
+| kaji-order | kaji-pos |
+|------------|----------|
+| OptionGroup (item-scoped) | VariationGroup + MenuItemVariationGroup |
+| Option | Variation |
+| ComboGroup | OOS-only (no POS equivalent yet) |
+
 ## Models (see prisma/schema.prisma for full details)
 Restaurant, RestaurantStaff, MenuCategory, MenuItem,
-ModifierGroup, Modifier, OnlineOrder, OnlineOrderItem,
+OptionGroup, Option, ComboGroup, ComboOption,
+ModifierGroup (deprecated), Modifier (deprecated),
+OnlineOrder, OnlineOrderItem,
 CommissionRecord, DeliveryZone, PostcodeRule, AdminUser, PlatformSettings,
 EmailTemplate, Promotion, CouponCode, OrderDiscount
 
@@ -391,10 +433,11 @@ payment_method, source, day_of_week, hour_of_day, week_number, month_number, pos
 OnlineOrder fields (promotions):
 discount_total, coupon_code; relation `discounts` → OrderDiscount
 
-MenuItem fields (set meals):
-is_bundle — fixed-price combo with modifier choice groups; shown as “Set meal” on public menu
+MenuItem fields (set meals + dietary):
+is_bundle, featured, pricing_type, calories, allergens, spice_level, is_vegan, is_vegetarian, is_gluten_free
+base_price (@map price_pence), available (@map is_available)
 
-OnlineOrderItem: pos_item_id, modifiers_text
+OnlineOrderItem: base_price, options_price, total_price, selections (JSON), modifiers_text
 
 PlatformSettings fields added Sprint 11:
 service_fee_pence (default 49)

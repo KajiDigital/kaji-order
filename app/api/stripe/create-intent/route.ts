@@ -5,7 +5,10 @@ import { getStripe, stripeConfigured } from '@/app/lib/stripe'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { calculateOrderTotals } from '@/app/lib/service-fee'
 import { getOpenStatus } from '@/app/lib/opening-hours'
-import { formatModifiersText, getReportingFields } from '@/app/lib/utils'
+import { formatSelectionsText } from '@/app/lib/menu-selections'
+import { getReportingFields } from '@/app/lib/utils'
+import { validateCheckoutItems } from '@/app/lib/menu-checkout'
+import type { BasketSelection } from '@/app/lib/menu-types'
 import { buildPrepFields } from '@/app/lib/order-expiry'
 import {
   sendOrderConfirmation,
@@ -20,9 +23,11 @@ export const dynamic = 'force-dynamic'
 type CheckoutItem = {
   menuItemId: string
   name: string
-  pricePence: number
+  base_price?: number
+  pricePence?: number
   quantity: number
-  modifiers?: { name: string; priceDeltaPence: number }[]
+  selections?: BasketSelection[]
+  modifiers?: { name: string; priceDeltaPence: number; groupName?: string }[]
   notes?: string
 }
 
@@ -85,10 +90,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const subtotal = items.reduce((sum, item) => {
-      const modTotal = (item.modifiers ?? []).reduce((s, m) => s + m.priceDeltaPence, 0)
-      return sum + (item.pricePence + modTotal) * item.quantity
-    }, 0)
+    const validation = await validateCheckoutItems(restaurant.id, items)
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
+    }
+
+    const validatedItems = validation.items
+    const subtotal = validation.subtotal
 
     if (subtotal < restaurant.min_order_pence) {
       return NextResponse.json(
@@ -97,22 +105,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const menuItemIds = items.map((i) => i.menuItemId)
-    const dbItems = await prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds }, restaurant_id: restaurant.id },
-      select: { id: true, category_id: true },
-    })
-    const categoryByItem = new Map(dbItems.map((i) => [i.id, i.category_id]))
-
-    const promoItems = items.map((item) => {
-      const modTotal = (item.modifiers ?? []).reduce((s, m) => s + m.priceDeltaPence, 0)
-      return {
-        menuItemId: item.menuItemId,
-        categoryId: categoryByItem.get(item.menuItemId) ?? '',
-        quantity: item.quantity,
-        lineTotalPence: (item.pricePence + modTotal) * item.quantity,
-      }
-    })
+    const promoItems = validatedItems.map((item) => ({
+      menuItemId: item.menuItemId,
+      categoryId: item.categoryId,
+      quantity: item.quantity,
+      lineTotalPence: item.total_price,
+    }))
 
     let discountPence = 0
     let appliedPromotionId: string | null = null
@@ -209,14 +207,16 @@ export async function POST(request: Request) {
         is_preorder: openStatus.isPreorderMode,
         preorder_for: openStatus.isPreorderMode ? openStatus.nextOpenAt : null,
         items: {
-          create: items.map((item) => ({
+          create: validatedItems.map((item) => ({
             menu_item_id: item.menuItemId,
             pos_item_id: item.menuItemId,
             name: item.name,
-            price_pence: item.pricePence,
+            base_price: item.base_price,
+            options_price: item.options_price,
+            total_price: item.total_price,
             quantity: item.quantity,
-            modifiers_json: item.modifiers ?? [],
-            modifiers_text: formatModifiersText(item.modifiers),
+            selections: item.selections,
+            modifiers_text: formatSelectionsText(item.selections),
             notes: item.notes ?? null,
           })),
         },

@@ -1,35 +1,17 @@
-export type Modifier = {
-  id: string
-  name: string
-  price_delta_pence: number
-  is_default?: boolean
-}
-
-export type ModifierGroup = {
-  id: string
-  name: string
-  required: boolean
-  min_select: number
-  max_select: number
-  modifiers: Modifier[]
-}
-
-export type Product = {
-  id: string
-  name: string
-  description?: string | null
-  price_pence: number
-  image_url?: string | null
-  is_available: boolean
-  is_bundle?: boolean
-  modifier_groups: ModifierGroup[]
-}
+export type {
+  MenuOption,
+  MenuOptionGroup,
+  MenuComboGroup,
+  MenuProduct as Product,
+  BasketSelection,
+  PricingType,
+} from '@/app/lib/menu-types'
 
 export type Category = {
   id: string
   name: string
   color: string
-  items: Product[]
+  items: import('@/app/lib/menu-types').MenuProduct[]
 }
 
 export type MenuPromotion = {

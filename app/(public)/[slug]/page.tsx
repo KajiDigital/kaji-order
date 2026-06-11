@@ -9,6 +9,7 @@ import { PublicClosedPage } from '@/app/components/public/PublicClosedPage'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { getMenuPromotions } from '@/app/lib/promotions'
 import { buildMenuBannerText } from '@/app/lib/promotion-config'
+import { menuItemInclude, serializeMenuItem } from '@/app/lib/menu-api'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -24,12 +25,7 @@ export default async function PublicMenuPage({ params }: Params) {
         include: {
           items: {
             orderBy: { sort_order: 'asc' },
-            include: {
-              modifier_groups: {
-                orderBy: { sort_order: 'asc' },
-                include: { modifiers: { orderBy: { sort_order: 'asc' } } },
-              },
-            },
+            include: menuItemInclude,
           },
         },
       },
@@ -107,7 +103,12 @@ export default async function PublicMenuPage({ params }: Params) {
         avg_prep_minutes: restaurant.avg_prep_minutes,
         service_fee_pence: serviceFeePence,
       }}
-      categories={restaurant.menu_categories}
+      categories={restaurant.menu_categories.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        color: cat.color,
+        items: cat.items.map((item) => serializeMenuItem(item)),
+      }))}
       promotions={promotions}
       promotionBannerMessages={promotionBannerMessages}
     />

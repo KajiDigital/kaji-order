@@ -285,19 +285,109 @@ model MenuItem {
   category      MenuCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
   name          String
   description   String?
-  price_pence   Int
+  base_price    Int          @map("price_pence")
   image_url     String?
-  is_available  Boolean      @default(true)
+  available     Boolean      @default(true) @map("is_available")
   is_bundle     Boolean      @default(false)
+  featured      Boolean      @default(false)
+  calories      Int?
+  allergens     Json?
+  spice_level   Int?
+  is_vegan      Boolean      @default(false)
+  is_vegetarian Boolean      @default(false)
+  is_gluten_free Boolean     @default(false)
+  pricing_type  String       @default("OPTIONS")
   sort_order    Int          @default(0)
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt
 
-  modifier_groups ModifierGroup[]
+  modifier_groups ModifierGroup[] // deprecated — kept 30 days for rollback
+  option_groups   OptionGroup[]
+  combo_groups    ComboGroup[]
+  combo_options   ComboOption[]   @relation("ComboLinkedItems")
+  linked_from     Option[]        @relation("LinkedItems")
   order_items     OnlineOrderItem[]
 
   @@index([restaurant_id, category_id])
   @@map("menu_items")
+}
+
+model OptionGroup {
+  id             String   @id @default(uuid())
+  item_id        String
+  item           MenuItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  group_type     String   @default("SINGLE")
+  required       Boolean  @default(false)
+  min_selections Int      @default(0)
+  max_selections Int      @default(1)
+  sort_order     Int      @default(0)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  options Option[]
+
+  @@index([item_id])
+  @@map("option_groups")
+}
+
+model Option {
+  id             String      @id @default(uuid())
+  group_id       String
+  group          OptionGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  price_delta    Int         @default(0) @map("price_delta_pence")
+  is_default     Boolean     @default(false)
+  available      Boolean     @default(true)
+  image_url      String?
+  linked_item_id String?
+  linked_item    MenuItem?   @relation("LinkedItems", fields: [linked_item_id], references: [id], onDelete: SetNull)
+  sort_order     Int         @default(0)
+  calories       Int?
+  allergens      Json?
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+
+  @@index([group_id])
+  @@map("options")
+}
+
+model ComboGroup {
+  id                 String   @id @default(uuid())
+  item_id            String
+  item               MenuItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  name               String
+  required           Boolean  @default(true)
+  min_items          Int      @default(1)
+  max_items          Int      @default(1)
+  source_type        String   @default("ITEMS")
+  source_category_id String?
+  sort_order         Int      @default(0)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  combo_options ComboOption[]
+
+  @@index([item_id])
+  @@map("combo_groups")
+}
+
+model ComboOption {
+  id             String     @id @default(uuid())
+  combo_group_id String
+  combo_group    ComboGroup @relation(fields: [combo_group_id], references: [id], onDelete: Cascade)
+  menu_item_id   String
+  menu_item      MenuItem   @relation("ComboLinkedItems", fields: [menu_item_id], references: [id], onDelete: Cascade)
+  price_override Int?
+  sort_order     Int        @default(0)
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+
+  @@index([combo_group_id])
+  @@index([menu_item_id])
+  @@map("combo_options")
 }
 
 model ModifierGroup {
@@ -396,9 +486,11 @@ model OnlineOrderItem {
   pos_item_id    String?
   modifiers_text String?
   name           String
-  price_pence    Int
+  base_price     Int         @map("price_pence")
+  options_price  Int         @default(0)
+  total_price    Int         @default(0)
   quantity       Int         @default(1)
-  modifiers_json Json?
+  selections     Json?       @map("modifiers_json")
   notes          String?
   created_at     DateTime    @default(now())
 

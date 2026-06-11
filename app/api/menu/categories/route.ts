@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/app/lib/auth'
 import prisma from '@/app/lib/prisma'
+import { menuItemInclude } from '@/app/lib/menu-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,12 +17,7 @@ export async function GET() {
     include: {
       items: {
         orderBy: { sort_order: 'asc' },
-        include: {
-          modifier_groups: {
-            orderBy: { sort_order: 'asc' },
-            include: { modifiers: { orderBy: { sort_order: 'asc' } } },
-          },
-        },
+        include: menuItemInclude,
       },
     },
   })

@@ -45,7 +45,7 @@ export default async function ConfirmationPage({ params }: Params) {
           {order.items.map((item) => (
             <li key={item.id} className="flex justify-between text-slate-700">
               <span>{item.quantity}x {item.name}</span>
-              <span>{formatPence(item.price_pence * item.quantity)}</span>
+              <span>{formatPence(item.total_price || item.base_price * item.quantity)}</span>
             </li>
           ))}
         </ul>

@@ -7,7 +7,8 @@ type OrderItem = {
   id: string
   name: string
   quantity: number
-  price_pence: number
+  base_price: number
+  total_price: number
 }
 
 type Order = {
@@ -206,7 +207,7 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
           {order.items.map((item) => (
             <li key={item.id} className="flex justify-between text-slate-300">
               <span>{item.quantity}x {item.name}</span>
-              <span>{formatPence(item.price_pence * item.quantity)}</span>
+              <span>{formatPence(item.total_price || item.base_price * item.quantity)}</span>
             </li>
           ))}
         </ul>

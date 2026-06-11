@@ -14,6 +14,7 @@ import {
 } from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
+import { itemLineTotal } from '@/app/lib/basket'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 
 function CheckoutForm({
@@ -140,9 +141,9 @@ export default function CheckoutPage() {
         items: items.map((i) => ({
           menuItemId: i.menuItemId,
           name: i.name,
-          pricePence: i.pricePence,
+          base_price: i.base_price,
           quantity: i.quantity,
-          modifiers: i.modifiers.map((m) => ({ name: m.name, priceDeltaPence: m.priceDeltaPence })),
+          selections: i.selections,
           notes: i.notes,
         })),
         discount_pence: discountPence,
@@ -216,7 +217,7 @@ export default function CheckoutPage() {
             {items.map((item) => (
               <li key={item.id} className="flex justify-between">
                 <span>{item.quantity}x {item.name}</span>
-                <span>{formatPence(item.pricePence * item.quantity)}</span>
+                <span>{formatPence(itemLineTotal(item))}</span>
               </li>
             ))}
           </ul>

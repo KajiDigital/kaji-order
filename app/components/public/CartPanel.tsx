@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { formatPence } from '@/app/lib/utils'
+import { formatSelectionsLines } from '@/app/lib/menu-selections'
 import {
   basketItemCount,
   basketSubtotal,
@@ -39,17 +40,13 @@ export function CartPanel({
   return (
     <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
       <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-          Order type
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Order type</p>
         <div className="mt-2 flex rounded-lg border border-stone-200 p-0.5">
           <button
             type="button"
             onClick={() => onOrderTypeChange('delivery')}
             className={`flex-1 rounded-md py-2 text-xs font-medium transition-colors ${
-              orderType === 'delivery'
-                ? 'text-white'
-                : 'text-stone-600 hover:bg-stone-50'
+              orderType === 'delivery' ? 'text-white' : 'text-stone-600 hover:bg-stone-50'
             }`}
             style={orderType === 'delivery' ? { backgroundColor: primary } : undefined}
           >
@@ -59,9 +56,7 @@ export function CartPanel({
             type="button"
             onClick={() => onOrderTypeChange('collection')}
             className={`flex-1 rounded-md py-2 text-xs font-medium transition-colors ${
-              orderType === 'collection'
-                ? 'text-white'
-                : 'text-stone-600 hover:bg-stone-50'
+              orderType === 'collection' ? 'text-white' : 'text-stone-600 hover:bg-stone-50'
             }`}
             style={orderType === 'collection' ? { backgroundColor: primary } : undefined}
           >
@@ -93,9 +88,9 @@ export function CartPanel({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-stone-900">{item.name}</p>
-                    {item.modifiers.map((m) => (
-                      <p key={m.modifierId} className="text-xs text-stone-500">
-                        {m.name}
+                    {formatSelectionsLines(item.selections).map((line, i) => (
+                      <p key={i} className="text-xs text-stone-500 pl-1">
+                        {line}
                       </p>
                     ))}
                     <p className="mt-0.5 text-sm font-semibold" style={{ color: primary }}>
@@ -142,9 +137,7 @@ export function CartPanel({
               <span className="font-semibold text-stone-900">{formatPence(subtotal)}</span>
             </div>
             {belowMin && (
-              <p className="mt-2 text-xs text-red-500">
-                Minimum order is {formatPence(minOrderPence)}
-              </p>
+              <p className="mt-2 text-xs text-red-500">Minimum order is {formatPence(minOrderPence)}</p>
             )}
             <Link
               href={belowMin || orderType === 'delivery' ? '#' : `/${slug}/checkout`}

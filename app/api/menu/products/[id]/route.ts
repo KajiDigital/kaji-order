@@ -1,7 +1,13 @@
+import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/app/lib/auth'
 import prisma from '@/app/lib/prisma'
-import { parsePoundsToPence } from '@/app/lib/utils'
+import {
+  fetchMenuItemById,
+  parseMenuItemFields,
+  replaceComboGroups,
+  replaceOptionGroups,
+} from '@/app/lib/menu-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,59 +29,30 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const product = await prisma.menuItem.update({
-    where: { id },
-    data: {
-      ...(body.name !== undefined && { name: body.name }),
-      ...(body.description !== undefined && { description: body.description }),
-      ...(body.category_id !== undefined && { category_id: body.category_id }),
-      ...(body.price_pence !== undefined && { price_pence: body.price_pence }),
-      ...(body.price !== undefined && { price_pence: parsePoundsToPence(body.price) }),
-      ...(body.image_url !== undefined && { image_url: body.image_url }),
-      ...(body.is_available !== undefined && { is_available: body.is_available }),
-      ...(body.is_bundle !== undefined && { is_bundle: body.is_bundle }),
-      ...(body.sort_order !== undefined && { sort_order: body.sort_order }),
-    },
-    include: {
-      modifier_groups: { include: { modifiers: true } },
-    },
-  })
-
-  if (body.modifier_groups) {
-    await prisma.modifierGroup.deleteMany({ where: { menu_item_id: id } })
-    for (const [gi, g] of body.modifier_groups.entries()) {
-      await prisma.modifierGroup.create({
-        data: {
-          restaurant_id: session.restaurantId,
-          menu_item_id: id,
-          name: g.name,
-          required: g.required ?? false,
-          min_select: g.min_select ?? 0,
-          max_select: g.max_select ?? 1,
-          sort_order: gi,
-          modifiers: {
-            create: (g.modifiers ?? []).map(
-              (m: { name: string; price_delta_pence?: number; price?: number; is_default?: boolean }, mi: number) => ({
-                name: m.name,
-                price_delta_pence: m.price_delta_pence ?? parsePoundsToPence(m.price ?? 0),
-                is_default: m.is_default ?? false,
-                sort_order: mi,
-              })
-            ),
-          },
-        },
-      })
-    }
+  const fields = parseMenuItemFields(body)
+  if (body.is_bundle === true) {
+    fields.pricing_type = 'BUNDLE'
   }
 
-  const updated = await prisma.menuItem.findUnique({
+  const { category_id, ...updateFields } = fields
+
+  await prisma.menuItem.update({
     where: { id },
-    include: {
-      modifier_groups: { include: { modifiers: true } },
-    },
+    data: {
+      ...updateFields,
+      ...(category_id !== undefined && { category_id }),
+    } as Prisma.MenuItemUncheckedUpdateInput,
   })
 
-  return NextResponse.json({ product: updated ?? product })
+  if (body.option_groups !== undefined) {
+    await replaceOptionGroups(id, body.option_groups)
+  }
+  if (body.combo_groups !== undefined) {
+    await replaceComboGroups(id, body.combo_groups)
+  }
+
+  const updated = await fetchMenuItemById(id, session.restaurantId)
+  return NextResponse.json({ product: updated })
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
@@ -85,6 +62,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   const { id } = await params
+
   const existing = await prisma.menuItem.findFirst({
     where: { id, restaurant_id: session.restaurantId },
   })
@@ -93,5 +71,5 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   await prisma.menuItem.delete({ where: { id } })
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ ok: true })
 }

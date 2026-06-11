@@ -7,12 +7,16 @@ import { RefundDialog } from './RefundDialog'
 import { AcceptOrderModal } from './AcceptOrderModal'
 import { OrderTodayPanel, OrderArchivePanel } from './OrderHistoryPanel'
 
+import { formatSelectionsLines } from '@/app/lib/menu-selections'
+import type { SelectionSnapshot } from '@/app/lib/menu-types'
+
 type OrderItem = {
   id: string
   name: string
   quantity: number
-  price_pence: number
-  modifiers_json?: unknown
+  base_price: number
+  total_price: number
+  selections?: unknown
 }
 
 type Order = {
@@ -474,13 +478,22 @@ export function KanbanBoard({
             {selected.refund_reason && (
               <p className="text-sm text-red-400 mt-2">Refund reason: {selected.refund_reason}</p>
             )}
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-4 space-y-3">
               {selected.items.map((item) => (
-                <li key={item.id} className="flex justify-between text-sm">
-                  <span className="text-slate-300">
-                    {item.quantity}x {item.name}
-                  </span>
-                  <span className="text-white">{formatPence(item.price_pence * item.quantity)}</span>
+                <li key={item.id} className="text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-300 font-medium">
+                      {item.quantity}x {item.name}
+                    </span>
+                    <span className="text-white">
+                      {formatPence(item.total_price || item.base_price * item.quantity)}
+                    </span>
+                  </div>
+                  {formatSelectionsLines(item.selections as SelectionSnapshot[] | null).map((line, i) => (
+                    <p key={i} className="text-xs text-slate-500 pl-2 mt-0.5">
+                      {line}
+                    </p>
+                  ))}
                 </li>
               ))}
             </ul>

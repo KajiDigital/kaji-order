@@ -14,19 +14,17 @@ import {
 } from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
+import { formatSelectionsLines } from '@/app/lib/menu-selections'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 
 function buildPromoItems(items: BasketItem[]) {
-  return items.map((i) => {
-    const mods = i.modifiers.reduce((s, m) => s + m.priceDeltaPence, 0)
-    return {
-      menuItemId: i.menuItemId,
-      categoryId: i.categoryId ?? '',
-      quantity: i.quantity,
-      lineTotalPence: itemLineTotal(i),
-      unitPricePence: i.pricePence + mods,
-    }
-  })
+  return items.map((i) => ({
+    menuItemId: i.menuItemId,
+    categoryId: i.categoryId ?? '',
+    quantity: i.quantity,
+    lineTotalPence: itemLineTotal(i),
+    unitPricePence: Math.round(itemLineTotal(i) / i.quantity),
+  }))
 }
 
 export default function BasketPage() {
@@ -49,7 +47,7 @@ export default function BasketPage() {
   const [freeItemClaim, setFreeItemClaim] = useState<{
     itemId: string
     itemName: string
-    pricePence: number
+    base_price: number
   } | null>(null)
 
   const persistBasket = useCallback(
@@ -192,7 +190,7 @@ export default function BasketPage() {
                   setFreeItemClaim({
                     itemId: item.id,
                     itemName: item.name,
-                    pricePence: item.price_pence,
+                    base_price: item.base_price,
                   })
                   break
                 }
@@ -304,9 +302,11 @@ export default function BasketPage() {
       id: `${freeItemClaim.itemId}-free-${Date.now()}`,
       menuItemId: freeItemClaim.itemId,
       name: freeItemClaim.itemName,
-      pricePence: freeItemClaim.pricePence,
+      base_price: freeItemClaim.base_price,
       quantity: 1,
-      modifiers: [],
+      selections: [],
+      options_price: 0,
+      total_price: freeItemClaim.base_price,
     }
     const next = [...items, newItem]
     setItems(next)
@@ -339,8 +339,8 @@ export default function BasketPage() {
                 <div className="flex justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{item.quantity}x {item.name}</p>
-                    {item.modifiers.map((m) => (
-                      <p key={m.modifierId} className="text-xs text-slate-500">{m.name}</p>
+                    {formatSelectionsLines(item.selections).map((line, i) => (
+                      <p key={i} className="text-xs text-slate-500 pl-1">{line}</p>
                     ))}
                   </div>
                   <div className="text-right">

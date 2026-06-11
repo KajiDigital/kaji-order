@@ -15,9 +15,9 @@ export async function GET() {
     orderBy: { sort_order: 'asc' },
     include: {
       items: {
-        where: { is_available: true },
+        where: { available: true },
         orderBy: { sort_order: 'asc' },
-        select: { id: true, name: true, price_pence: true, category_id: true },
+        select: { id: true, name: true, base_price: true, category_id: true },
       },
     },
   })
@@ -29,7 +29,7 @@ export async function GET() {
       items: c.items.map((i) => ({
         id: i.id,
         name: i.name,
-        price_pence: i.price_pence,
+        price_pence: i.base_price,
         category_id: i.category_id,
       })),
     })),

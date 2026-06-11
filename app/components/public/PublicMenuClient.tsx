@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatPence } from '@/app/lib/utils'
 import {
   type BasketItem,
-  type BasketModifier,
+  type BasketSelection,
   basketItemCount,
   basketSubtotal,
   clearBasket,
@@ -83,15 +83,17 @@ function AddButton({
   )
 }
 
-function formatSetMealChoices(groups: Product['modifier_groups']): string {
-  const labels = groups.map((g) =>
-    g.name.replace(/^select\s+(your\s+)?/i, '').trim()
-  )
+function formatSetMealChoices(groups: Product['combo_groups']): string {
+  const labels = groups.map((g) => g.name.replace(/^select\s+(your\s+)?/i, '').trim())
   return labels.join(' + ')
 }
 
 function isSetMeal(product: Product): boolean {
-  return Boolean(product.is_bundle && product.modifier_groups.length >= 2)
+  return Boolean(product.is_bundle && product.combo_groups.length >= 1)
+}
+
+function hasCustomisation(product: Product): boolean {
+  return product.option_groups.length > 0 || product.combo_groups.length > 0
 }
 
 function MenuItemRow({
@@ -111,14 +113,14 @@ function MenuItemRow({
   onAdd: () => void
   onOpen: () => void
 }) {
-  const unavailable = !product.is_available
+  const unavailable = !product.available
   const orderingBlocked = !canOrder || unavailable
   const setMeal = isSetMeal(product)
 
   function handleAdd(e: React.MouseEvent) {
     e.stopPropagation()
     if (orderingBlocked) return
-    if (product.modifier_groups.length > 0) {
+    if (hasCustomisation(product)) {
       onOpen()
     } else {
       onAdd()
@@ -169,14 +171,14 @@ function MenuItemRow({
         )}
         {setMeal && (
           <p className="mt-0.5 text-xs text-amber-800/80">
-            Choose: {formatSetMealChoices(product.modifier_groups)}
+            Choose: {formatSetMealChoices(product.combo_groups)}
           </p>
         )}
         {product.description && (
           <p className="mt-0.5 line-clamp-2 text-sm text-stone-500">{product.description}</p>
         )}
         <p className="mt-1.5 text-sm font-bold" style={{ color: primary }}>
-          {formatPence(product.price_pence)}
+          {formatPence(product.base_price)}
         </p>
       </div>
 
@@ -220,11 +222,14 @@ export function PublicMenuClient({
   )
 
   const recommendedIds = useMemo(
-    () => new Set(allItems.slice(0, 6).map((i) => i.id)),
+    () => new Set(allItems.filter((i) => i.featured).map((i) => i.id)),
     [allItems]
   )
 
-  const recommendedItems = useMemo(() => allItems.slice(0, 6), [allItems])
+  const recommendedItems = useMemo(
+    () => (allItems.some((i) => i.featured) ? allItems.filter((i) => i.featured).slice(0, 6) : allItems.slice(0, 6)),
+    [allItems]
+  )
 
   const orderPromos = useMemo(
     () => promotions.filter((p) => p.applies_to === 'order'),
@@ -293,8 +298,9 @@ export function PublicMenuClient({
   function addItemDirect(
     product: Product,
     qty: number,
-    modifiers: BasketModifier[],
+    selections: BasketSelection[],
     notes: string,
+    pricing: { options_price: number; total_price: number },
     categoryId?: string
   ) {
     if (!canOrder) return
@@ -303,9 +309,11 @@ export function PublicMenuClient({
       menuItemId: product.id,
       categoryId: categoryId ?? itemCategoryMap.get(product.id),
       name: product.name,
-      pricePence: product.price_pence,
+      base_price: product.base_price,
       quantity: qty,
-      modifiers,
+      selections,
+      options_price: pricing.options_price,
+      total_price: pricing.total_price,
       notes: notes || undefined,
     }
     persistBasket([...basket, item])
@@ -320,7 +328,13 @@ export function PublicMenuClient({
       persistBasket(basket.filter((i) => i.id !== id))
       return
     }
-    persistBasket(basket.map((i) => (i.id === id ? { ...i, quantity: qty } : i)))
+    persistBasket(
+      basket.map((i) => {
+        if (i.id !== id) return i
+        const unit = i.total_price / i.quantity
+        return { ...i, quantity: qty, total_price: unit * qty }
+      })
+    )
   }
 
   function removeItem(id: string) {
@@ -567,29 +581,30 @@ export function PublicMenuClient({
                       <div className="p-2.5">
                         <p className="truncate text-sm font-bold text-stone-900">{product.name}</p>
                         <p className="text-sm font-semibold" style={{ color: primary }}>
-                          {formatPence(product.price_pence)}
+                          {formatPence(product.base_price)}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() =>
                           canOrder &&
-                          (product.modifier_groups.length > 0
+                          (hasCustomisation(product)
                             ? openProduct(product)
-                            : product.is_available &&
+                            : product.available &&
                               addItemDirect(
                                 product,
                                 1,
                                 [],
                                 '',
+                                { options_price: 0, total_price: product.base_price },
                                 itemCategoryMap.get(product.id)
                               ))
                         }
-                        disabled={!canOrder || !product.is_available}
+                        disabled={!canOrder || !product.available}
                         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white shadow disabled:cursor-not-allowed disabled:opacity-40"
                         style={{
                           backgroundColor:
-                            !canOrder || !product.is_available ? '#a8a29e' : primary,
+                            !canOrder || !product.available ? '#a8a29e' : primary,
                         }}
                       >
                         +
@@ -687,7 +702,12 @@ export function PublicMenuClient({
                       )}
                       canOrder={canOrder}
                       onOpen={() => openProduct(product)}
-                      onAdd={() => addItemDirect(product, 1, [], '', cat.id)}
+                      onAdd={() =>
+                        addItemDirect(product, 1, [], '', {
+                          options_price: 0,
+                          total_price: product.base_price,
+                        }, cat.id)
+                      }
                     />
                   ))}
                 </div>
@@ -751,14 +771,15 @@ export function PublicMenuClient({
         <ProductModal
           product={modalProduct}
           primary={primary}
-          canOrder={canOrder && modalProduct.is_available}
+          canOrder={canOrder && modalProduct.available}
           onClose={() => setModalProduct(null)}
-          onAdd={(qty, modifiers, notes) => {
+          onAdd={(qty, selections, notes, pricing) => {
             addItemDirect(
               modalProduct,
               qty,
-              modifiers,
+              selections,
               notes,
+              pricing,
               itemCategoryMap.get(modalProduct.id)
             )
             setModalProduct(null)

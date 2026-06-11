@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
 import { getOpenStatus } from '@/app/lib/opening-hours'
 import { getServiceFeePence } from '@/app/lib/platform'
+import { menuItemInclude, serializeMenuItem } from '@/app/lib/menu-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,14 +19,9 @@ export async function GET(_request: Request, { params }: Params) {
         orderBy: { sort_order: 'asc' },
         include: {
           items: {
-            where: { is_available: true },
+            where: { available: true },
             orderBy: { sort_order: 'asc' },
-            include: {
-              modifier_groups: {
-                orderBy: { sort_order: 'asc' },
-                include: { modifiers: { orderBy: { sort_order: 'asc' } } },
-              },
-            },
+            include: menuItemInclude,
           },
         },
       },
@@ -35,6 +31,58 @@ export async function GET(_request: Request, { params }: Params) {
   if (!restaurant || restaurant.status !== 'active') {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+
+  const allProducts = restaurant.menu_categories.flatMap((c) =>
+    c.items.map((item) => serializeMenuItem(item))
+  )
+
+  const categoryItemMap = new Map<string, typeof allProducts>()
+  for (const cat of restaurant.menu_categories) {
+    categoryItemMap.set(
+      cat.id,
+      cat.items.map((item) => serializeMenuItem(item))
+    )
+  }
+
+  const categories = restaurant.menu_categories.map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    color: cat.color,
+    items: cat.items.map((item) => {
+      const product = serializeMenuItem(item)
+      const resolvedComboGroups = product.combo_groups.map((group) => {
+        if (group.source_type === 'CATEGORY' && group.source_category_id) {
+          const catItems = categoryItemMap.get(group.source_category_id) ?? []
+          return {
+            ...group,
+            combo_options: catItems.map((p, i) => ({
+              id: `resolved-${p.id}`,
+              menu_item_id: p.id,
+              name: p.name,
+              base_price: p.base_price,
+              sort_order: i,
+            })),
+          }
+        }
+        if (group.source_type === 'ANY') {
+          return {
+            ...group,
+            combo_options: allProducts
+              .filter((p) => p.id !== item.id)
+              .map((p, i) => ({
+                id: `resolved-${p.id}`,
+                menu_item_id: p.id,
+                name: p.name,
+                base_price: p.base_price,
+                sort_order: i,
+              })),
+          }
+        }
+        return group
+      })
+      return { ...product, combo_groups: resolvedComboGroups }
+    }),
+  }))
 
   const openStatus = getOpenStatus(
     restaurant.opening_hours,
@@ -56,6 +104,10 @@ export async function GET(_request: Request, { params }: Params) {
       logo_url: restaurant.logo_url,
       banner_url: restaurant.banner_url,
       brand_color: restaurant.brand_color,
+      primary_color: restaurant.primary_color,
+      secondary_color: restaurant.secondary_color,
+      font_choice: restaurant.font_choice,
+      show_powered_by: restaurant.show_powered_by,
       holiday_mode: restaurant.holiday_mode,
       holiday_message: restaurant.holiday_message,
       min_order_pence: restaurant.min_order_pence,
@@ -70,6 +122,6 @@ export async function GET(_request: Request, { params }: Params) {
       nextOpenTime: openStatus.nextOpenTime,
       closedReason: openStatus.closedReason,
     },
-    categories: restaurant.menu_categories,
+    categories,
   })
 }

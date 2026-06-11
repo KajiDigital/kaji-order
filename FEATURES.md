@@ -25,9 +25,10 @@
 
 ### 4. Menu Management
 - Categories (name, color, sort order)
-- Products (name, description, price, image, available)
-- Modifier groups (e.g. "Choose size")
-- Modifiers (Small/Medium/Large + price delta)
+- Products (name, description, base price, image, dietary flags, featured)
+- Option groups — SINGLE / MULTIPLE / OPTIONAL (size, filling, extras)
+- Combo groups — set meals with course selection (ITEMS, CATEGORY, or ANY source)
+- 4-tab item editor: Basic, Options, Combo (bundles), Pricing
 - Drag to reorder (future)
 - Bulk price change (future)
 
@@ -35,15 +36,15 @@
 - Restaurant branding (logo, banner, colors)
 - Category tabs (horizontal scroll)
 - Product grid (2-3 columns, mobile first)
-- Product modal (description, modifiers, add to basket)
+- Product modal (dietary badges, option groups, combo courses, live price, validation)
 - Basket floating button (item count + total)
 - Collection only (Phase 1)
 - Closed state (outside hours or holiday mode)
 
 ### 6. Basket
-- localStorage persistence
+- localStorage persistence (v2 key with full selection snapshots)
 - Add/remove/update quantities
-- Modifiers shown per item
+- Selections shown per item (options + combo picks)
 - Order notes
 - Subtotal + delivery fee + total
 - Minimum order check

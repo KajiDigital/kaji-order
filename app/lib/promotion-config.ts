@@ -1,15 +1,5 @@
 import type { Promotion } from '@prisma/client'
 
-export type BundleChoiceGroup = {
-  id: string
-  name: string
-  required: boolean
-  minSelect: number
-  maxSelect: number
-  categoryIds: string[]
-  itemIds: string[]
-}
-
 export type PromoScope = 'any' | 'category' | 'items' | 'same'
 
 export type PromoConfig = {
@@ -21,17 +11,6 @@ export type PromoConfig = {
   freeItemCategoryId?: string
   freeItemMenuItemId?: string
   freeItemLimit?: 'order' | 'daily'
-  bundleGroups?: BundleChoiceGroup[]
-}
-
-export function bundleGroupIncludesItem(
-  group: BundleChoiceGroup,
-  menuItemId: string,
-  categoryId: string
-): boolean {
-  if (group.itemIds.includes(menuItemId)) return true
-  if (group.categoryIds?.includes(categoryId)) return true
-  return false
 }
 
 export function parsePromoConfig(json: unknown): PromoConfig {

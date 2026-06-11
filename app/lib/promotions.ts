@@ -5,7 +5,6 @@ import {
   parsePromoConfig,
   formatDaysOfWeek,
   formatTimeRange,
-  bundleGroupIncludesItem,
   type PromoConfig,
 } from './promotion-config'
 
@@ -208,39 +207,6 @@ function calcBuyXGetY(promo: Promotion, items: PromoLineItem[]): number {
   return discount
 }
 
-function calcBundle(promo: Promotion, items: PromoLineItem[]): number {
-  const config = parsePromoConfig(promo.promo_config)
-  const groups = config.bundleGroups ?? []
-  const bundlePrice = promo.bundle_price ?? 0
-  if (bundlePrice <= 0 || groups.length === 0) return 0
-
-  let matchedTotal = 0
-  const usedItemIds = new Set<string>()
-
-  for (const group of groups) {
-    const groupItems = items.filter(
-      (i) =>
-        bundleGroupIncludesItem(
-          { ...group, categoryIds: group.categoryIds ?? [] },
-          i.menuItemId,
-          i.categoryId
-        ) && !usedItemIds.has(i.menuItemId)
-    )
-    const qty = groupItems.reduce((s, i) => s + i.quantity, 0)
-    if (group.required && qty < group.minSelect) return 0
-    if (qty < group.minSelect) continue
-
-    const selected = groupItems.slice(0, group.maxSelect)
-    for (const item of selected) {
-      usedItemIds.add(item.menuItemId)
-      matchedTotal += item.lineTotalPence
-    }
-  }
-
-  if (matchedTotal <= 0) return 0
-  return Math.max(0, matchedTotal - bundlePrice)
-}
-
 function calcFreeItem(
   promo: Promotion,
   items: PromoLineItem[],
@@ -276,7 +242,8 @@ export function calculatePromotionDiscount(
       return Math.min(promo.discount_pence ?? 0, subtotalPence)
     }
     case 'BUNDLE':
-      return calcBundle(promo, items)
+      // Legacy promo type — set meals are menu items (is_bundle), not promotions
+      return 0
     case 'BUY_X_GET_Y':
       return calcBuyXGetY(promo, items)
     case 'FREE_ITEM':
