@@ -2,6 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { AuthShell } from '@/app/components/auth/AuthShell'
+import { AuthCard } from '@/app/components/auth/AuthCard'
+import { AuthField } from '@/app/components/auth/AuthField'
+import { AuthButton } from '@/app/components/auth/AuthButton'
+import { AuthAlert } from '@/app/components/auth/AuthAlert'
+import { AuthCrossLink } from '@/app/components/auth/AuthFooterLink'
+
+function ShieldIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
+      <path fillRule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.75.75 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516 11.209 11.209 0 01-7.877-3.08zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zM12 15a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+    </svg>
+  )
+}
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -34,38 +48,44 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-4"
+    <AuthShell theme="admin">
+      <AuthCard
+        title="Kaji Platform Admin"
+        subtitle="Internal platform administration"
+        badge="Staff only — not for restaurant accounts"
+        icon={<ShieldIcon />}
       >
-        <h1 className="text-2xl font-bold text-white">Kaji Admin</h1>
-        <p className="text-slate-400 text-sm">Platform administration</p>
-        <input
-          type="email"
-          placeholder="Email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-        />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-violet-600 text-white py-2.5 rounded-lg disabled:opacity-50"
-        >
-          {loading ? 'Signing in...' : 'Sign in'}
-        </button>
-      </form>
-    </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <AuthField
+            label="Email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+          <AuthField
+            label="Password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          {error && <AuthAlert message={error} />}
+          <AuthButton type="submit" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign in'}
+          </AuthButton>
+        </form>
+
+        <div className="mt-6">
+          <AuthCrossLink
+            prefix="Restaurant owner?"
+            href="/login"
+            linkText="Sign in to your dashboard"
+          />
+        </div>
+      </AuthCard>
+    </AuthShell>
   )
 }

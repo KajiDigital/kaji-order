@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { slugify, getAppUrl } from '@/app/lib/utils'
+import { AuthField } from '@/app/components/auth/AuthField'
+import { AuthButton } from '@/app/components/auth/AuthButton'
+import { AuthAlert } from '@/app/components/auth/AuthAlert'
 
 const PLANS = [
   {
@@ -73,66 +76,50 @@ export function SelfServeRegisterForm() {
 
   return (
     <>
-      <p className="text-slate-400 text-sm mb-6">Step {step} of 3</p>
+      <p className="text-sm mb-6" style={{ color: 'var(--auth-text-muted)' }}>
+        Step {step} of 3
+      </p>
 
       {step === 1 && (
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Restaurant name</label>
-            <input
-              value={name}
-              onChange={(e) => onNameChange(e.target.value)}
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">URL slug</label>
-            <input
-              value={slug}
-              onChange={(e) => {
-                setSlugEdited(true)
-                setSlug(slugify(e.target.value))
-              }}
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              {appHost}/{slug || 'your-slug'}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Phone (optional)</label>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-            />
-          </div>
-          <button
+          <AuthField
+            label="Restaurant name"
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+          />
+          <AuthField
+            label="URL slug"
+            value={slug}
+            onChange={(e) => {
+              setSlugEdited(true)
+              setSlug(slugify(e.target.value))
+            }}
+            hint={`${appHost}/${slug || 'your-slug'}`}
+          />
+          <AuthField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <AuthField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <AuthField
+            label="Phone (optional)"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <AuthButton
             type="button"
             onClick={() => setStep(2)}
             disabled={!name || !slug || !email || !password}
-            className="w-full bg-violet-600 hover:bg-violet-500 text-white py-2.5 rounded-lg disabled:opacity-50"
           >
             Continue
-          </button>
+          </AuthButton>
         </div>
       )}
 
@@ -143,52 +130,52 @@ export function SelfServeRegisterForm() {
               key={p.id}
               type="button"
               onClick={() => setPlan(p.id)}
-              className={`w-full text-left p-4 rounded-xl border ${
-                plan === p.id
-                  ? 'border-violet-500 bg-violet-500/10'
-                  : 'border-slate-700 hover:border-slate-600'
-              }`}
+              className="w-full text-left p-4 rounded-lg border transition-colors"
+              style={{
+                borderColor: plan === p.id ? 'var(--auth-accent)' : 'var(--auth-border)',
+                background: plan === p.id ? 'color-mix(in srgb, var(--auth-accent) 8%, var(--auth-card))' : 'var(--auth-card)',
+              }}
             >
-              <span className="font-medium text-white">{p.name}</span>
-              <p className="text-sm text-slate-400 mt-1">{p.detail}</p>
+              <span className="font-medium" style={{ color: 'var(--auth-text)' }}>
+                {p.name}
+              </span>
+              <p className="text-sm mt-1" style={{ color: 'var(--auth-text-muted)' }}>
+                {p.detail}
+              </p>
             </button>
           ))}
           <div className="flex gap-2 pt-2">
-            <button type="button" onClick={() => setStep(1)} className="flex-1 py-2 text-slate-400">
+            <AuthButton type="button" variant="secondary" onClick={() => setStep(1)}>
               Back
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep(3)}
-              className="flex-1 bg-violet-600 text-white py-2.5 rounded-lg"
-            >
+            </AuthButton>
+            <AuthButton type="button" onClick={() => setStep(3)}>
               Continue
-            </button>
+            </AuthButton>
           </div>
         </div>
       )}
 
       {step === 3 && (
         <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-slate-800 border border-slate-700">
-            <p className="text-white font-medium mb-1">Connect Stripe</p>
-            <p className="text-sm text-slate-400">
+          <div
+            className="p-4 rounded-lg border"
+            style={{ background: 'var(--auth-hover-bg)', borderColor: 'var(--auth-border)' }}
+          >
+            <p className="font-medium mb-1" style={{ color: 'var(--auth-text)' }}>
+              Connect Stripe
+            </p>
+            <p className="text-sm" style={{ color: 'var(--auth-text-muted)' }}>
               Accept card payments from customers. You can set this up later from Billing.
             </p>
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <AuthAlert message={error} />}
           <div className="flex gap-2">
-            <button type="button" onClick={() => setStep(2)} className="flex-1 py-2 text-slate-400">
+            <AuthButton type="button" variant="secondary" onClick={() => setStep(2)}>
               Back
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex-1 bg-violet-600 text-white py-2.5 rounded-lg disabled:opacity-50"
-            >
+            </AuthButton>
+            <AuthButton type="button" onClick={handleSubmit} disabled={loading}>
               {loading ? 'Creating...' : 'Set up later & go to dashboard'}
-            </button>
+            </AuthButton>
           </div>
         </div>
       )}
