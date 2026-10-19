@@ -325,11 +325,15 @@ export function KanbanBoard({
   }, [orders, settings, fetchOrders])
 
   async function action(id: string, endpoint: string, body?: object) {
-    await fetch(`/api/orders/${id}/${endpoint}`, {
+    const res = await fetch(`/api/orders/${id}/${endpoint}`, {
       method: 'POST',
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      return typeof data.error === 'string' ? data.error : 'Could not update the order'
+    }
     fetchOrders()
     setAcceptTarget(null)
     setSelected(null)
@@ -337,7 +341,7 @@ export function KanbanBoard({
 
   async function handleAcceptWithPrep(prepTimeMins: number) {
     if (!acceptTarget) return
-    await action(acceptTarget.id, 'accept', { prep_time_mins: prepTimeMins })
+    return action(acceptTarget.id, 'accept', { prep_time_mins: prepTimeMins })
   }
 
   async function handleRefund(reason: string, _amountPence?: number) {

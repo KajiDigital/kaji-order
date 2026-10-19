@@ -2,6 +2,7 @@
 
 import type { BasketOrderType } from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
+import { DeliveryAddressPicker } from './DeliveryAddressPicker'
 
 type Props = {
   open: boolean
@@ -15,6 +16,15 @@ type Props = {
   onSelect: (type: BasketOrderType) => void
   onClose?: () => void
   collectionOnly?: boolean
+  step?: 'choose' | 'address'
+  onBack?: () => void
+  slug?: string
+  deliveryPostcode?: string
+  deliveryAddress?: string
+  onDeliveryPostcodeChange?: (postcode: string) => void
+  onDeliveryAddressSelect?: (address: string, postcode: string) => void
+  onDeliveryValidationChange?: (valid: boolean, feePence: number, minOrderPence: number) => void
+  onAddressConfirmed?: (address: string, postcode: string) => void
 }
 
 export function OrderTypeModal({
@@ -29,35 +39,51 @@ export function OrderTypeModal({
   onSelect,
   onClose,
   collectionOnly,
+  step = 'choose',
+  onBack,
+  slug = '',
+  deliveryPostcode = '',
+  deliveryAddress = '',
+  onDeliveryPostcodeChange,
+  onDeliveryAddressSelect,
+  onDeliveryValidationChange,
+  onAddressConfirmed,
 }: Props) {
   if (!open) return null
 
   const showDelivery = deliveryEnabled && deliveryAvailableNow && !collectionOnly
   const showCollection = collectionEnabled
   const showBoth = showDelivery && showCollection
+  const askingForAddress = step === 'address' && showDelivery
 
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-4 sm:items-center"
-      onClick={onClose}
+      onClick={askingForAddress && showCollection ? onBack : onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-labelledby="order-type-title"
       >
         <h2 id="order-type-title" className="text-xl font-bold text-stone-900">
-          {collectionOnly ? 'Collection only' : 'How would you like your order?'}
+          {askingForAddress
+            ? 'Where should we deliver?'
+            : collectionOnly
+              ? 'Collection only'
+              : 'How would you like your order?'}
         </h2>
         <p className="mt-1 text-sm text-stone-500">
-          {collectionOnly
-            ? 'Delivery is not available right now. You can collect in store.'
-            : showBoth
-              ? 'Choose delivery to your door or collection in store.'
-              : showDelivery
-                ? 'We deliver to your door.'
-                : 'Pick up your order in store.'}
+          {askingForAddress
+            ? 'Enter the address and we will check we can deliver there.'
+            : collectionOnly
+              ? 'Delivery is not available right now. You can collect in store.'
+              : showBoth
+                ? 'Choose delivery to your door or collection in store.'
+                : showDelivery
+                  ? 'We deliver to your door.'
+                  : 'Pick up your order in store.'}
         </p>
 
         {!collectionOnly && deliveryEnabled && !deliveryAvailableNow && deliveryWindowMessage && (
@@ -66,6 +92,33 @@ export function OrderTypeModal({
           </p>
         )}
 
+        {askingForAddress && onDeliveryPostcodeChange && onDeliveryAddressSelect && (
+          <>
+            <DeliveryAddressPicker
+              embedded
+              slug={slug}
+              primary={primary}
+              postcode={deliveryPostcode}
+              selectedAddress={deliveryAddress}
+              feePence={deliveryFeePence}
+              onPostcodeChange={onDeliveryPostcodeChange}
+              onAddressSelect={onDeliveryAddressSelect}
+              onValidationChange={onDeliveryValidationChange}
+              onConfirmed={onAddressConfirmed}
+            />
+            {showCollection && onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="mt-4 w-full text-sm font-medium text-stone-500 underline"
+              >
+                Back
+              </button>
+            )}
+          </>
+        )}
+
+        {!askingForAddress && (
         <div className={`mt-5 grid gap-3 ${showBoth ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {showDelivery && (
             <button
@@ -102,6 +155,7 @@ export function OrderTypeModal({
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   )

@@ -20,6 +20,8 @@ type Props = {
   onPostcodeChange: (postcode: string) => void
   onAddressSelect: (address: string, postcode: string) => void
   onValidationChange?: (valid: boolean, feePence: number, minOrderPence: number) => void
+  onConfirmed?: (address: string, postcode: string) => void
+  embedded?: boolean
 }
 
 export function DeliveryAddressPicker({
@@ -31,11 +33,15 @@ export function DeliveryAddressPicker({
   onPostcodeChange,
   onAddressSelect,
   onValidationChange,
+  onConfirmed,
+  embedded = false,
 }: Props) {
   const [editing, setEditing] = useState(!selectedAddress)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showManual, setShowManual] = useState(!getGooglePlacesApiKey())
+  const [showManual, setShowManual] = useState(
+    !getGooglePlacesApiKey() || Boolean(selectedAddress)
+  )
   const [manualAddress, setManualAddress] = useState(selectedAddress)
   const [manualPostcode, setManualPostcode] = useState(postcode)
   const googleConfigured = Boolean(getGooglePlacesApiKey())
@@ -70,6 +76,7 @@ export function DeliveryAddressPicker({
         onAddressSelect(address.trim(), normalizedPostcode)
         onValidationChange?.(true, data.fee_pence ?? 0, data.minimum_order_pence ?? 0)
         setEditing(false)
+        onConfirmed?.(address.trim(), normalizedPostcode)
       } catch {
         setError('Could not verify delivery area. Try again.')
         onValidationChange?.(false, 0, 0)
@@ -77,7 +84,7 @@ export function DeliveryAddressPicker({
         setLoading(false)
       }
     },
-    [slug, onPostcodeChange, onAddressSelect, onValidationChange]
+    [slug, onPostcodeChange, onAddressSelect, onValidationChange, onConfirmed]
   )
 
   const handleGooglePlace = useCallback(
@@ -103,7 +110,7 @@ export function DeliveryAddressPicker({
     void validateAndConfirm(manualAddress, manualPostcode)
   }
 
-  if (!editing && selectedAddress) {
+  if (!embedded && !editing && selectedAddress) {
     return (
       <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
         <div className="flex items-start justify-between gap-3">
@@ -131,19 +138,24 @@ export function DeliveryAddressPicker({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
-      <p className="text-base font-bold text-stone-900">Where should we deliver?</p>
+    <div className={embedded ? 'mt-4' : 'mt-3 rounded-xl border border-stone-200 bg-stone-50 p-4'}>
+      {!embedded && <p className="text-base font-bold text-stone-900">Where should we deliver?</p>}
+      {!embedded && (
       <p className="mt-0.5 text-xs text-stone-500">
         {googleConfigured && !showManual
           ? 'Start typing your address and pick a suggestion.'
           : 'Enter your full address and postcode.'}
       </p>
+      )}
+      {embedded && googleConfigured && !showManual && (
+        <p className="text-xs text-stone-500">Start typing your address and pick a suggestion.</p>
+      )}
 
       {googleConfigured && !showManual ? (
         <div className="mt-3">
           <GoogleAddressAutocomplete
             placeholder="e.g. 10 High Street, Harrow"
-            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-stone-400"
+            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-400"
             onPlaceSelect={handleGooglePlace}
             onInputChange={() => setError('')}
           />
@@ -157,7 +169,7 @@ export function DeliveryAddressPicker({
         </div>
       ) : (
         <div className="mt-3 space-y-3">
-          {!googleConfigured && (
+          {!embedded && !googleConfigured && (
             <p className="text-xs text-stone-500">
               Enter your full street address and UK postcode below.
             </p>
@@ -170,7 +182,7 @@ export function DeliveryAddressPicker({
             }}
             placeholder="Flat 1, 110 Hindes Road"
             rows={2}
-            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-stone-400"
+            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-400"
           />
           <input
             type="text"
@@ -180,7 +192,7 @@ export function DeliveryAddressPicker({
               setError('')
             }}
             placeholder="Postcode e.g. HA1 1RD"
-            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm uppercase outline-none focus:border-stone-400"
+            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm uppercase text-stone-900 outline-none placeholder:text-stone-400 placeholder:normal-case focus:border-stone-400"
           />
           {googleConfigured && (
             <button

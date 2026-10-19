@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { formatOrderNumber, formatReadyAtTime } from '@/app/lib/utils'
 
 const PREP_OPTIONS = [10, 15, 20, 25, 30, 45]
@@ -14,11 +14,12 @@ export function AcceptOrderModal({
   orderNumber: number
   defaultPrepMins: number
   onCancel: () => void
-  onAccept: (prepTimeMins: number) => Promise<void>
+  onAccept: (prepTimeMins: number) => Promise<string | void>
 }) {
   const [prepMins, setPrepMins] = useState(defaultPrepMins)
   const [custom, setCustom] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const activeMins = custom ? parseInt(custom, 10) || defaultPrepMins : prepMins
   const readyPreview = formatReadyAtTime(
@@ -27,7 +28,9 @@ export function AcceptOrderModal({
 
   async function handleAccept() {
     setSaving(true)
-    await onAccept(activeMins)
+    setError('')
+    const message = await onAccept(activeMins)
+    if (message) setError(message)
     setSaving(false)
   }
 
@@ -75,6 +78,7 @@ export function AcceptOrderModal({
         <p className="text-sm text-emerald-400 mt-4">
           Customer told: Ready at {readyPreview}
         </p>
+        {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
 
         <div className="flex gap-2 mt-6">
           <button

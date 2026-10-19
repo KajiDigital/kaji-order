@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
 import { formatOrderNumber, formatReadyAtTime } from '@/app/lib/utils'
 import { cancelExpiredOrder } from '@/app/lib/order-expiry'
+import { ensureManualAuthorisation } from '@/app/lib/payment-capture'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +35,18 @@ export async function GET(_request: Request, { params }: Params) {
 
   if (!order) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  if (order.status === 'PENDING' && !order.accept_by && order.restaurant.order_mode === 'manual') {
+    await ensureManualAuthorisation(order.id)
+    const refreshed = await prisma.onlineOrder.findUnique({
+      where: { id },
+      select: { status: true, accept_by: true },
+    })
+    if (refreshed) {
+      order.status = refreshed.status
+      order.accept_by = refreshed.accept_by
+    }
   }
 
   if (

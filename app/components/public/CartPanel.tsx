@@ -29,6 +29,7 @@ type Props = {
   onDeliveryAddressSelect?: (address: string, postcode: string) => void
   onDeliveryValidationChange?: (valid: boolean, feePence: number, minOrderPence: number) => void
   deliveryReady?: boolean
+  showDeliveryAddress?: boolean
   onUpdateQty: (id: string, qty: number) => void
   onRemove: (id: string) => void
   compact?: boolean
@@ -52,6 +53,7 @@ export function CartPanel({
   onDeliveryAddressSelect,
   onDeliveryValidationChange,
   deliveryReady = false,
+  showDeliveryAddress = true,
   onUpdateQty,
   onRemove,
   compact,
@@ -110,7 +112,10 @@ export function CartPanel({
             </p>
           )}
 
-          {orderType === 'delivery' && onDeliveryPostcodeChange && onDeliveryAddressSelect && (
+          {showDeliveryAddress &&
+            orderType === 'delivery' &&
+            onDeliveryPostcodeChange &&
+            onDeliveryAddressSelect && (
             <DeliveryAddressPicker
               slug={slug}
               primary={primary}

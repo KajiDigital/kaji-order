@@ -258,6 +258,7 @@ export function PublicMenuClient({
   const [deliveryPostcode, setDeliveryPostcode] = useState('')
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [deliveryReady, setDeliveryReady] = useState(false)
+  const [orderTypeModalStep, setOrderTypeModalStep] = useState<'choose' | 'address'>('choose')
   const carouselRef = useRef<HTMLDivElement>(null)
 
   const allItems = useMemo(
@@ -324,8 +325,14 @@ export function PublicMenuClient({
       setOrderType('collection')
       setFulfillmentChosen(true)
     } else if (deliveryEnabled) {
+      const savedAddress = stored?.deliveryAddress ?? ''
       setOrderType('delivery')
-      setFulfillmentChosen(true)
+      if (savedAddress) {
+        setFulfillmentChosen(true)
+      } else {
+        setOrderTypeModalStep('address')
+        setOrderTypeModalOpen(true)
+      }
     }
   }, [basketSlug, defaultOrderType, collectionEnabled, deliveryEnabled, deliveryAvailableNow, restaurant.canOrder])
 
@@ -401,7 +408,41 @@ export function PublicMenuClient({
     })
   }
 
+  function openDeliveryAddress() {
+    setOrderTypeModalStep('address')
+    setOrderTypeModalOpen(true)
+  }
+
+  function confirmDeliveryAddress(address: string, postcode: string) {
+    setOrderType('delivery')
+    setDeliveryAddress(address)
+    setDeliveryPostcode(postcode)
+    setDeliveryReady(true)
+    setFulfillmentChosen(true)
+    setOrderTypeModalOpen(false)
+    setOrderTypeModalStep('choose')
+    writeBasketMeta(basket, {
+      nextOrderType: 'delivery',
+      nextAddress: address,
+      nextPostcode: postcode,
+      chosen: true,
+    })
+  }
+
+  function handleModalSelect(next: BasketOrderType) {
+    if (next === 'delivery') {
+      openDeliveryAddress()
+      return
+    }
+    setOrderTypeModalStep('choose')
+    selectFulfillment(next)
+  }
+
   function handleOrderTypeChange(next: BasketOrderType) {
+    if (next === 'delivery') {
+      openDeliveryAddress()
+      return
+    }
     selectFulfillment(next)
   }
 
@@ -479,6 +520,8 @@ export function PublicMenuClient({
   const forceDesktop = previewLayout === 'desktop'
 
   const canOrder = restaurant.canOrder
+  const showDeliverySummary =
+    canOrder && fulfillmentChosen && orderType === 'delivery' && Boolean(deliveryAddress)
   const isLiveOpen = restaurant.isLiveOpen
   const isPreorderMode = restaurant.isPreorderMode
   const closedNotice = restaurant.closedNotice ?? {
@@ -620,9 +663,30 @@ export function PublicMenuClient({
           deliveryWindowMessage={deliveryWindowMessage}
           deliveryFeePence={deliveryFeePence}
           avgPrepMinutes={restaurant.avg_prep_minutes}
-          deliveryAddress={deliveryAddress}
-          onChange={() => setOrderTypeModalOpen(true)}
+          onChange={() => {
+            setOrderTypeModalStep('choose')
+            setOrderTypeModalOpen(true)
+          }}
         />
+      )}
+
+      {showDeliverySummary && (
+        <div className="border-b border-stone-200 bg-white">
+          <button
+            type="button"
+            onClick={openDeliveryAddress}
+            className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-2 text-left text-sm text-stone-600 transition-colors hover:bg-stone-50 sm:px-6"
+            aria-label={`Edit delivery address, ${deliveryAddress}`}
+          >
+            <span className="min-w-0 flex-1 truncate">
+              {deliveryAddress}
+              {deliveryPostcode ? ` · ${deliveryPostcode}` : ''}
+            </span>
+            <span className="shrink-0 text-xs font-semibold underline" style={{ color: primary }}>
+              Edit
+            </span>
+          </button>
+        </div>
       )}
 
       {canOrder && !fulfillmentChosen && collectionEnabled && !deliveryEnabled && (
@@ -647,10 +711,22 @@ export function PublicMenuClient({
         deliveryFeePence={deliveryFeePence}
         avgPrepMinutes={restaurant.avg_prep_minutes}
         collectionOnly={collectionOnlyModal}
-        onSelect={selectFulfillment}
+        step={orderTypeModalStep}
+        slug={restaurant.slug}
+        deliveryPostcode={deliveryPostcode}
+        deliveryAddress={deliveryAddress}
+        onDeliveryPostcodeChange={handleDeliveryPostcodeChange}
+        onDeliveryAddressSelect={handleDeliveryAddressSelect}
+        onDeliveryValidationChange={handleDeliveryValidation}
+        onAddressConfirmed={confirmDeliveryAddress}
+        onSelect={handleModalSelect}
+        onBack={() => setOrderTypeModalStep('choose')}
         onClose={
           fulfillmentChosen
-            ? () => setOrderTypeModalOpen(false)
+            ? () => {
+                setOrderTypeModalOpen(false)
+                setOrderTypeModalStep('choose')
+              }
             : collectionOnlyModal
               ? () => selectFulfillment('collection')
               : undefined
@@ -903,7 +979,7 @@ export function PublicMenuClient({
               placeholder="Search meals..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-stone-200 bg-white py-3 pl-10 pr-4 text-sm shadow-sm focus:border-stone-400 focus:outline-none"
+              className="w-full rounded-xl border border-stone-200 bg-white py-3 pl-10 pr-4 text-sm text-stone-900 shadow-sm placeholder:text-stone-400 focus:border-stone-400 focus:outline-none"
             />
           </div>
 
@@ -954,7 +1030,7 @@ export function PublicMenuClient({
         {canOrder && (
         <aside className={desktopCartClass}>
           <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-            <CartPanel {...cartPanelProps} />
+            <CartPanel {...cartPanelProps} showDeliveryAddress={false} />
           </div>
         </aside>
         )}
@@ -995,7 +1071,7 @@ export function PublicMenuClient({
                 </svg>
               </button>
             </div>
-            <CartPanel {...cartPanelProps} compact />
+            <CartPanel {...cartPanelProps} compact showDeliveryAddress={false} />
           </div>
         </div>
       )}

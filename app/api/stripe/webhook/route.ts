@@ -10,6 +10,7 @@ import {
 import { getAppUrl } from '@/app/lib/utils'
 import { markOrderRefundedFromStripe } from '@/app/lib/refund-order'
 import { buildPrepFields } from '@/app/lib/order-expiry'
+import { markManualAuthorisation } from '@/app/lib/payment-capture'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +38,13 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Webhook signature error:', err)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+  }
+
+  if (event.type === 'payment_intent.amount_capturable_updated') {
+    const intent = event.data.object
+    if (intent.status === 'requires_capture') {
+      await markManualAuthorisation(intent.id)
+    }
   }
 
   if (event.type === 'payment_intent.succeeded') {
@@ -69,24 +77,18 @@ export async function POST(request: Request) {
         emailData.prepTimeFormatted = prepFields.estimated_time
 
         await sendOrderConfirmation(order.customer_email, emailData)
+
+        if (restaurant.email && restaurant.email_notifications) {
+          await sendRestaurantNewOrder(
+            restaurant.email,
+            buildOrderEmailFromDb(order, dashboardUrl)
+          )
+        }
       } else {
-        const acceptBy = new Date(
-          Date.now() + (restaurant.acceptance_timer_mins ?? 3) * 60_000
-        )
         await prisma.onlineOrder.update({
           where: { id: order.id },
-          data: {
-            stripe_payment_status: 'captured',
-            accept_by: acceptBy,
-          },
+          data: { stripe_payment_status: 'captured' },
         })
-      }
-
-      if (restaurant.email && restaurant.email_notifications) {
-        await sendRestaurantNewOrder(
-          restaurant.email,
-          buildOrderEmailFromDb(order, dashboardUrl)
-        )
       }
     }
   }

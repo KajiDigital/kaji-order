@@ -95,6 +95,9 @@ export default function WaitingPage() {
               <div className="w-12 h-12 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
             </div>
             <h1 className="text-xl font-bold text-slate-900">Waiting for confirmation...</h1>
+            <p className="text-sm text-slate-500 mt-2">
+              Your card is not charged unless the restaurant accepts.
+            </p>
             {status && (
               <p className="text-violet-600 font-semibold mt-2">{status.order_number}</p>
             )}

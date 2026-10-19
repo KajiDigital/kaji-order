@@ -359,7 +359,7 @@ export default function BasketPage() {
               setOrderNotes(e.target.value)
               persistBasket(items, e.target.value, appliedDiscount)
             }}
-            className="w-full mt-4 border rounded-xl p-3 text-sm"
+            className="mt-4 w-full rounded-xl border bg-white p-3 text-sm text-stone-900 placeholder:text-stone-400"
             rows={2}
           />
 
@@ -369,7 +369,7 @@ export default function BasketPage() {
                 placeholder="Enter coupon code"
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                className="flex-1 border rounded-lg px-3 py-2 text-sm font-mono"
+                className="flex-1 rounded-lg border bg-white px-3 py-2 text-sm font-mono text-stone-900 placeholder:text-stone-400"
               />
               <button
                 type="button"

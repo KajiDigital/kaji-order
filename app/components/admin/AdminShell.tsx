@@ -18,7 +18,7 @@ export function AdminShell({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="scheme-dark min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900 px-4 py-4 flex items-center justify-between">
         <div>
           <p className="font-bold text-violet-400">Kaji Order Admin</p>

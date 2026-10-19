@@ -8,6 +8,7 @@ import {
   buildOrderEmailFromDb,
 } from '@/app/lib/email'
 import { getAppUrl } from '@/app/lib/utils'
+import { captureOrderPayment } from '@/app/lib/payment-capture'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,12 +32,22 @@ export async function POST(request: Request, { params }: Params) {
     Math.max(5, Number(body.prep_time_mins) || order.restaurant.avg_prep_minutes || 30)
   )
 
+  if (order.stripe_payment_intent_id) {
+    const captured = await captureOrderPayment(order.stripe_payment_intent_id)
+    if (!captured.ok) {
+      return NextResponse.json({ error: captured.error }, { status: 409 })
+    }
+  }
+
   const prepFields = buildPrepFields(prepTimeMins)
 
   const updated = await prisma.onlineOrder.update({
     where: { id },
     data: {
       status: 'ACCEPTED',
+      stripe_payment_status: order.stripe_payment_intent_id
+        ? 'captured'
+        : order.stripe_payment_status,
       ...prepFields,
     },
     include: { items: true, restaurant: true },

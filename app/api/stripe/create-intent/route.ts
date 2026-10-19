@@ -222,6 +222,10 @@ export async function POST(request: Request) {
         receipt_email: customer_email,
       }
 
+      if (!isInstant) {
+        intentParams.capture_method = 'manual'
+      }
+
       if (restaurant.stripe_account_id && totals.platformFeePence > 0) {
         intentParams.application_fee_amount = totals.platformFeePence
         intentParams.transfer_data = { destination: restaurant.stripe_account_id }
@@ -251,7 +255,7 @@ export async function POST(request: Request) {
         commission_pct: restaurant.commission_pct,
         commission_pence: totals.commissionPence,
         stripe_payment_intent_id: paymentIntentId,
-        stripe_payment_status: stripe ? 'authorised' : 'captured',
+        stripe_payment_status: !stripe ? 'captured' : isInstant ? 'authorised' : 'pending',
         payment_method: 'CARD',
         source: 'online',
         ...reporting,

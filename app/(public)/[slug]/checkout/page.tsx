@@ -74,6 +74,11 @@ function CheckoutForm({
       >
         {loading ? 'Processing...' : `Place order ${formatPence(total)}`}
       </button>
+      {orderMode === 'manual' && (
+        <p className="text-xs text-slate-500 text-center">
+          Your card is only charged if the restaurant accepts the order. If it is not accepted, the hold is released and nothing is taken.
+        </p>
+      )}
     </form>
   )
 }
@@ -364,7 +369,7 @@ export default function CheckoutPage() {
                     setDeliveryAddress(e.target.value)
                     persistCheckoutFields(orderType, e.target.value, deliveryPostcode)
                   }}
-                  className="w-full border rounded-xl px-4 py-3"
+                  className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400"
                   rows={2}
                 />
                 <input
@@ -377,7 +382,7 @@ export default function CheckoutPage() {
                     persistCheckoutFields(orderType, deliveryAddress, e.target.value)
                   }}
                   onBlur={() => void validateDeliveryPostcode(deliveryPostcode)}
-                  className="w-full border rounded-xl px-4 py-3 uppercase"
+                  className="w-full rounded-xl border bg-white px-4 py-3 uppercase text-stone-900 placeholder:text-stone-400 placeholder:normal-case"
                 />
                 {deliveryValidating && (
                   <p className="text-xs text-slate-500">Checking delivery area…</p>
@@ -395,10 +400,10 @@ export default function CheckoutPage() {
               </>
             )}
 
-            <input required placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
-            <input required type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
-            <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
-            <textarea placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border rounded-xl px-4 py-3" rows={2} />
+            <input required placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
+            <input required type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
+            <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
+            <textarea placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" rows={2} />
           </div>
           {!clientSecret && !orderId && (
             <button
