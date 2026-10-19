@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
 import { getOpenStatus } from '@/app/lib/opening-hours'
+import { getDeliveryZoneSummary } from '@/app/lib/delivery'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { menuItemInclude, serializeMenuItem } from '@/app/lib/menu-api'
 
@@ -91,9 +92,11 @@ export async function GET(_request: Request, { params }: Params) {
     restaurant.show_menu_when_closed,
     restaurant.collection_enabled,
     restaurant.preorder_days_ahead,
-    restaurant.holiday_message
+    restaurant.holiday_message,
+    restaurant.delivery_enabled
   )
   const serviceFeePence = await getServiceFeePence()
+  const delivery = await getDeliveryZoneSummary(restaurant.id)
 
   return NextResponse.json({
     restaurant: {
@@ -113,6 +116,14 @@ export async function GET(_request: Request, { params }: Params) {
       min_order_pence: restaurant.min_order_pence,
       avg_prep_minutes: restaurant.avg_prep_minutes,
       collection_enabled: restaurant.collection_enabled,
+      delivery_enabled: restaurant.delivery_enabled,
+      show_menu_images: restaurant.show_menu_images,
+      delivery_fee_pence: delivery.fee_pence,
+      delivery_minimum_pence: delivery.minimum_order_pence,
+      delivery_from: delivery.delivery_from,
+      delivery_until: delivery.delivery_until,
+      delivery_available_now: delivery.window.availableNow,
+      delivery_window_message: delivery.window.message,
       accept_preorders: restaurant.accept_preorders,
       show_menu_when_closed: restaurant.show_menu_when_closed,
       service_fee_pence: serviceFeePence,

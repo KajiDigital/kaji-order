@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { getBuiltinDefaultTemplates } from './email-template-defaults'
+import { ensureDefaultMenuTagsForAllRestaurants } from '../app/lib/menu-tags'
 
 const prisma = new PrismaClient()
 
@@ -60,9 +61,12 @@ async function main() {
 
   await seedEmailTemplates()
 
+  await ensureDefaultMenuTagsForAllRestaurants()
+
   console.log('Seeded admin user: admin@kajipos.co.uk')
   console.log('Seeded platform settings: registration_mode=request')
   console.log('Seeded global email templates')
+  console.log('Seeded default dietary & allergen tags for all restaurants')
 }
 
 main()

@@ -12,10 +12,16 @@ export type AppliedDiscount = {
   auto?: boolean
 }
 
+export type BasketOrderType = 'collection' | 'delivery'
+
 export type Basket = {
   items: BasketItemPayload[]
   restaurantSlug: string
   orderNotes?: string
+  orderType?: BasketOrderType
+  deliveryAddress?: string
+  deliveryPostcode?: string
+  fulfillmentChosen?: boolean
   appliedDiscount?: AppliedDiscount | null
   updatedAt: string
 }

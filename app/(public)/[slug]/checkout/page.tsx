@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
@@ -8,9 +8,11 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import {
   getBasket,
   clearBasket,
+  saveBasket,
   basketSubtotal,
   type AppliedDiscount,
   type BasketItem,
+  type BasketOrderType,
 } from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
@@ -85,14 +87,75 @@ export default function CheckoutPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
+  const [orderType, setOrderType] = useState<BasketOrderType>('collection')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryPostcode, setDeliveryPostcode] = useState('')
+  const [collectionEnabled, setCollectionEnabled] = useState(true)
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [orderMode, setOrderMode] = useState('instant')
   const [loading, setLoading] = useState(false)
   const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
+  const [deliveryFeePence, setDeliveryFeePence] = useState(0)
   const [isPreorderMode, setIsPreorderMode] = useState(false)
   const [nextOpenTime, setNextOpenTime] = useState<string | null>(null)
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
+  const [deliveryValidating, setDeliveryValidating] = useState(false)
+  const [deliveryError, setDeliveryError] = useState('')
+  const [deliveryValidated, setDeliveryValidated] = useState(false)
+  const [deliveryMinOrder, setDeliveryMinOrder] = useState(0)
+
+  const validateDeliveryPostcode = useCallback(
+    async (postcode: string) => {
+      const trimmed = postcode.trim()
+      if (!trimmed) {
+        setDeliveryError('')
+        setDeliveryValidated(false)
+        setDeliveryFeePence(0)
+        return
+      }
+
+      setDeliveryValidating(true)
+      setDeliveryError('')
+      try {
+        const res = await fetch('/api/delivery/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, postcode: trimmed }),
+        })
+        const data = await res.json()
+        if (!data.valid) {
+          setDeliveryError(data.error ?? 'Delivery not available to this postcode')
+          setDeliveryValidated(false)
+          setDeliveryFeePence(0)
+          setDeliveryMinOrder(0)
+          return
+        }
+        setDeliveryValidated(true)
+        setDeliveryFeePence(data.fee_pence ?? 0)
+        setDeliveryMinOrder(data.minimum_order_pence ?? 0)
+      } catch {
+        setDeliveryError('Could not verify postcode. Try again.')
+        setDeliveryValidated(false)
+      } finally {
+        setDeliveryValidating(false)
+      }
+    },
+    [slug]
+  )
+
+  useEffect(() => {
+    if (orderType !== 'delivery' || !deliveryPostcode.trim()) {
+      setDeliveryError('')
+      setDeliveryValidated(false)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      void validateDeliveryPostcode(deliveryPostcode)
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [orderType, deliveryPostcode, validateDeliveryPostcode])
 
   useEffect(() => {
     const basket = getBasket(slug)
@@ -103,30 +166,78 @@ export default function CheckoutPage() {
     setItems(basket.items)
     setNotes(basket.orderNotes ?? '')
     setAppliedDiscount(basket.appliedDiscount ?? null)
+    if (basket.orderType) setOrderType(basket.orderType)
+    if (basket.deliveryAddress) setDeliveryAddress(basket.deliveryAddress)
+    if (basket.deliveryPostcode) setDeliveryPostcode(basket.deliveryPostcode)
+
     fetch(`/api/menu/${slug}`)
       .then((r) => r.json())
       .then((d) => {
         setServiceFeePence(d.restaurant?.service_fee_pence ?? DEFAULT_SERVICE_FEE_PENCE)
+        setDeliveryFeePence(d.restaurant?.delivery_fee_pence ?? 0)
+        setCollectionEnabled(d.restaurant?.collection_enabled !== false)
+        setDeliveryEnabled(Boolean(d.restaurant?.delivery_enabled))
         setIsPreorderMode(Boolean(d.restaurant?.isPreorderMode))
         setNextOpenTime(d.restaurant?.nextOpenTime ?? null)
         if (!d.restaurant?.canOrder) {
           router.push(`/${slug}/basket`)
+        }
+        if (!basket.orderType) {
+          const defaultType: BasketOrderType =
+            d.restaurant?.collection_enabled !== false
+              ? 'collection'
+              : d.restaurant?.delivery_enabled
+                ? 'delivery'
+                : 'collection'
+          setOrderType(defaultType)
         }
       })
   }, [slug, router])
 
   const subtotal = basketSubtotal(items)
   const discountPence = appliedDiscount?.discount_pence ?? 0
-  const total = subtotal + serviceFeePence - discountPence
+  const activeDeliveryFee = orderType === 'delivery' ? deliveryFeePence : 0
+  const total = subtotal + serviceFeePence + activeDeliveryFee - discountPence
   const discountLabel = appliedDiscount?.coupon_code
     ? `Discount (${appliedDiscount.coupon_code})`
     : appliedDiscount?.description
       ? `Discount (${appliedDiscount.description})`
       : 'Discount'
 
+  const showOrderTypePicker = collectionEnabled && deliveryEnabled
+  const deliveryFieldsRequired = orderType === 'delivery'
+  const belowMin =
+    deliveryFieldsRequired &&
+    deliveryValidated &&
+    deliveryMinOrder > 0 &&
+    subtotal < deliveryMinOrder
+  const canSubmit =
+    name &&
+    email &&
+    (!deliveryFieldsRequired ||
+      (deliveryAddress.trim() && deliveryPostcode.trim() && deliveryValidated && !deliveryError))
+
+  function persistCheckoutFields(
+    nextOrderType = orderType,
+    nextAddress = deliveryAddress,
+    nextPostcode = deliveryPostcode
+  ) {
+    const basket = getBasket(slug)
+    if (!basket) return
+    saveBasket(slug, {
+      ...basket,
+      orderType: nextOrderType,
+      deliveryAddress: nextAddress || undefined,
+      deliveryPostcode: nextPostcode || undefined,
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
   async function createOrder() {
-    if (!name || !email) return
+    if (!canSubmit) return
     setLoading(true)
+
+    persistCheckoutFields()
 
     const res = await fetch('/api/stripe/create-intent', {
       method: 'POST',
@@ -137,7 +248,9 @@ export default function CheckoutPage() {
         customer_email: email,
         customer_phone: phone || undefined,
         notes: notes || undefined,
-        order_type: 'COLLECTION',
+        order_type: orderType === 'delivery' ? 'DELIVERY' : 'COLLECTION',
+        delivery_address: deliveryFieldsRequired ? deliveryAddress.trim() : undefined,
+        delivery_postcode: deliveryFieldsRequired ? deliveryPostcode.trim() : undefined,
         items: items.map((i) => ({
           menuItemId: i.menuItemId,
           name: i.name,
@@ -193,7 +306,95 @@ export default function CheckoutPage() {
               {nextOpenTime ? ` at ${nextOpenTime}` : ''}.
             </div>
           )}
+
           <div className="mt-6 space-y-4">
+            {(showOrderTypePicker || deliveryEnabled || collectionEnabled) && (
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">Order type</p>
+                {showOrderTypePicker ? (
+                  <div className="flex rounded-xl border border-slate-200 bg-white p-1">
+                    {deliveryEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrderType('delivery')
+                          persistCheckoutFields('delivery')
+                        }}
+                        className={`flex-1 rounded-lg py-2.5 text-sm font-medium ${
+                          orderType === 'delivery'
+                            ? 'bg-violet-600 text-white'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        Delivery
+                      </button>
+                    )}
+                    {collectionEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrderType('collection')
+                          persistCheckoutFields('collection')
+                        }}
+                        className={`flex-1 rounded-lg py-2.5 text-sm font-medium ${
+                          orderType === 'collection'
+                            ? 'bg-violet-600 text-white'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        Collection
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800">
+                    {deliveryEnabled && !collectionEnabled ? 'Delivery' : 'Collection'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {deliveryFieldsRequired && (
+              <>
+                <textarea
+                  required
+                  placeholder="Delivery address *"
+                  value={deliveryAddress}
+                  onChange={(e) => {
+                    setDeliveryAddress(e.target.value)
+                    persistCheckoutFields(orderType, e.target.value, deliveryPostcode)
+                  }}
+                  className="w-full border rounded-xl px-4 py-3"
+                  rows={2}
+                />
+                <input
+                  required
+                  placeholder="Postcode *"
+                  value={deliveryPostcode}
+                  onChange={(e) => {
+                    setDeliveryPostcode(e.target.value)
+                    setDeliveryValidated(false)
+                    persistCheckoutFields(orderType, deliveryAddress, e.target.value)
+                  }}
+                  onBlur={() => void validateDeliveryPostcode(deliveryPostcode)}
+                  className="w-full border rounded-xl px-4 py-3 uppercase"
+                />
+                {deliveryValidating && (
+                  <p className="text-xs text-slate-500">Checking delivery area…</p>
+                )}
+                {deliveryError && (
+                  <p className="text-sm text-red-600">{deliveryError}</p>
+                )}
+                {deliveryValidated && !deliveryError && (
+                  <p className="text-sm text-emerald-700">
+                    Delivery available
+                    {deliveryFeePence > 0 ? ` · fee ${formatPence(deliveryFeePence)}` : ''}
+                    {deliveryMinOrder > 0 ? ` · min ${formatPence(deliveryMinOrder)}` : ''}
+                  </p>
+                )}
+              </>
+            )}
+
             <input required placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
             <input required type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
             <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded-xl px-4 py-3" />
@@ -203,7 +404,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={createOrder}
-              disabled={loading || !name || !email}
+              disabled={loading || !canSubmit || belowMin}
               className="w-full mt-6 py-3 bg-violet-600 text-white rounded-xl font-medium disabled:opacity-50"
             >
               {loading ? 'Creating order...' : `Continue to payment ${formatPence(total)}`}
@@ -213,6 +414,9 @@ export default function CheckoutPage() {
 
         <div className="bg-white rounded-xl border p-6">
           <h2 className="font-bold text-slate-900 mb-4">Order summary</h2>
+          <p className="mb-4 text-sm text-slate-600 capitalize">
+            {orderType === 'delivery' ? 'Delivery' : 'Collection'}
+          </p>
           <ul className="space-y-2 text-sm">
             {items.map((item) => (
               <li key={item.id} className="flex justify-between">
@@ -222,9 +426,15 @@ export default function CheckoutPage() {
             ))}
           </ul>
           <div className="mt-4 pt-4 border-t">
+            {belowMin && (
+              <p className="mb-3 text-sm text-red-600">
+                Minimum order for delivery is {formatPence(deliveryMinOrder)}
+              </p>
+            )}
             <OrderSummaryBreakdown
               subtotal={subtotal}
               serviceFeePence={serviceFeePence}
+              deliveryFeePence={activeDeliveryFee}
               discountPence={discountPence}
               discountLabel={discountLabel}
             />

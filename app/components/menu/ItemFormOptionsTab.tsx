@@ -29,8 +29,10 @@ export function ItemFormOptionsTab({ groups, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-slate-400">Option groups for size, filling, extras, etc.</p>
+      <div className="flex justify-between items-center gap-2">
+        <p className="text-sm" style={{ color: 'var(--mb-muted)' }}>
+          Item-specific option groups. For shared sets (Size, Extras), use the Option sets sidebar.
+        </p>
         <button
           type="button"
           onClick={() =>
@@ -39,33 +41,33 @@ export function ItemFormOptionsTab({ groups, onChange }: Props) {
               { name: 'Choose option', group_type: 'SINGLE', required: true, min_selections: 1, max_selections: 1, options: [] },
             ])
           }
-          className="text-xs text-violet-400"
+          className="menu-builder-link shrink-0"
         >
-          + Add option group
+          + Add group
         </button>
       </div>
       {groups.map((g, gi) => (
-        <div key={gi} className="bg-slate-800 rounded-lg p-4 space-y-3 border border-slate-700">
+        <div key={gi} className="menu-builder-panel space-y-3">
           <input
             value={g.name}
             onChange={(e) => updateGroup(gi, { ...g, name: e.target.value })}
             placeholder="Group name"
-            className="w-full bg-slate-700 rounded px-2 py-1.5 text-white text-sm"
+            className="menu-builder-input"
           />
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <label className="text-slate-400">
-              Type
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="menu-builder-label">Type</label>
               <select
                 value={g.group_type}
                 onChange={(e) => updateGroup(gi, { ...g, group_type: e.target.value })}
-                className="w-full mt-1 bg-slate-700 rounded px-2 py-1 text-white text-sm"
+                className="menu-builder-input"
               >
-                <option value="SINGLE">Single</option>
+                <option value="SINGLE">Single choice</option>
                 <option value="MULTIPLE">Multiple</option>
-                <option value="OPTIONAL">Optional</option>
+                <option value="OPTIONAL">Optional extras</option>
               </select>
-            </label>
-            <label className="flex items-end gap-2 text-slate-300 pb-1">
+            </div>
+            <label className="menu-builder-check-label self-end pb-2">
               <input
                 type="checkbox"
                 checked={g.required}
@@ -73,29 +75,29 @@ export function ItemFormOptionsTab({ groups, onChange }: Props) {
               />
               Required
             </label>
-            <label className="text-slate-400">
-              Min
+            <div>
+              <label className="menu-builder-label">Min</label>
               <input
                 type="number"
                 min={0}
                 value={g.min_selections}
                 onChange={(e) => updateGroup(gi, { ...g, min_selections: Number(e.target.value) })}
-                className="w-full mt-1 bg-slate-700 rounded px-2 py-1 text-white text-sm"
+                className="menu-builder-input"
               />
-            </label>
-            <label className="text-slate-400">
-              Max
+            </div>
+            <div>
+              <label className="menu-builder-label">Max</label>
               <input
                 type="number"
                 min={1}
                 value={g.max_selections}
                 onChange={(e) => updateGroup(gi, { ...g, max_selections: Number(e.target.value) })}
-                className="w-full mt-1 bg-slate-700 rounded px-2 py-1 text-white text-sm"
+                className="menu-builder-input"
               />
-            </label>
+            </div>
           </div>
           <div className="space-y-2">
-            <p className="text-xs text-slate-500">Options</p>
+            <p className="menu-builder-label mb-0">Choices</p>
             {g.options.map((o, oi) => (
               <div key={oi} className="flex gap-2 items-center">
                 <input
@@ -105,8 +107,8 @@ export function ItemFormOptionsTab({ groups, onChange }: Props) {
                     opts[oi] = { ...o, name: e.target.value }
                     updateGroup(gi, { ...g, options: opts })
                   }}
-                  className="flex-1 bg-slate-700 rounded px-2 py-1 text-white text-sm"
-                  placeholder="Option name"
+                  className="menu-builder-input flex-1"
+                  placeholder="Choice name"
                 />
                 <input
                   value={o.price}
@@ -115,10 +117,10 @@ export function ItemFormOptionsTab({ groups, onChange }: Props) {
                     opts[oi] = { ...o, price: e.target.value }
                     updateGroup(gi, { ...g, options: opts })
                   }}
-                  className="w-20 bg-slate-700 rounded px-2 py-1 text-white text-sm"
+                  className="menu-builder-input w-24"
                   placeholder="+£0"
                 />
-                <label className="text-xs text-slate-400 flex items-center gap-1 shrink-0">
+                <label className="menu-builder-check-label text-xs shrink-0">
                   <input
                     type="checkbox"
                     checked={o.is_default ?? false}
@@ -135,17 +137,26 @@ export function ItemFormOptionsTab({ groups, onChange }: Props) {
             <button
               type="button"
               onClick={() => updateGroup(gi, { ...g, options: [...g.options, { name: '', price: '0' }] })}
-              className="text-xs text-violet-400"
+              className="menu-builder-link text-sm"
             >
-              + Add option
+              + Add choice
             </button>
           </div>
-          <button type="button" onClick={() => onChange(groups.filter((_, i) => i !== gi))} className="text-xs text-red-400">
+          <button
+            type="button"
+            onClick={() => onChange(groups.filter((_, i) => i !== gi))}
+            className="text-sm font-medium"
+            style={{ color: '#dc2626' }}
+          >
             Delete group
           </button>
         </div>
       ))}
-      {groups.length === 0 && <p className="text-sm text-slate-500">No option groups yet.</p>}
+      {groups.length === 0 && (
+        <p className="text-sm py-4 text-center" style={{ color: 'var(--mb-muted)' }}>
+          No item-specific groups. Drag option sets from the right sidebar onto the item card.
+        </p>
+      )}
     </div>
   )
 }

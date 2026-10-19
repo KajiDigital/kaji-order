@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/app/lib/admin-auth'
+import { ensureDefaultMenuTags } from '@/app/lib/menu-tags'
 import prisma from '@/app/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
       },
     },
   })
+
+  await ensureDefaultMenuTags(restaurant.id)
 
   return NextResponse.json({ restaurant })
 }

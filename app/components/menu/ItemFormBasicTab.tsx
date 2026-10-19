@@ -12,7 +12,6 @@ export type BasicFormState = {
   featured: boolean
   isBundle: boolean
   calories: string
-  spiceLevel: number | null
   isVegan: boolean
   isVegetarian: boolean
   isGlutenFree: boolean
@@ -39,25 +38,31 @@ export function ItemFormBasicTab({ state, categories, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      <input
-        placeholder="Name"
-        value={state.name}
-        onChange={(e) => set('name', e.target.value)}
-        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-      />
-      <textarea
-        placeholder="Description"
-        value={state.description}
-        onChange={(e) => set('description', e.target.value)}
-        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-        rows={2}
-      />
-      <label className="block text-sm text-slate-400">
-        Category
+      <div>
+        <label className="menu-builder-label">Name</label>
+        <input
+          className="menu-builder-input"
+          placeholder="Item name"
+          value={state.name}
+          onChange={(e) => set('name', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="menu-builder-label">Description</label>
+        <textarea
+          className="menu-builder-input resize-y min-h-[72px]"
+          placeholder="Short description for customers"
+          value={state.description}
+          onChange={(e) => set('description', e.target.value)}
+          rows={2}
+        />
+      </div>
+      <div>
+        <label className="menu-builder-label">Category</label>
         <select
+          className="menu-builder-input"
           value={state.categoryId}
           onChange={(e) => set('categoryId', e.target.value)}
-          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
         >
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
@@ -65,79 +70,70 @@ export function ItemFormBasicTab({ state, categories, onChange }: Props) {
             </option>
           ))}
         </select>
-      </label>
-      <label className="block text-sm text-slate-400">
-        Base price (£)
+      </div>
+      <div>
+        <label className="menu-builder-label">Base price (£)</label>
         <input
+          className="menu-builder-input"
           value={state.price}
           onChange={(e) => set('price', e.target.value)}
-          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+          inputMode="decimal"
         />
-      </label>
-      <input
-        placeholder="Image URL"
-        value={state.imageUrl}
-        onChange={(e) => set('imageUrl', e.target.value)}
-        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-      />
-      <div className="flex flex-wrap gap-3 text-sm text-slate-300">
-        <label className="flex items-center gap-2">
+      </div>
+      <div>
+        <label className="menu-builder-label">Image URL</label>
+        <input
+          className="menu-builder-input"
+          placeholder="https://…"
+          value={state.imageUrl}
+          onChange={(e) => set('imageUrl', e.target.value)}
+        />
+      </div>
+      <div className="flex flex-wrap gap-4">
+        <label className="menu-builder-check-label">
           <input type="checkbox" checked={state.isVegan} onChange={(e) => set('isVegan', e.target.checked)} />
           Vegan
         </label>
-        <label className="flex items-center gap-2">
+        <label className="menu-builder-check-label">
           <input type="checkbox" checked={state.isVegetarian} onChange={(e) => set('isVegetarian', e.target.checked)} />
           Vegetarian
         </label>
-        <label className="flex items-center gap-2">
+        <label className="menu-builder-check-label">
           <input type="checkbox" checked={state.isGlutenFree} onChange={(e) => set('isGlutenFree', e.target.checked)} />
           Gluten free
         </label>
       </div>
       <div>
-        <p className="text-sm text-slate-400 mb-2">Allergens</p>
-        <div className="flex flex-wrap gap-2">
+        <p className="menu-builder-label">Allergens</p>
+        <div className="flex flex-wrap gap-3">
           {ALLERGENS.map((a) => (
-            <label key={a} className="flex items-center gap-1 text-xs text-slate-300 capitalize">
+            <label key={a} className="menu-builder-check-label capitalize text-xs">
               <input type="checkbox" checked={state.allergens.includes(a)} onChange={() => toggleAllergen(a)} />
               {a}
             </label>
           ))}
         </div>
       </div>
-      <label className="block text-sm text-slate-400">
-        Spice level
-        <select
-          value={state.spiceLevel ?? ''}
-          onChange={(e) => set('spiceLevel', e.target.value === '' ? null : Number(e.target.value))}
-          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-        >
-          <option value="">None</option>
-          <option value="1">Mild</option>
-          <option value="2">Medium</option>
-          <option value="3">Hot</option>
-        </select>
-      </label>
-      <label className="block text-sm text-slate-400">
-        Calories (optional)
+      <div>
+        <label className="menu-builder-label">Calories (optional)</label>
         <input
+          className="menu-builder-input"
           value={state.calories}
           onChange={(e) => set('calories', e.target.value)}
-          className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
         />
-      </label>
-      <div className="flex flex-wrap gap-4 text-sm text-slate-300">
-        <label className="flex items-center gap-2">
+      </div>
+      <div className="flex flex-wrap gap-4 pt-2 border-t" style={{ borderColor: 'var(--mb-border)' }}>
+        <label className="menu-builder-check-label">
           <input type="checkbox" checked={state.featured} onChange={(e) => set('featured', e.target.checked)} />
           Featured
         </label>
-        <label className="flex items-center gap-2">
+        <label className="menu-builder-check-label">
           <input type="checkbox" checked={state.available} onChange={(e) => set('available', e.target.checked)} />
           Available
         </label>
-        <label className="flex items-center gap-2">
+        <label className="menu-builder-check-label">
           <input type="checkbox" checked={state.isBundle} onChange={(e) => set('isBundle', e.target.checked)} />
-          Combo / bundle meal
+          Set meal / bundle
         </label>
       </div>
     </div>

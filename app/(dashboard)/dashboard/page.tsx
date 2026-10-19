@@ -43,7 +43,8 @@ export default async function DashboardPage() {
     restaurant.show_menu_when_closed,
     restaurant.collection_enabled,
     restaurant.preorder_days_ahead,
-    restaurant.holiday_message
+    restaurant.holiday_message,
+    restaurant.delivery_enabled
   )
   let statusLabel = 'Open'
   let statusColor = 'bg-emerald-500/20 text-emerald-400'

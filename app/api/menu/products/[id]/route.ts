@@ -7,7 +7,9 @@ import {
   parseMenuItemFields,
   replaceComboGroups,
   replaceOptionGroups,
+  serializeMenuItem,
 } from '@/app/lib/menu-api'
+import { queueKajiCloudMenuSync } from '@/app/lib/kaji-cloud-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +54,13 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const updated = await fetchMenuItemById(id, session.restaurantId)
+  if (updated) {
+    await queueKajiCloudMenuSync(session.restaurantId, {
+      change_type: 'product_update',
+      entity_id: id,
+      data: serializeMenuItem(updated),
+    })
+  }
   return NextResponse.json({ product: updated })
 }
 
@@ -71,5 +80,10 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   await prisma.menuItem.delete({ where: { id } })
+  await queueKajiCloudMenuSync(session.restaurantId, {
+    change_type: 'product_delete',
+    entity_id: id,
+    data: { id },
+  })
   return NextResponse.json({ ok: true })
 }

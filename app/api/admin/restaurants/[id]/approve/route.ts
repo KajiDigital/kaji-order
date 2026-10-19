@@ -5,6 +5,7 @@ import { hashPassword } from '@/app/lib/auth'
 import prisma from '@/app/lib/prisma'
 import { slugify } from '@/app/lib/utils'
 import { sendRegistrationApproved } from '@/app/lib/email'
+import { ensureDefaultMenuTags } from '@/app/lib/menu-tags'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +68,8 @@ export async function POST(_request: Request, { params }: Params) {
       },
     }),
   ])
+
+  await ensureDefaultMenuTags(id)
 
   await sendRegistrationApproved(restaurant.email, restaurant.name, tempPassword)
 

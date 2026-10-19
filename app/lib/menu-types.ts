@@ -49,6 +49,14 @@ export type MenuComboGroup = {
   combo_options: ComboOptionItem[]
 }
 
+export type MenuProductTag = {
+  id: string
+  kind: 'DIETARY' | 'ALLERGEN'
+  name: string
+  color: string
+  sort_order: number
+}
+
 export type MenuProduct = {
   id: string
   name: string
@@ -67,6 +75,7 @@ export type MenuProduct = {
   pricing_type?: PricingType
   option_groups: MenuOptionGroup[]
   combo_groups: MenuComboGroup[]
+  tags?: MenuProductTag[]
 }
 
 export type SelectionSnapshot = {

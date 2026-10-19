@@ -5,6 +5,10 @@ import { getStripe, stripeConfigured } from '@/app/lib/stripe'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { calculateOrderTotals } from '@/app/lib/service-fee'
 import { getOpenStatus } from '@/app/lib/opening-hours'
+import {
+  normalizeUkPostcode,
+  validateDeliveryForRestaurant,
+} from '@/app/lib/delivery'
 import { formatSelectionsText } from '@/app/lib/menu-selections'
 import { getReportingFields } from '@/app/lib/utils'
 import { validateCheckoutItems } from '@/app/lib/menu-checkout'
@@ -42,6 +46,8 @@ export async function POST(request: Request) {
       customer_phone,
       notes,
       order_type = 'COLLECTION',
+      delivery_address,
+      delivery_postcode,
       discount_pence: discountFromClient = 0,
       coupon_code,
       promotion_id,
@@ -55,6 +61,8 @@ export async function POST(request: Request) {
       customer_phone?: string
       notes?: string
       order_type?: 'COLLECTION' | 'DELIVERY'
+      delivery_address?: string
+      delivery_postcode?: string
       discount_pence?: number
       coupon_code?: string
       promotion_id?: string
@@ -80,7 +88,8 @@ export async function POST(request: Request) {
       restaurant.show_menu_when_closed,
       restaurant.collection_enabled,
       restaurant.preorder_days_ahead,
-      restaurant.holiday_message
+      restaurant.holiday_message,
+      restaurant.delivery_enabled
     )
 
     if (!openStatus.canOrder) {
@@ -88,6 +97,49 @@ export async function POST(request: Request) {
         { error: openStatus.statusMessage || 'Restaurant is not accepting orders right now' },
         { status: 400 }
       )
+    }
+
+    if (order_type === 'COLLECTION' && !restaurant.collection_enabled) {
+      return NextResponse.json({ error: 'Collection is not available' }, { status: 400 })
+    }
+
+    if (order_type === 'DELIVERY' && !restaurant.delivery_enabled) {
+      return NextResponse.json({ error: 'Delivery is not available' }, { status: 400 })
+    }
+
+    if (!restaurant.collection_enabled && !restaurant.delivery_enabled) {
+      return NextResponse.json({ error: 'Online ordering is unavailable' }, { status: 400 })
+    }
+
+    const deliveryAddress =
+      order_type === 'DELIVERY' ? delivery_address?.trim() : undefined
+    const deliveryPostcode =
+      order_type === 'DELIVERY' ? delivery_postcode?.trim() : undefined
+
+    let deliveryFee = 0
+    let deliveryMinimum = restaurant.min_order_pence
+
+    if (order_type === 'DELIVERY') {
+      if (!deliveryAddress || !deliveryPostcode) {
+        return NextResponse.json(
+          { error: 'Delivery address and postcode are required' },
+          { status: 400 }
+        )
+      }
+
+      const deliveryCheck = await validateDeliveryForRestaurant(
+        restaurant.id,
+        deliveryPostcode
+      )
+      if (!deliveryCheck.valid) {
+        return NextResponse.json(
+          { error: deliveryCheck.error ?? 'Delivery not available to this address' },
+          { status: 400 }
+        )
+      }
+
+      deliveryFee = deliveryCheck.fee_pence
+      deliveryMinimum = deliveryCheck.minimum_order_pence
     }
 
     const validation = await validateCheckoutItems(restaurant.id, items)
@@ -98,9 +150,12 @@ export async function POST(request: Request) {
     const validatedItems = validation.items
     const subtotal = validation.subtotal
 
-    if (subtotal < restaurant.min_order_pence) {
+    const minOrderPence =
+      order_type === 'DELIVERY' ? deliveryMinimum : restaurant.min_order_pence
+
+    if (subtotal < minOrderPence) {
       return NextResponse.json(
-        { error: `Minimum order is £${(restaurant.min_order_pence / 100).toFixed(2)}` },
+        { error: `Minimum order is £${(minOrderPence / 100).toFixed(2)}` },
         { status: 400 }
       )
     }
@@ -139,7 +194,6 @@ export async function POST(request: Request) {
     }
 
     const serviceFeePence = await getServiceFeePence()
-    const deliveryFee = 0
     const totals = calculateOrderTotals(
       subtotal,
       restaurant.commission_pct,
@@ -206,6 +260,9 @@ export async function POST(request: Request) {
           : {}),
         is_preorder: openStatus.isPreorderMode,
         preorder_for: openStatus.isPreorderMode ? openStatus.nextOpenAt : null,
+        delivery_address: deliveryAddress ?? null,
+        delivery_postcode:
+          deliveryPostcode ? normalizeUkPostcode(deliveryPostcode) : null,
         items: {
           create: validatedItems.map((item) => ({
             menu_item_id: item.menuItemId,

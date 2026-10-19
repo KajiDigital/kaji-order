@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/app/lib/auth'
+import { queueKajiCloudMenuSync } from '@/app/lib/kaji-cloud-sync'
 import prisma from '@/app/lib/prisma'
 import { menuItemInclude } from '@/app/lib/menu-api'
 
@@ -47,6 +48,12 @@ export async function POST(request: Request) {
       color: color ?? '#64748b',
       sort_order: sort_order ?? count,
     },
+  })
+
+  await queueKajiCloudMenuSync(session.restaurantId, {
+    change_type: 'category_create',
+    entity_id: category.id,
+    data: category,
   })
 
   return NextResponse.json({ category })

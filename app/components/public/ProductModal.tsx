@@ -14,6 +14,7 @@ import {
 type Props = {
   product: Product
   primary: string
+  showImages?: boolean
   canOrder?: boolean
   onClose: () => void
   onAdd: (
@@ -29,7 +30,14 @@ function spiceIcons(level: number | null | undefined) {
   return '🌶'.repeat(Math.min(level, 3))
 }
 
-export function ProductModal({ product, primary, canOrder = true, onClose, onAdd }: Props) {
+export function ProductModal({
+  product,
+  primary,
+  showImages = true,
+  canOrder = true,
+  onClose,
+  onAdd,
+}: Props) {
   const [qty, setQty] = useState(1)
   const [notes, setNotes] = useState('')
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(() => {
@@ -74,15 +82,16 @@ export function ProductModal({ product, primary, canOrder = true, onClose, onAdd
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
       <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl">
-        {product.image_url ? (
-          <img src={product.image_url} alt="" className="h-48 w-full shrink-0 object-cover" />
-        ) : (
-          <div className="flex h-48 shrink-0 items-center justify-center bg-stone-100 text-stone-400">
-            <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-        )}
+        {showImages &&
+          (product.image_url ? (
+            <img src={product.image_url} alt="" className="h-48 w-full shrink-0 object-cover" />
+          ) : (
+            <div className="flex h-48 shrink-0 items-center justify-center bg-stone-100 text-stone-400">
+              <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          ))}
 
         <div className="flex-1 overflow-y-auto p-5">
           <div className="flex items-start justify-between gap-3">

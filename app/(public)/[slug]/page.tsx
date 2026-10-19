@@ -6,6 +6,7 @@ import { getOpenStatus } from '@/app/lib/opening-hours'
 import { getPrimaryColor, getSecondaryColor, shouldShowPoweredBy } from '@/app/lib/branding'
 import { PublicMenuClient } from '@/app/components/public/PublicMenuClient'
 import { PublicClosedPage } from '@/app/components/public/PublicClosedPage'
+import { getDeliveryZoneSummary } from '@/app/lib/delivery'
 import { getServiceFeePence } from '@/app/lib/platform'
 import { getMenuPromotions } from '@/app/lib/promotions'
 import { buildMenuBannerText } from '@/app/lib/promotion-config'
@@ -35,6 +36,7 @@ export default async function PublicMenuPage({ params }: Params) {
   if (!restaurant || restaurant.status !== 'active' || restaurant.deleted_at) notFound()
 
   const serviceFeePence = await getServiceFeePence()
+  const delivery = await getDeliveryZoneSummary(restaurant.id)
   const openStatus = getOpenStatus(
     restaurant.opening_hours,
     restaurant.holiday_mode,
@@ -42,7 +44,8 @@ export default async function PublicMenuPage({ params }: Params) {
     restaurant.show_menu_when_closed,
     restaurant.collection_enabled,
     restaurant.preorder_days_ahead,
-    restaurant.holiday_message
+    restaurant.holiday_message,
+    restaurant.delivery_enabled
   )
 
   const primaryColor = getPrimaryColor(restaurant)
@@ -102,6 +105,15 @@ export default async function PublicMenuPage({ params }: Params) {
         min_order_pence: restaurant.min_order_pence,
         avg_prep_minutes: restaurant.avg_prep_minutes,
         service_fee_pence: serviceFeePence,
+        collection_enabled: restaurant.collection_enabled,
+        delivery_enabled: restaurant.delivery_enabled,
+        show_menu_images: restaurant.show_menu_images,
+        delivery_fee_pence: delivery.fee_pence,
+        delivery_minimum_pence: delivery.minimum_order_pence,
+        delivery_from: delivery.delivery_from,
+        delivery_until: delivery.delivery_until,
+        delivery_available_now: delivery.window.availableNow,
+        delivery_window_message: delivery.window.message,
       }}
       categories={restaurant.menu_categories.map((cat) => ({
         id: cat.id,

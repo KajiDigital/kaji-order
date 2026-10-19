@@ -1,8 +1,15 @@
 import prisma from '@/app/lib/prisma'
 import { parsePoundsToPence } from '@/app/lib/utils'
 import type { MenuProduct, PricingType } from '@/app/lib/menu-types'
+import {
+  attributeSetToOptionGroup,
+  menuItemAttributeInclude,
+} from '@/app/lib/attribute-sets'
+import { menuItemTagInclude } from '@/app/lib/menu-tags'
 
 export const menuItemInclude = {
+  ...menuItemAttributeInclude,
+  ...menuItemTagInclude,
   option_groups: {
     orderBy: { sort_order: 'asc' as const },
     include: { options: { orderBy: { sort_order: 'asc' as const } } },
@@ -72,9 +79,68 @@ type DbItem = {
       menu_item: { id: string; name: string; base_price: number }
     }[]
   }[]
+  attribute_set_links?: {
+    sort_order: number
+    attribute_set: {
+      id: string
+      name: string
+      description: string | null
+      group_type: string
+      required: boolean
+      min_selections: number
+      max_selections: number
+      sort_order: number
+      choices: {
+        id: string
+        name: string
+        description: string | null
+        price_delta: number
+        is_default: boolean
+        available: boolean
+        sort_order: number
+      }[]
+    }
+  }[]
+  tag_links?: {
+    sort_order: number
+    tag: {
+      id: string
+      kind: string
+      name: string
+      color: string
+      sort_order: number
+    }
+  }[]
 }
 
 export function serializeMenuItem(item: DbItem): MenuProduct {
+  const linkedGroups =
+    item.attribute_set_links?.map((link) =>
+      attributeSetToOptionGroup(link.attribute_set, link.sort_order)
+    ) ?? []
+
+  const embeddedGroups = item.option_groups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    description: g.description,
+    group_type: g.group_type as MenuProduct['option_groups'][0]['group_type'],
+    required: g.required,
+    min_selections: g.min_selections,
+    max_selections: g.max_selections,
+    sort_order: g.sort_order,
+    options: g.options.map((o) => ({
+      id: o.id,
+      name: o.name,
+      description: o.description,
+      price_delta: o.price_delta,
+      is_default: o.is_default,
+      available: o.available,
+      image_url: o.image_url,
+      linked_item_id: o.linked_item_id,
+      sort_order: o.sort_order,
+    })),
+  }))
+
   return {
     id: item.id,
     name: item.name,
@@ -91,27 +157,7 @@ export function serializeMenuItem(item: DbItem): MenuProduct {
     is_vegetarian: item.is_vegetarian,
     is_gluten_free: item.is_gluten_free,
     pricing_type: item.pricing_type as PricingType,
-    option_groups: item.option_groups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      description: g.description,
-      group_type: g.group_type as MenuProduct['option_groups'][0]['group_type'],
-      required: g.required,
-      min_selections: g.min_selections,
-      max_selections: g.max_selections,
-      sort_order: g.sort_order,
-      options: g.options.map((o) => ({
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        price_delta: o.price_delta,
-        is_default: o.is_default,
-        available: o.available,
-        image_url: o.image_url,
-        linked_item_id: o.linked_item_id,
-        sort_order: o.sort_order,
-      })),
-    })),
+    option_groups: [...linkedGroups, ...embeddedGroups],
     combo_groups: item.combo_groups.map((g) => ({
       id: g.id,
       name: g.name,
@@ -130,6 +176,14 @@ export function serializeMenuItem(item: DbItem): MenuProduct {
         sort_order: o.sort_order,
       })),
     })),
+    tags:
+      item.tag_links?.map((link) => ({
+        id: link.tag.id,
+        kind: link.tag.kind as 'DIETARY' | 'ALLERGEN',
+        name: link.tag.name,
+        color: link.tag.color,
+        sort_order: link.sort_order,
+      })) ?? [],
   }
 }
 

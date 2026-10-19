@@ -50,4 +50,13 @@ export type Restaurant = {
   min_order_pence: number
   avg_prep_minutes: number
   service_fee_pence?: number
+  collection_enabled?: boolean
+  delivery_enabled?: boolean
+  show_menu_images?: boolean
+  delivery_fee_pence?: number
+  delivery_minimum_pence?: number
+  delivery_from?: string | null
+  delivery_until?: string | null
+  delivery_available_now?: boolean
+  delivery_window_message?: string
 }

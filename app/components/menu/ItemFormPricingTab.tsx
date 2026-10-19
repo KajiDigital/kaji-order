@@ -48,41 +48,46 @@ export function ItemFormPricingTab({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-400">Base price: {formatPence(basePricePence)}</p>
+      <p className="text-sm" style={{ color: 'var(--mb-muted)' }}>
+        Base price: <strong style={{ color: 'var(--mb-text)' }}>{formatPence(basePricePence)}</strong>
+      </p>
       {!isBundle && (
-        <div className="space-y-2 text-sm">
-          <p className="text-slate-400">Pricing type</p>
+        <div className="space-y-2">
+          <p className="menu-builder-label mb-0">Pricing type</p>
           {(['FIXED', 'OPTIONS'] as const).map((t) => (
-            <label key={t} className="flex items-center gap-2 text-slate-300">
+            <label key={t} className="menu-builder-check-label">
               <input
                 type="radio"
                 name="pricing_type"
                 checked={pricingType === t}
                 onChange={() => onPricingTypeChange(t)}
               />
-              {t === 'FIXED' && 'Fixed price (base price always)'}
-              {t === 'OPTIONS' && 'Options affect price (base + option deltas)'}
+              {t === 'FIXED' && 'Fixed price (always base price)'}
+              {t === 'OPTIONS' && 'Options affect price (base + choice deltas)'}
             </label>
           ))}
         </div>
       )}
       {isBundle && (
-        <p className="text-sm text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-          Bundle pricing: customer pays the base price regardless of combo selections.
+        <p
+          className="text-sm rounded-lg px-3 py-2 border"
+          style={{ background: '#fff7ed', borderColor: '#fed7aa', color: '#9a3412' }}
+        >
+          Set meal pricing: customer pays the base price regardless of course selections.
         </p>
       )}
-      <div className="bg-slate-800 rounded-lg p-4 text-sm text-slate-300 space-y-1">
-        <p className="font-medium text-white">Price preview</p>
+      <div className="menu-builder-panel text-sm space-y-1">
+        <p className="font-semibold">Price preview</p>
         {min === max ? (
-          <p>Price: {formatPence(min)}</p>
+          <p style={{ color: 'var(--mb-muted)' }}>Price: {formatPence(min)}</p>
         ) : (
           <>
-            <p>
-              Min price: {formatPence(min)}
+            <p style={{ color: 'var(--mb-muted)' }}>
+              Min: {formatPence(min)}
               {minLabel ? ` (${minLabel})` : ''}
             </p>
-            <p>
-              Max price: {formatPence(max)}
+            <p style={{ color: 'var(--mb-muted)' }}>
+              Max: {formatPence(max)}
               {maxLabel ? ` (${maxLabel})` : ''}
             </p>
           </>

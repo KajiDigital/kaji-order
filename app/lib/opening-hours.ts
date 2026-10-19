@@ -181,7 +181,8 @@ export function getOpenStatus(
   show_menu_when_closed: boolean,
   collection_enabled = true,
   preorder_days_ahead = 1,
-  holiday_message?: string | null
+  holiday_message?: string | null,
+  delivery_enabled = false
 ): OpenStatus {
   const uk = getUkNow()
   const hours = normalizeHours(opening_hours)
@@ -226,7 +227,7 @@ export function getOpenStatus(
     }
   }
 
-  if (!collection_enabled) {
+  if (!collection_enabled && !delivery_enabled) {
     return {
       isOpen: false,
       nextOpenTime,

@@ -8,7 +8,9 @@ import {
   parseMenuItemFields,
   replaceComboGroups,
   replaceOptionGroups,
+  serializeMenuItem,
 } from '@/app/lib/menu-api'
+import { queueKajiCloudMenuSync } from '@/app/lib/kaji-cloud-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,5 +72,12 @@ export async function POST(request: Request) {
   }
 
   const updated = await fetchMenuItemById(product.id, session.restaurantId)
+  if (updated) {
+    await queueKajiCloudMenuSync(session.restaurantId, {
+      change_type: 'product_create',
+      entity_id: product.id,
+      data: serializeMenuItem(updated),
+    })
+  }
   return NextResponse.json({ product: updated })
 }

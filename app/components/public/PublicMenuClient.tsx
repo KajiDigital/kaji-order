@@ -10,8 +10,11 @@ import {
   clearBasket,
   getBasket,
   saveBasket,
+  type BasketOrderType,
 } from '@/app/lib/basket'
 import { CartPanel } from './CartPanel'
+import { FulfillmentBar } from './FulfillmentBar'
+import { OrderTypeModal } from './OrderTypeModal'
 import { ProductModal } from './ProductModal'
 import { PromotionsBanner } from './PromotionsBanner'
 import type { Category, MenuPromotion, Product, Restaurant } from './menu-types'
@@ -102,6 +105,7 @@ function MenuItemRow({
   recommended,
   promoBadges,
   canOrder,
+  showImages,
   onAdd,
   onOpen,
 }: {
@@ -110,6 +114,7 @@ function MenuItemRow({
   recommended: boolean
   promoBadges: MenuPromotion[]
   canOrder: boolean
+  showImages: boolean
   onAdd: () => void
   onOpen: () => void
 }) {
@@ -127,71 +132,87 @@ function MenuItemRow({
     }
   }
 
+  function handleRowKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onOpen()
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <div
       className={`relative flex w-full gap-3 rounded-xl border bg-white text-left shadow-sm transition-shadow hover:shadow-md ${
         setMeal
           ? 'border-2 border-amber-200 bg-amber-50/40 p-4'
           : 'border-stone-200 p-3'
       }`}
     >
-      {product.image_url ? (
-        <img
-          src={product.image_url}
-          alt=""
-          className="h-20 w-20 shrink-0 rounded-lg object-cover"
-        />
-      ) : (
-        <PlaceholderImage className="h-20 w-20 shrink-0 rounded-lg" />
-      )}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={handleRowKeyDown}
+        className="flex min-w-0 flex-1 cursor-pointer gap-3 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-lg"
+        style={{ ['--tw-ring-color' as string]: primary }}
+      >
+        {showImages && (
+          product.image_url ? (
+            <img
+              src={product.image_url}
+              alt=""
+              className="h-20 w-20 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <PlaceholderImage className="h-20 w-20 shrink-0 rounded-lg" />
+          )
+        )}
 
-      <div className="min-w-0 flex-1 py-0.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="font-bold text-stone-900">{product.name}</p>
+        <div className="min-w-0 flex-1 py-0.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-bold text-stone-900">{product.name}</p>
+            {setMeal && (
+              <span className="inline-flex rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                Set meal
+              </span>
+            )}
+            {recommended && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                ★ Recommended
+              </span>
+            )}
+            {promoBadges.map((p) => (
+              <PromoBadge key={p.id} promo={p} />
+            ))}
+          </div>
           {setMeal && (
-            <span className="inline-flex rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-              Set meal
-            </span>
+            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+              Build your meal
+            </p>
           )}
-          {recommended && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-              ★ Recommended
-            </span>
+          {setMeal && (
+            <p className="mt-0.5 text-xs text-amber-800/80">
+              Choose: {formatSetMealChoices(product.combo_groups)}
+            </p>
           )}
-          {promoBadges.map((p) => (
-            <PromoBadge key={p.id} promo={p} />
-          ))}
+          {product.description && (
+            <p className="mt-0.5 line-clamp-2 text-sm text-stone-500">{product.description}</p>
+          )}
+          <p className="mt-1.5 text-sm font-bold" style={{ color: primary }}>
+            {formatPence(product.base_price)}
+          </p>
         </div>
-        {setMeal && (
-          <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-            Build your meal
-          </p>
-        )}
-        {setMeal && (
-          <p className="mt-0.5 text-xs text-amber-800/80">
-            Choose: {formatSetMealChoices(product.combo_groups)}
-          </p>
-        )}
-        {product.description && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-stone-500">{product.description}</p>
-        )}
-        <p className="mt-1.5 text-sm font-bold" style={{ color: primary }}>
-          {formatPence(product.base_price)}
-        </p>
       </div>
 
       <AddButton primary={primary} onClick={handleAdd} disabled={orderingBlocked} />
 
       {unavailable && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/75">
+        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/75 pointer-events-none">
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
             Unavailable
           </span>
         </div>
       )}
-    </button>
+    </div>
   )
 }
 
@@ -200,20 +221,43 @@ export function PublicMenuClient({
   categories,
   promotions = [],
   promotionBannerMessages = [],
+  isPreview = false,
+  previewLayout,
+  showMenuImagesOverride,
 }: {
   restaurant: Restaurant
   categories: Category[]
   promotions?: MenuPromotion[]
   promotionBannerMessages?: string[]
+  isPreview?: boolean
+  previewLayout?: 'mobile' | 'desktop'
+  showMenuImagesOverride?: boolean
 }) {
   const primary = restaurant.primary_color
   const fontClass = getFontClass(restaurant.font_choice)
+  const basketSlug = isPreview ? `${restaurant.slug}-preview` : restaurant.slug
+  const showMenuImages = showMenuImagesOverride ?? restaurant.show_menu_images !== false
+  const collectionEnabled = restaurant.collection_enabled !== false
+  const deliveryEnabled = Boolean(restaurant.delivery_enabled)
+  const deliveryAvailableNow = restaurant.delivery_available_now !== false
+  const deliveryWindowMessage = restaurant.delivery_window_message ?? ''
+  const [deliveryFeePence, setDeliveryFeePence] = useState(restaurant.delivery_fee_pence ?? 0)
+  const [deliveryMinOrder, setDeliveryMinOrder] = useState(
+    restaurant.delivery_minimum_pence ?? restaurant.min_order_pence
+  )
+  const defaultOrderType: BasketOrderType =
+    collectionEnabled ? 'collection' : deliveryEnabled ? 'delivery' : 'collection'
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [basket, setBasket] = useState<BasketItem[]>([])
   const [modalProduct, setModalProduct] = useState<Product | null>(null)
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
-  const [orderType, setOrderType] = useState<'collection' | 'delivery'>('collection')
+  const [orderType, setOrderType] = useState<BasketOrderType>(defaultOrderType)
+  const [fulfillmentChosen, setFulfillmentChosen] = useState(false)
+  const [orderTypeModalOpen, setOrderTypeModalOpen] = useState(false)
+  const [deliveryPostcode, setDeliveryPostcode] = useState('')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryReady, setDeliveryReady] = useState(false)
   const carouselRef = useRef<HTMLDivElement>(null)
 
   const allItems = useMemo(
@@ -256,19 +300,61 @@ export function PublicMenuClient({
   }, [primary, restaurant.secondary_color])
 
   useEffect(() => {
-    const stored = getBasket(restaurant.slug)
+    const stored = getBasket(basketSlug)
     if (stored?.items) setBasket(stored.items)
-  }, [restaurant.slug])
+    if (stored?.orderType) {
+      setOrderType(stored.orderType)
+    } else {
+      setOrderType(defaultOrderType)
+    }
+    setDeliveryPostcode(stored?.deliveryPostcode ?? '')
+    setDeliveryAddress(stored?.deliveryAddress ?? '')
+    setDeliveryReady(Boolean(stored?.deliveryAddress && stored?.deliveryPostcode))
+    if (stored?.fulfillmentChosen) {
+      setFulfillmentChosen(true)
+      return
+    }
+
+    const deliveryOpen = deliveryEnabled && deliveryAvailableNow
+    if (!restaurant.canOrder) return
+
+    if (collectionEnabled && deliveryOpen) {
+      setOrderTypeModalOpen(true)
+    } else if (collectionEnabled) {
+      setOrderType('collection')
+      setFulfillmentChosen(true)
+    } else if (deliveryEnabled) {
+      setOrderType('delivery')
+      setFulfillmentChosen(true)
+    }
+  }, [basketSlug, defaultOrderType, collectionEnabled, deliveryEnabled, deliveryAvailableNow, restaurant.canOrder])
+
+  function writeBasketMeta(
+    items: BasketItem[],
+    meta?: {
+      nextOrderType?: BasketOrderType
+      nextPostcode?: string
+      nextAddress?: string
+      chosen?: boolean
+    }
+  ) {
+    const nextOrderType = meta?.nextOrderType ?? orderType
+    saveBasket(basketSlug, {
+      items,
+      restaurantSlug: basketSlug,
+      orderType: nextOrderType,
+      deliveryPostcode: (meta?.nextPostcode ?? deliveryPostcode) || undefined,
+      deliveryAddress: (meta?.nextAddress ?? deliveryAddress) || undefined,
+      fulfillmentChosen: meta?.chosen ?? fulfillmentChosen,
+      updatedAt: new Date().toISOString(),
+    })
+  }
 
   useEffect(() => {
     if (basket.length > 0) {
-      saveBasket(restaurant.slug, {
-        items: basket,
-        restaurantSlug: restaurant.slug,
-        updatedAt: new Date().toISOString(),
-      })
+      writeBasketMeta(basket)
     }
-  }, [basket, restaurant.slug])
+  }, [basket, basketSlug, orderType, deliveryPostcode, deliveryAddress, fulfillmentChosen])
 
   const count = basketItemCount(basket)
   const subtotal = basketSubtotal(basket)
@@ -292,7 +378,51 @@ export function PublicMenuClient({
 
   function persistBasket(items: BasketItem[]) {
     setBasket(items)
-    if (items.length === 0) clearBasket(restaurant.slug)
+    if (items.length === 0) clearBasket(basketSlug)
+    else writeBasketMeta(items)
+  }
+
+  function selectFulfillment(next: BasketOrderType) {
+    if (next === 'collection' && !collectionEnabled) return
+    if (next === 'delivery' && (!deliveryEnabled || !deliveryAvailableNow)) return
+    setOrderType(next)
+    setFulfillmentChosen(true)
+    setOrderTypeModalOpen(false)
+    if (next === 'collection') {
+      setDeliveryPostcode('')
+      setDeliveryAddress('')
+      setDeliveryReady(false)
+    }
+    writeBasketMeta(basket, {
+      nextOrderType: next,
+      nextPostcode: next === 'collection' ? '' : deliveryPostcode,
+      nextAddress: next === 'collection' ? '' : deliveryAddress,
+      chosen: true,
+    })
+  }
+
+  function handleOrderTypeChange(next: BasketOrderType) {
+    selectFulfillment(next)
+  }
+
+  function handleDeliveryPostcodeChange(postcode: string) {
+    setDeliveryPostcode(postcode)
+    setDeliveryAddress('')
+    setDeliveryReady(false)
+    writeBasketMeta(basket, { nextPostcode: postcode, nextAddress: '' })
+  }
+
+  function handleDeliveryAddressSelect(address: string, postcode: string) {
+    setDeliveryAddress(address)
+    setDeliveryPostcode(postcode)
+    setDeliveryReady(true)
+    writeBasketMeta(basket, { nextAddress: address, nextPostcode: postcode })
+  }
+
+  function handleDeliveryValidation(valid: boolean, fee: number, minOrder: number) {
+    setDeliveryFeePence(fee)
+    setDeliveryMinOrder(minOrder)
+    setDeliveryReady(valid)
   }
 
   function addItemDirect(
@@ -345,6 +475,9 @@ export function PublicMenuClient({
     carouselRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' })
   }
 
+  const forceMobile = previewLayout === 'mobile'
+  const forceDesktop = previewLayout === 'desktop'
+
   const canOrder = restaurant.canOrder
   const isLiveOpen = restaurant.isLiveOpen
   const isPreorderMode = restaurant.isPreorderMode
@@ -365,15 +498,64 @@ export function PublicMenuClient({
     slug: restaurant.slug,
     items: basket,
     primary,
-    minOrderPence: restaurant.min_order_pence,
+    minOrderPence:
+      orderType === 'delivery' ? deliveryMinOrder : restaurant.min_order_pence,
     orderType,
-    onOrderTypeChange: setOrderType,
+    onOrderTypeChange: handleOrderTypeChange,
+    collectionEnabled,
+    deliveryEnabled,
+    deliveryAvailableNow,
+    deliveryFeePence,
+    deliveryPostcode,
+    deliveryAddress,
+    onDeliveryPostcodeChange: handleDeliveryPostcodeChange,
+    onDeliveryAddressSelect: handleDeliveryAddressSelect,
+    onDeliveryValidationChange: handleDeliveryValidation,
+    deliveryReady: orderType !== 'delivery' || deliveryReady,
     onUpdateQty: updateQty,
     onRemove: removeItem,
+    checkoutDisabled: isPreview,
   }
 
+  const collectionOnlyModal =
+    collectionEnabled && deliveryEnabled && !deliveryAvailableNow
+
+  const categorySidebarClass = forceMobile
+    ? 'hidden'
+    : forceDesktop
+      ? 'block w-[250px] shrink-0'
+      : 'hidden w-[250px] shrink-0 lg:block'
+
+  const mobilePillsClass = forceMobile
+    ? 'mb-4 flex gap-2 overflow-x-auto pb-1'
+    : forceDesktop
+      ? 'hidden'
+      : 'mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden'
+
+  const desktopCartClass =
+    forceMobile || !canOrder
+      ? 'hidden'
+      : forceDesktop
+        ? 'block w-[300px] shrink-0'
+        : 'hidden w-[300px] shrink-0 lg:block'
+
+  const mobileCartButtonClass = forceDesktop
+    ? 'hidden'
+    : `fixed bottom-4 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white shadow-lg ${forceMobile ? '' : 'lg:hidden'}`
+
+  const mobileCartDrawerClass = forceDesktop
+    ? 'hidden'
+    : `fixed inset-0 z-50 ${forceMobile ? '' : 'lg:hidden'}`
+
+  const pagePaddingClass = forceMobile ? 'pb-24' : forceDesktop ? 'pb-8' : 'pb-24 lg:pb-8'
+
   return (
-    <div className={`min-h-screen bg-stone-50 pb-24 lg:pb-8 ${fontClass}`}>
+    <div className={`min-h-screen bg-stone-50 ${pagePaddingClass} ${fontClass}`}>
+      {isPreview && (
+        <div className="sticky top-0 z-50 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-900">
+          Preview — this is how customers see your menu
+        </div>
+      )}
       {/* Banner */}
       <div className="relative h-44 sm:h-52 lg:h-56">
         {restaurant.banner_url ? (
@@ -428,6 +610,53 @@ export function PublicMenuClient({
 
       <PromotionsBanner messages={promotionBannerMessages} />
 
+      {canOrder && fulfillmentChosen && (
+        <FulfillmentBar
+          orderType={orderType}
+          primary={primary}
+          collectionEnabled={collectionEnabled}
+          deliveryEnabled={deliveryEnabled}
+          deliveryAvailableNow={deliveryAvailableNow}
+          deliveryWindowMessage={deliveryWindowMessage}
+          deliveryFeePence={deliveryFeePence}
+          avgPrepMinutes={restaurant.avg_prep_minutes}
+          deliveryAddress={deliveryAddress}
+          onChange={() => setOrderTypeModalOpen(true)}
+        />
+      )}
+
+      {canOrder && !fulfillmentChosen && collectionEnabled && !deliveryEnabled && (
+        <FulfillmentBar
+          orderType="collection"
+          primary={primary}
+          collectionEnabled
+          deliveryEnabled={false}
+          deliveryAvailableNow={false}
+          avgPrepMinutes={restaurant.avg_prep_minutes}
+          onChange={() => {}}
+        />
+      )}
+
+      <OrderTypeModal
+        open={orderTypeModalOpen && canOrder}
+        primary={primary}
+        collectionEnabled={collectionEnabled}
+        deliveryEnabled={deliveryEnabled}
+        deliveryAvailableNow={deliveryAvailableNow}
+        deliveryWindowMessage={deliveryWindowMessage}
+        deliveryFeePence={deliveryFeePence}
+        avgPrepMinutes={restaurant.avg_prep_minutes}
+        collectionOnly={collectionOnlyModal}
+        onSelect={selectFulfillment}
+        onClose={
+          fulfillmentChosen
+            ? () => setOrderTypeModalOpen(false)
+            : collectionOnlyModal
+              ? () => selectFulfillment('collection')
+              : undefined
+        }
+      />
+
       {orderPromos.length > 0 && promotionBannerMessages.length === 0 && (
         <div className="border-b border-stone-200 bg-white px-4 py-3 sm:px-6">
           <div className="mx-auto flex max-w-7xl flex-wrap gap-2">
@@ -438,7 +667,8 @@ export function PublicMenuClient({
         </div>
       )}
 
-      {/* Info bar */}
+      {/* Contact bar */}
+      {(restaurant.phone || restaurant.email) && (
       <div className="border-b border-stone-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
           {restaurant.phone && (
@@ -477,6 +707,7 @@ export function PublicMenuClient({
           )}
         </div>
       </div>
+      )}
 
       {!isLiveOpen && (
         <div className="border-b border-stone-200 bg-white px-4 py-4 sm:px-6">
@@ -511,7 +742,7 @@ export function PublicMenuClient({
       {/* Main layout */}
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6">
         {/* Desktop category sidebar */}
-        <aside className="hidden w-[250px] shrink-0 lg:block">
+        <aside className={categorySidebarClass}>
           <nav className="sticky top-4 space-y-1 rounded-xl border border-stone-200 bg-white p-2 shadow-sm">
             <button
               type="button"
@@ -569,14 +800,16 @@ export function PublicMenuClient({
                       key={product.id}
                       className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm sm:w-40"
                     >
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt=""
-                          className="h-28 w-full object-cover"
-                        />
-                      ) : (
-                        <PlaceholderImage className="h-28 w-full" />
+                      {showMenuImages && (
+                        product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt=""
+                            className="h-28 w-full object-cover"
+                          />
+                        ) : (
+                          <PlaceholderImage className="h-28 w-full" />
+                        )
                       )}
                       <div className="p-2.5">
                         <p className="truncate text-sm font-bold text-stone-900">{product.name}</p>
@@ -625,7 +858,7 @@ export function PublicMenuClient({
           )}
 
           {/* Mobile category pills */}
-          <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+          <div className={mobilePillsClass}>
             <button
               type="button"
               onClick={() => setActiveCategory('all')}
@@ -701,6 +934,7 @@ export function PublicMenuClient({
                         (p) => p.applies_to === 'items'
                       )}
                       canOrder={canOrder}
+                      showImages={showMenuImages}
                       onOpen={() => openProduct(product)}
                       onAdd={() =>
                         addItemDirect(product, 1, [], '', {
@@ -718,8 +952,8 @@ export function PublicMenuClient({
 
         {/* Desktop cart sidebar */}
         {canOrder && (
-        <aside className="hidden w-[300px] shrink-0 lg:block">
-          <div className="sticky top-4">
+        <aside className={desktopCartClass}>
+          <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
             <CartPanel {...cartPanelProps} />
           </div>
         </aside>
@@ -731,7 +965,7 @@ export function PublicMenuClient({
         <button
           type="button"
           onClick={() => setMobileCartOpen(true)}
-          className="fixed bottom-4 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white shadow-lg lg:hidden"
+          className={mobileCartButtonClass}
           style={{ backgroundColor: primary }}
         >
           <span>🛒</span>
@@ -743,7 +977,7 @@ export function PublicMenuClient({
 
       {/* Mobile cart drawer */}
       {canOrder && mobileCartOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className={mobileCartDrawerClass}>
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setMobileCartOpen(false)}
@@ -771,6 +1005,7 @@ export function PublicMenuClient({
         <ProductModal
           product={modalProduct}
           primary={primary}
+          showImages={showMenuImages}
           canOrder={canOrder && modalProduct.available}
           onClose={() => setModalProduct(null)}
           onAdd={(qty, selections, notes, pricing) => {

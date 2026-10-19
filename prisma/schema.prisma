@@ -128,6 +128,7 @@ model Restaurant {
   preorder_days_ahead        Int           @default(1)
   show_menu_when_closed      Boolean       @default(true)
   delivery_enabled           Boolean       @default(false)
+  show_menu_images           Boolean       @default(true)
   min_order_pence            Int           @default(0)
   avg_prep_minutes           Int           @default(30)
   order_mode                 String        @default("instant")
@@ -142,6 +143,8 @@ model Restaurant {
   staff             RestaurantStaff[]
   menu_categories   MenuCategory[]
   menu_items        MenuItem[]
+  attribute_sets    AttributeSet[]
+  menu_tags         MenuTag[]
   modifier_groups   ModifierGroup[]
   orders            OnlineOrder[]
   commission_records CommissionRecord[]
@@ -303,6 +306,8 @@ model MenuItem {
 
   modifier_groups ModifierGroup[] // deprecated — kept 30 days for rollback
   option_groups   OptionGroup[]
+  attribute_set_links MenuItemAttributeSet[]
+  tag_links           MenuItemTag[]
   combo_groups    ComboGroup[]
   combo_options   ComboOption[]   @relation("ComboLinkedItems")
   linked_from     Option[]        @relation("LinkedItems")
@@ -310,6 +315,91 @@ model MenuItem {
 
   @@index([restaurant_id, category_id])
   @@map("menu_items")
+}
+
+model AttributeSet {
+  id             String     @id @default(uuid())
+  restaurant_id  String
+  restaurant     Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  group_type     String     @default("SINGLE")
+  required       Boolean    @default(false)
+  min_selections Int        @default(0)
+  max_selections Int        @default(1)
+  sort_order     Int        @default(0)
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+
+  choices    AttributeChoice[]
+  item_links MenuItemAttributeSet[]
+
+  @@index([restaurant_id, sort_order])
+  @@map("attribute_sets")
+}
+
+model AttributeChoice {
+  id               String       @id @default(uuid())
+  attribute_set_id String
+  attribute_set    AttributeSet @relation(fields: [attribute_set_id], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  price_delta      Int          @default(0) @map("price_delta_pence")
+  is_default       Boolean      @default(false)
+  available        Boolean      @default(true)
+  sort_order       Int          @default(0)
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+
+  @@index([attribute_set_id, sort_order])
+  @@map("attribute_choices")
+}
+
+model MenuItemAttributeSet {
+  id               String       @id @default(uuid())
+  menu_item_id     String
+  menu_item        MenuItem     @relation(fields: [menu_item_id], references: [id], onDelete: Cascade)
+  attribute_set_id String
+  attribute_set    AttributeSet @relation(fields: [attribute_set_id], references: [id], onDelete: Cascade)
+  sort_order       Int          @default(0)
+  created_at       DateTime     @default(now())
+
+  @@unique([menu_item_id, attribute_set_id])
+  @@index([menu_item_id, sort_order])
+  @@index([attribute_set_id])
+  @@map("menu_item_attribute_sets")
+}
+
+model MenuTag {
+  id            String     @id @default(uuid())
+  restaurant_id String
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  kind          String
+  name          String
+  color         String     @default("#64748b")
+  sort_order    Int        @default(0)
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+
+  item_links MenuItemTag[]
+
+  @@index([restaurant_id, kind, sort_order])
+  @@map("menu_tags")
+}
+
+model MenuItemTag {
+  id           String   @id @default(uuid())
+  menu_item_id String
+  menu_item    MenuItem @relation(fields: [menu_item_id], references: [id], onDelete: Cascade)
+  tag_id       String
+  tag          MenuTag  @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+  sort_order   Int      @default(0)
+  created_at   DateTime @default(now())
+
+  @@unique([menu_item_id, tag_id])
+  @@index([menu_item_id, sort_order])
+  @@index([tag_id])
+  @@map("menu_item_tags")
 }
 
 model OptionGroup {
@@ -528,6 +618,8 @@ model DeliveryZone {
   radius_km           Float
   delivery_fee_pence  Int        @default(0)
   minimum_order_pence Int        @default(0)
+  delivery_from       String?
+  delivery_until      String?
   is_active           Boolean    @default(true)
   sort_order          Int        @default(0)
   created_at          DateTime   @default(now())

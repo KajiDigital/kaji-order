@@ -58,6 +58,7 @@ export async function PATCH(request: Request) {
       }),
       ...(body.show_menu_when_closed !== undefined && { show_menu_when_closed: body.show_menu_when_closed }),
       ...(body.delivery_enabled !== undefined && { delivery_enabled: body.delivery_enabled }),
+      ...(body.show_menu_images !== undefined && { show_menu_images: body.show_menu_images }),
       ...(body.min_order_pence !== undefined && { min_order_pence: body.min_order_pence }),
       ...(body.avg_prep_minutes !== undefined && { avg_prep_minutes: body.avg_prep_minutes }),
       ...(body.order_mode !== undefined && { order_mode: body.order_mode }),

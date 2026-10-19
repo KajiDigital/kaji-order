@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/app/lib/auth'
+import { queueKajiCloudMenuSync } from '@/app/lib/kaji-cloud-sync'
 import prisma from '@/app/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,12 @@ export async function PATCH(request: Request, { params }: Params) {
     },
   })
 
+  await queueKajiCloudMenuSync(session.restaurantId, {
+    change_type: 'category_update',
+    entity_id: id,
+    data: category,
+  })
+
   return NextResponse.json({ category })
 }
 
@@ -50,5 +57,10 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   await prisma.menuCategory.delete({ where: { id } })
+  await queueKajiCloudMenuSync(session.restaurantId, {
+    change_type: 'category_delete',
+    entity_id: id,
+    data: { id },
+  })
   return NextResponse.json({ success: true })
 }

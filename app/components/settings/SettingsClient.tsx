@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DAYS, type DayHours, type OpeningHours, getOrderUrl } from '@/app/lib/utils'
 import { parseOpeningHours } from '@/app/lib/hours'
 import {
@@ -34,6 +34,7 @@ type Restaurant = {
   preorder_days_ahead: number
   show_menu_when_closed: boolean
   delivery_enabled: boolean
+  show_menu_images: boolean
   min_order_pence: number
   avg_prep_minutes: number
   order_mode: string
@@ -57,6 +58,68 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
   })
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [deliveryZone, setDeliveryZone] = useState<{
+    radius_km: number
+    delivery_fee_pence: number
+    minimum_order_pence: number
+    delivery_from: string
+    delivery_until: string
+  } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/restaurant/delivery')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.zone) {
+          setDeliveryZone({
+            radius_km: json.zone.radius_km,
+            delivery_fee_pence: json.zone.delivery_fee_pence,
+            minimum_order_pence: json.zone.minimum_order_pence,
+            delivery_from: json.zone.delivery_from ?? '17:00',
+            delivery_until: json.zone.delivery_until ?? '',
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  async function saveDeliveryZone(patch: Partial<{
+    radius_km: number
+    delivery_fee_pence: number
+    minimum_order_pence: number
+    delivery_from: string
+    delivery_until: string
+  }>) {
+    const next = {
+      radius_km: patch.radius_km ?? deliveryZone?.radius_km ?? 5,
+      delivery_fee_pence: patch.delivery_fee_pence ?? deliveryZone?.delivery_fee_pence ?? 299,
+      minimum_order_pence:
+        patch.minimum_order_pence ?? deliveryZone?.minimum_order_pence ?? 0,
+      delivery_from: patch.delivery_from ?? deliveryZone?.delivery_from ?? '17:00',
+      delivery_until: patch.delivery_until ?? deliveryZone?.delivery_until ?? '',
+    }
+    setDeliveryZone(next)
+    setSaving(true)
+    const res = await fetch('/api/restaurant/delivery', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...next,
+        delivery_until: next.delivery_until || null,
+      }),
+    })
+    const json = await res.json()
+    if (json.zone) {
+      setDeliveryZone({
+        radius_km: json.zone.radius_km,
+        delivery_fee_pence: json.zone.delivery_fee_pence,
+        minimum_order_pence: json.zone.minimum_order_pence,
+        delivery_from: json.zone.delivery_from ?? '17:00',
+        delivery_until: json.zone.delivery_until ?? '',
+      })
+    }
+    setSaving(false)
+  }
 
   const orderUrl = getOrderUrl(data.slug)
   const primaryColor = data.primary_color ?? DEFAULT_PRIMARY
@@ -276,8 +339,115 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
 
       {tab === 'Ordering' && (
         <div className="space-y-4 max-w-lg">
-          <Toggle label="Collection enabled" checked={data.collection_enabled} onChange={(v) => save({ collection_enabled: v })} />
-          <Toggle label="Delivery enabled (Phase 2)" checked={data.delivery_enabled} onChange={(v) => save({ delivery_enabled: v })} disabled />
+          <Toggle
+            label="Collection enabled"
+            checked={data.collection_enabled}
+            onChange={(v) => {
+              if (!v && !data.delivery_enabled) return
+              save({ collection_enabled: v })
+            }}
+          />
+          <Toggle
+            label="Delivery enabled"
+            checked={data.delivery_enabled}
+            onChange={(v) => {
+              if (!v && !data.collection_enabled) return
+              save({ delivery_enabled: v })
+            }}
+          />
+          <p className="text-xs text-slate-500 -mt-2">
+            At least one of collection or delivery must stay enabled.
+          </p>
+
+          {data.delivery_enabled && (
+            <div className="border border-slate-800 rounded-lg p-4 space-y-4 bg-slate-900/50">
+              <p className="text-sm font-medium text-white">Delivery area</p>
+              <p className="text-xs text-slate-500">
+                Set your restaurant postcode in Profile for radius checks. Postcodes are verified via postcodes.io.
+              </p>
+              {deliveryZone ? (
+                <>
+                  <Field
+                    label="Delivery radius (km)"
+                    value={String(deliveryZone.radius_km)}
+                    onChange={(v) =>
+                      setDeliveryZone({ ...deliveryZone, radius_km: parseFloat(v) || 5 })
+                    }
+                  />
+                  <Field
+                    label="Delivery fee (£)"
+                    value={String((deliveryZone.delivery_fee_pence / 100).toFixed(2))}
+                    onChange={(v) =>
+                      setDeliveryZone({
+                        ...deliveryZone,
+                        delivery_fee_pence: Math.round(parseFloat(v || '0') * 100),
+                      })
+                    }
+                  />
+                  <Field
+                    label="Minimum order for delivery (£)"
+                    value={String((deliveryZone.minimum_order_pence / 100).toFixed(2))}
+                    onChange={(v) =>
+                      setDeliveryZone({
+                        ...deliveryZone,
+                        minimum_order_pence: Math.round(parseFloat(v || '0') * 100),
+                      })
+                    }
+                  />
+                  <div>
+                    <label className="text-xs text-slate-400">Delivery available from</label>
+                    <input
+                      type="time"
+                      value={deliveryZone.delivery_from}
+                      onChange={(e) =>
+                        setDeliveryZone({ ...deliveryZone, delivery_from: e.target.value })
+                      }
+                      className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400">Delivery available until (optional)</label>
+                    <input
+                      type="time"
+                      value={deliveryZone.delivery_until}
+                      onChange={(e) =>
+                        setDeliveryZone({ ...deliveryZone, delivery_until: e.target.value })
+                      }
+                      className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                    />
+                  </div>
+                  <SaveBtn
+                    saving={saving}
+                    onClick={() =>
+                      saveDeliveryZone({
+                        radius_km: deliveryZone.radius_km,
+                        delivery_fee_pence: deliveryZone.delivery_fee_pence,
+                        minimum_order_pence: deliveryZone.minimum_order_pence,
+                        delivery_from: deliveryZone.delivery_from,
+                        delivery_until: deliveryZone.delivery_until,
+                      })
+                    }
+                  />
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    saveDeliveryZone({
+                      radius_km: 5,
+                      delivery_fee_pence: 299,
+                      minimum_order_pence: 0,
+                      delivery_from: '17:00',
+                      delivery_until: '',
+                    })
+                  }
+                  className="text-sm text-violet-400 hover:text-violet-300"
+                >
+                  Set up delivery zone
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="border-t border-slate-800 pt-4 space-y-4">
             <p className="text-sm font-medium text-white">When closed</p>

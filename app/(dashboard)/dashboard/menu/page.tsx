@@ -1,7 +1,15 @@
 export const dynamic = 'force-dynamic'
 
-import { MenuManager } from '@/app/components/menu/MenuManager'
+import { getSession } from '@/app/lib/auth'
+import { MenuBuilder } from '@/app/components/menu/MenuBuilder'
 
-export default function MenuPage() {
-  return <MenuManager />
+export default async function MenuPage() {
+  const session = await getSession()
+
+  return (
+    <MenuBuilder
+      restaurantName={session?.restaurant.name ?? 'Your restaurant'}
+      restaurantSlug={session?.restaurant.slug ?? ''}
+    />
+  )
 }

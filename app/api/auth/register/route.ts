@@ -6,6 +6,7 @@ import {
   sessionCookieOptions,
 } from '@/app/lib/auth'
 import { slugify, getCommissionPct, defaultOpeningHours } from '@/app/lib/utils'
+import { ensureDefaultMenuTags } from '@/app/lib/menu-tags'
 import { isSelfServeRegistration } from '@/app/lib/platform'
 import {
   sendRegistrationRequestAdmin,
@@ -86,6 +87,8 @@ async function handleRequestRegistration(body: {
     },
   })
 
+  await ensureDefaultMenuTags(restaurant.id)
+
   await sendRegistrationRequestAdmin({
     restaurantName: restaurant.name,
     contactName: contact_name,
@@ -163,6 +166,8 @@ async function handleSelfServeRegistration(body: {
     },
     include: { staff: true },
   })
+
+  await ensureDefaultMenuTags(restaurant.id)
 
   const staff = restaurant.staff[0]
   const token = signToken({

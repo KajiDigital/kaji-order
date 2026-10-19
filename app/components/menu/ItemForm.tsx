@@ -75,7 +75,6 @@ export function ItemForm({
     featured: product?.featured ?? false,
     isBundle: product?.is_bundle ?? false,
     calories: product?.calories ? String(product.calories) : '',
-    spiceLevel: product?.spice_level ?? null,
     isVegan: product?.is_vegan ?? false,
     isVegetarian: product?.is_vegetarian ?? false,
     isGlutenFree: product?.is_gluten_free ?? false,
@@ -130,7 +129,6 @@ export function ItemForm({
       featured: basic.featured,
       is_bundle: basic.isBundle,
       calories: basic.calories ? Number(basic.calories) : null,
-      spice_level: basic.spiceLevel,
       is_vegan: basic.isVegan,
       is_vegetarian: basic.isVegetarian,
       is_gluten_free: basic.isGlutenFree,
@@ -181,19 +179,45 @@ export function ItemForm({
   const visibleTabs = basic.isBundle ? TABS : TABS.filter((t) => t !== 'Combo')
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-slate-800">
-          <h3 className="text-lg font-bold text-white">{product ? 'Edit product' : 'Add product'}</h3>
-          <div className="flex gap-1 mt-4">
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4 z-50"
+      style={{ background: 'rgba(0,0,0,0.4)' }}
+      onClick={onClose}
+    >
+      <div
+        data-menu-builder
+        className="menu-builder-modal w-full max-w-2xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-labelledby="item-form-title"
+      >
+        <div className="p-6 border-b shrink-0" style={{ borderColor: 'var(--mb-border)' }}>
+          <div className="flex justify-between items-start">
+            <h3
+              id="item-form-title"
+              className="text-lg font-semibold"
+              style={{ fontFamily: 'var(--mb-heading)' }}
+            >
+              {product ? 'Edit item' : 'Add item'}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-xl leading-none"
+              style={{ color: 'var(--mb-muted)' }}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex gap-1 mt-4 flex-wrap">
             {visibleTabs.map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={`px-3 py-1.5 rounded-lg text-sm ${
-                  tab === t ? 'bg-violet-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                }`}
+                className="menu-builder-tab"
+                data-active={tab === t}
               >
                 {t}
               </button>
@@ -218,17 +242,20 @@ export function ItemForm({
             />
           )}
         </div>
-        <div className="p-6 border-t border-slate-800 flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 py-2 text-slate-400">
+        <div
+          className="p-6 border-t flex gap-2 shrink-0"
+          style={{ borderColor: 'var(--mb-border)' }}
+        >
+          <button type="button" onClick={onClose} className="menu-builder-btn-secondary flex-1">
             Cancel
           </button>
           <button
             type="button"
             onClick={save}
             disabled={saving || !basic.name}
-            className="flex-1 py-2 bg-violet-600 text-white rounded-lg disabled:opacity-50"
+            className="menu-builder-btn-primary flex-1 disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving…' : 'Save item'}
           </button>
         </div>
       </div>
