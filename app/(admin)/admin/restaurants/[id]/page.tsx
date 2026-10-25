@@ -15,7 +15,7 @@ export default async function AdminRestaurantPage({ params }: Params) {
   const restaurant = await prisma.restaurant.findFirst({
     where: { id, deleted_at: null },
     include: {
-      staff: { select: { last_login_at: true }, take: 1, orderBy: { created_at: 'asc' } },
+      staff: { select: { last_login_at: true, email: true }, take: 1, orderBy: { created_at: 'asc' } },
       orders: { orderBy: { created_at: 'desc' }, take: 50 },
       commission_records: true,
       promotions: {
@@ -67,6 +67,7 @@ export default async function AdminRestaurantPage({ params }: Params) {
         font_choice: restaurant.font_choice,
         show_powered_by: restaurant.show_powered_by,
         created_at: restaurant.created_at.toISOString(),
+        login_email: restaurant.staff[0]?.email ?? null,
         promotions: restaurant.promotions.map((p) => ({
           id: p.id,
           name: p.name,

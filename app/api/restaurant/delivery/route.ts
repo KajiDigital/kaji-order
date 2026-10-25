@@ -95,6 +95,8 @@ export async function PATCH(request: Request) {
       radius_km: updated.radius_km,
       delivery_fee_pence: updated.delivery_fee_pence,
       minimum_order_pence: updated.minimum_order_pence,
+      delivery_from: updated.delivery_from,
+      delivery_until: updated.delivery_until,
       is_active: updated.is_active,
     },
   })

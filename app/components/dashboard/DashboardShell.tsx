@@ -24,6 +24,7 @@ export function DashboardShell({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const isOrdersBoard = pathname === '/dashboard/orders' || pathname.startsWith('/dashboard/orders/')
   const nav = [
     { href: '/dashboard', label: 'Overview' },
     { href: '/dashboard/orders', label: 'Orders' },
@@ -36,6 +37,17 @@ export function DashboardShell({
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     window.location.href = '/login'
+  }
+
+  if (isOrdersBoard) {
+    return (
+      <div className="scheme-dark min-h-screen bg-slate-950 text-slate-100">
+        {impersonating && (
+          <ImpersonationBanner restaurantName={impersonating.restaurantName} />
+        )}
+        {children}
+      </div>
+    )
   }
 
   return (

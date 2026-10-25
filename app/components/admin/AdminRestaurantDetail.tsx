@@ -51,6 +51,7 @@ type RestaurantData = {
   font_choice?: string | null
   show_powered_by?: boolean
   created_at: string
+  login_email?: string | null
   promotions: AdminPromotion[]
   orders: Order[]
 }
@@ -75,12 +76,14 @@ function Field({
   onChange,
   type = 'text',
   hint,
+  autoComplete,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   type?: string
   hint?: string
+  autoComplete?: string
 }) {
   return (
     <div>
@@ -97,6 +100,7 @@ function Field({
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
           className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
         />
       )}
@@ -122,6 +126,12 @@ export function AdminRestaurantDetail({
   const [saving, setSaving] = useState(false)
   const [savingBranding, setSavingBranding] = useState(false)
   const [message, setMessage] = useState('')
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [settingPassword, setSettingPassword] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [refundTarget, setRefundTarget] = useState<Order | null>(null)
 
   async function saveAll() {
@@ -179,6 +189,46 @@ export function AdminRestaurantDetail({
     setData({ ...data, ...json.restaurant })
     setMessage('Branding saved')
     router.refresh()
+  }
+
+  async function setPassword() {
+    setPasswordMessage('')
+    setPasswordError('')
+    if (!data.login_email) {
+      setPasswordError('This restaurant has no dashboard login yet.')
+      return
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.')
+      return
+    }
+
+    setSettingPassword(true)
+    const res = await fetch(`/api/admin/restaurants/${data.id}/set-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPassword }),
+    })
+    const json = await res.json()
+    setSettingPassword(false)
+    if (!res.ok) {
+      setPasswordError(json.error ?? 'Could not set password')
+      return
+    }
+    setNewPassword('')
+    setConfirmPassword('')
+    setShowResetPassword(false)
+    setPasswordMessage(`Password updated for ${json.email ?? data.login_email}`)
+  }
+
+  function toggleResetPassword() {
+    setShowResetPassword((open) => !open)
+    setPasswordError('')
+    setPasswordMessage('')
   }
 
   async function action(path: string, confirmMsg?: string) {
@@ -384,7 +434,7 @@ export function AdminRestaurantDetail({
         <h2 className="font-semibold text-white mb-4">Quick actions</h2>
         <div className="flex flex-wrap gap-2">
           <ActionBtn label="Send invite email" onClick={() => action('send-invite')} />
-          <ActionBtn label="Reset password" onClick={() => action('reset-password', 'Send password reset email?')} />
+          <ActionBtn label="Reset password" onClick={toggleResetPassword} active={showResetPassword} />
           <ActionBtn label="Impersonate" onClick={() => action('impersonate')} variant="amber" />
           <ActionBtn label="Suspend account" onClick={() => action('suspend', 'Suspend this account?')} variant="warn" />
           <ActionBtn label="Delete account" onClick={() => action('delete', 'Soft delete this account?')} variant="danger" />
@@ -394,6 +444,56 @@ export function AdminRestaurantDetail({
             </a>
           )}
         </div>
+        {passwordMessage && !showResetPassword && (
+          <p className="text-sm text-emerald-400 mt-3">{passwordMessage}</p>
+        )}
+        {showResetPassword && (
+          <div className="mt-4 pt-4 border-t border-slate-800">
+            {data.login_email ? (
+              <p className="text-xs text-slate-500">
+                New dashboard password for {data.login_email}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">
+                No dashboard login yet. Send an invite to create one.
+              </p>
+            )}
+            <div className="grid sm:grid-cols-2 gap-4 mt-3">
+              <Field
+                label="New password"
+                value={newPassword}
+                onChange={setNewPassword}
+                type="password"
+                autoComplete="new-password"
+              />
+              <Field
+                label="Confirm password"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                type="password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-3 mt-3">
+              <button
+                type="button"
+                onClick={setPassword}
+                disabled={settingPassword || !data.login_email}
+                className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
+              >
+                {settingPassword ? 'Saving...' : 'Set password'}
+              </button>
+              <button
+                type="button"
+                onClick={toggleResetPassword}
+                className="px-3 py-2 text-slate-400 text-sm"
+              >
+                Cancel
+              </button>
+              {passwordError && <p className="text-sm text-red-400">{passwordError}</p>}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Promotions */}
@@ -534,10 +634,12 @@ function ActionBtn({
   label,
   onClick,
   variant = 'default',
+  active = false,
 }: {
   label: string
   onClick: () => void
   variant?: 'default' | 'amber' | 'warn' | 'danger'
+  active?: boolean
 }) {
   const styles = {
     default: 'bg-slate-800 text-slate-200 hover:bg-slate-700',
@@ -546,7 +648,11 @@ function ActionBtn({
     danger: 'bg-red-600/20 text-red-400 hover:bg-red-600/30',
   }
   return (
-    <button type="button" onClick={onClick} className={`px-3 py-1.5 rounded-lg text-sm ${styles[variant]}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg text-sm ${active ? 'bg-violet-600 text-white' : styles[variant]}`}
+    >
       {label}
     </button>
   )
