@@ -95,6 +95,71 @@ function isSetMeal(product: Product): boolean {
   return Boolean(product.is_bundle && product.combo_groups.length >= 1)
 }
 
+function useHorizontalDragScroll() {
+  const ref = useRef<HTMLDivElement>(null)
+  const drag = useRef({
+    pointerId: -1,
+    startX: 0,
+    startScroll: 0,
+    moved: false,
+  })
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === 'touch' || e.button !== 0) return
+    const el = ref.current
+    if (!el) return
+    drag.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+      moved: false,
+    }
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const el = ref.current
+    const state = drag.current
+    if (!el || state.pointerId !== e.pointerId) return
+    const dx = e.clientX - state.startX
+    if (!state.moved) {
+      if (Math.abs(dx) < 5) return
+      state.moved = true
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {
+        // Pointer capture is unavailable for this event. Scrolling still follows the pointer.
+      }
+      el.classList.add('cursor-grabbing')
+    }
+    el.scrollLeft = state.startScroll - dx
+  }
+
+  function finish(e: React.PointerEvent<HTMLDivElement>) {
+    const el = ref.current
+    const state = drag.current
+    if (state.pointerId !== e.pointerId) return
+    state.pointerId = -1
+    el?.classList.remove('cursor-grabbing')
+    if (el?.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
+  }
+
+  function onClickCapture(e: React.MouseEvent<HTMLDivElement>) {
+    if (!drag.current.moved) return
+    e.preventDefault()
+    e.stopPropagation()
+    drag.current.moved = false
+  }
+
+  return {
+    ref,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: finish,
+    onPointerCancel: finish,
+    onClickCapture,
+  }
+}
+
 function hasCustomisation(product: Product): boolean {
   return product.option_groups.length > 0 || product.combo_groups.length > 0
 }
@@ -259,7 +324,9 @@ export function PublicMenuClient({
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [deliveryReady, setDeliveryReady] = useState(false)
   const [orderTypeModalStep, setOrderTypeModalStep] = useState<'choose' | 'address'>('choose')
-  const carouselRef = useRef<HTMLDivElement>(null)
+  const carouselDrag = useHorizontalDragScroll()
+  const categoryDrag = useHorizontalDragScroll()
+  const carouselRef = carouselDrag.ref
 
   const allItems = useMemo(
     () => categories.flatMap((c) => c.items),
@@ -570,10 +637,10 @@ export function PublicMenuClient({
       : 'hidden w-[250px] shrink-0 lg:block'
 
   const mobilePillsClass = forceMobile
-    ? 'mb-4 flex gap-2 overflow-x-auto pb-1'
+    ? 'no-scrollbar mb-4 flex cursor-grab select-none gap-2 overflow-x-auto'
     : forceDesktop
       ? 'hidden'
-      : 'mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden'
+      : 'no-scrollbar mb-4 flex cursor-grab select-none gap-2 overflow-x-auto lg:hidden'
 
   const desktopCartClass =
     forceMobile || !canOrder
@@ -584,7 +651,7 @@ export function PublicMenuClient({
 
   const mobileCartButtonClass = forceDesktop
     ? 'hidden'
-    : `fixed bottom-4 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white shadow-lg ${forceMobile ? '' : 'lg:hidden'}`
+    : `fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-3 rounded-2xl border border-white/70 bg-white/45 px-2.5 py-2 text-left shadow-[0_10px_30px_rgba(28,25,23,0.16)] backdrop-blur-2xl backdrop-saturate-150 ${forceMobile ? '' : 'lg:hidden'}`
 
   const mobileCartDrawerClass = forceDesktop
     ? 'hidden'
@@ -652,6 +719,47 @@ export function PublicMenuClient({
       </div>
 
       <PromotionsBanner messages={promotionBannerMessages} />
+
+      {(restaurant.phone || restaurant.email) && (
+      <div className="border-b border-stone-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
+          {restaurant.phone && (
+            <a
+              href={`tel:${restaurant.phone}`}
+              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              {restaurant.phone}
+            </a>
+          )}
+          {restaurant.email && (
+            <a
+              href={`mailto:${restaurant.email}`}
+              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span className="truncate">{restaurant.email}</span>
+            </a>
+          )}
+          {restaurant.phone && (
+            <a
+              href={`tel:${restaurant.phone}`}
+              className="ml-auto flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              style={{ backgroundColor: primary }}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              Call Now
+            </a>
+          )}
+        </div>
+      </div>
+      )}
 
       {canOrder && fulfillmentChosen && (
         <FulfillmentBar
@@ -743,48 +851,6 @@ export function PublicMenuClient({
         </div>
       )}
 
-      {/* Contact bar */}
-      {(restaurant.phone || restaurant.email) && (
-      <div className="border-b border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
-          {restaurant.phone && (
-            <a
-              href={`tel:${restaurant.phone}`}
-              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
-            >
-              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              {restaurant.phone}
-            </a>
-          )}
-          {restaurant.email && (
-            <a
-              href={`mailto:${restaurant.email}`}
-              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
-            >
-              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span className="truncate">{restaurant.email}</span>
-            </a>
-          )}
-          {restaurant.phone && (
-            <a
-              href={`tel:${restaurant.phone}`}
-              className="ml-auto flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm"
-              style={{ backgroundColor: primary }}
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              Call Now
-            </a>
-          )}
-        </div>
-      </div>
-      )}
-
       {!isLiveOpen && (
         <div className="border-b border-stone-200 bg-white px-4 py-4 sm:px-6">
           <div className="mx-auto flex max-w-7xl items-start gap-4 rounded-xl border border-stone-200 bg-stone-50 p-4 shadow-sm sm:items-center">
@@ -868,8 +934,12 @@ export function PublicMenuClient({
                 </button>
                 <div
                   ref={carouselRef}
-                  className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide"
-                  style={{ scrollbarWidth: 'none' }}
+                  className="no-scrollbar flex cursor-grab select-none gap-3 overflow-x-auto pb-1"
+                  onPointerDown={carouselDrag.onPointerDown}
+                  onPointerMove={carouselDrag.onPointerMove}
+                  onPointerUp={carouselDrag.onPointerUp}
+                  onPointerCancel={carouselDrag.onPointerCancel}
+                  onClickCapture={carouselDrag.onClickCapture}
                 >
                   {recommendedItems.map((product) => (
                     <div
@@ -934,7 +1004,15 @@ export function PublicMenuClient({
           )}
 
           {/* Mobile category pills */}
-          <div className={mobilePillsClass}>
+          <div
+            className={mobilePillsClass}
+            ref={categoryDrag.ref}
+            onPointerDown={categoryDrag.onPointerDown}
+            onPointerMove={categoryDrag.onPointerMove}
+            onPointerUp={categoryDrag.onPointerUp}
+            onPointerCancel={categoryDrag.onPointerCancel}
+            onClickCapture={categoryDrag.onClickCapture}
+          >
             <button
               type="button"
               onClick={() => setActiveCategory('all')}
@@ -1042,12 +1120,26 @@ export function PublicMenuClient({
           type="button"
           onClick={() => setMobileCartOpen(true)}
           className={mobileCartButtonClass}
-          style={{ backgroundColor: primary }}
+          aria-label={`View basket, ${count} ${count === 1 ? 'item' : 'items'}, ${formatPence(subtotal)}`}
         >
-          <span>🛒</span>
-          <span>
-            {count} {count === 1 ? 'item' : 'items'} · {formatPence(subtotal)}
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+            style={{ backgroundColor: primary }}
+          >
+            {count}
           </span>
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="block text-sm font-semibold text-stone-900">View basket</span>
+            <span className="block text-xs text-stone-500">
+              {count} {count === 1 ? 'item' : 'items'}
+            </span>
+          </span>
+          <span className="shrink-0 text-base font-bold" style={{ color: primary }}>
+            {formatPence(subtotal)}
+          </span>
+          <svg className="h-5 w-5 shrink-0 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       )}
 

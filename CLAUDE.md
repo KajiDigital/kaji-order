@@ -25,7 +25,7 @@ Part of Kaji POS ecosystem but works independently.
 - Dev: 3002
 - kaji-pos: 3000
 - kaji-cloud dev: 3001
-- Production: order.kajipos.co.uk
+- Production: order.kajipos.co.uk (IONOS `217.174.244.42`)
 
 ## Database
 Own PostgreSQL database: kaji_order
@@ -313,13 +313,13 @@ PENDING → ACCEPTED → PREPARING → READY → COLLECTED
 - Apostrophes in JSX: use &apos;
 
 ## Deployment
-Server: New IONOS VPS (order.kajipos.co.uk)
+Server: IONOS VPS `217.174.244.42` (order.kajipos.co.uk)
 Process: PM2
 Proxy: Nginx
 SSL: Let's Encrypt
 
 Deploy commands:
-ssh user@OOS_SERVER_IP
+ssh root@217.174.244.42
 cd /var/www/kaji-order
 git stash
 git pull origin main

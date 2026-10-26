@@ -1,5 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Production (IONOS)
+
+Online ordering for `order.kajipos.co.uk`.
+
+- IP: `217.174.244.42`
+- App directory: `/var/www/kaji-order`
+- Process: PM2 (`kaji-order`)
+
+```bash
+ssh root@217.174.244.42
+```
+
 ## Getting Started
 
 First, run the development server:

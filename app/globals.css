@@ -20,6 +20,15 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Auth theme tokens — restaurant (light) vs admin (dark) */
 [data-auth-theme="restaurant"] {
   --auth-accent: #e2562a;
