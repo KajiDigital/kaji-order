@@ -106,14 +106,32 @@ export async function resizeMenuImage(
   }
 }
 
-/** Interim helper until R2 upload — stores resized image as data URL for save. */
-export async function resizedMenuImageToDataUrl(result: ResizedMenuImage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('Could not encode image'))
-    reader.readAsDataURL(result.blob)
-  })
+const KIND_MAX_PX = {
+  menu: MENU_ITEM_IMAGE_MAX_PX,
+  logo: 800,
+  banner: 1600,
+} as const
+
+export type UploadKind = keyof typeof KIND_MAX_PX
+
+/** Resize in the browser, then save the file on the server. Returns a public /uploads/... URL. */
+export async function uploadResizedImage(file: File, kind: UploadKind): Promise<string> {
+  const resized = await resizeMenuImage(file, { maxSize: KIND_MAX_PX[kind] })
+  const ext = resized.mimeType === 'image/jpeg' ? 'jpg' : 'webp'
+  const form = new FormData()
+  form.append('file', resized.blob, `photo.${ext}`)
+  form.append('kind', kind)
+
+  try {
+    const res = await fetch('/api/uploads', { method: 'POST', body: form })
+    const data = (await res.json()) as { url?: string; error?: string }
+    if (!res.ok || !data.url) {
+      throw new Error(data.error || 'Could not save photo')
+    }
+    return data.url
+  } finally {
+    revokeMenuImagePreview(resized.previewUrl)
+  }
 }
 
 export function revokeMenuImagePreview(url: string | null | undefined) {

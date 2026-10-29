@@ -194,6 +194,8 @@ When an online order syncs to POS, `OrderDiscount` rows map to POS order discoun
 - app/lib/orders.ts — Order number + ownership helpers
 - app/lib/order-expiry.ts — `accept_by` expiry, PI cancel, prep fields on accept
 - app/lib/promotions.ts — promotion validation, discount calc, auto-apply, menu badges
+- app/lib/uploads.ts — restaurant photo files on disk (`UPLOAD_DIR` or `uploads/`)
+- app/lib/menu-image.ts — browser resize then POST `/api/uploads`
 
 ## KDS/Order Management
 - Tabs: **Live** (Kanban, active statuses, ~15s refresh), **Today** (all today’s orders + stats), **Archive** (date range, search, filters, CSV export)
@@ -350,7 +352,7 @@ Sprint 10 — Complete
 Sprint 11 (planned)
 - Delivery + postcode validation
 - Menu scheduling
-- Product photos upload
+- Product photos — resize in browser, save files on the order VPS (`uploads/`, served at `/uploads/...`)
 - Customer accounts
 - Loyalty points
 - kaji-pos KDS integration

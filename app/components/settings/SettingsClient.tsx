@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PhotoUpload } from '@/app/components/PhotoUpload'
 import { DAYS, type DayHours, type OpeningHours, getOrderUrl } from '@/app/lib/utils'
 import { parseOpeningHours } from '@/app/lib/hours'
 import {
@@ -228,15 +229,12 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
                   No logo
                 </div>
               )}
-              <div className="flex-1">
-                <input
-                  value={data.logo_url ?? ''}
-                  onChange={(e) => setData({ ...data, logo_url: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
-                />
-                <p className="text-xs text-slate-500 mt-1">Enter a direct image URL</p>
-              </div>
+              <PhotoUpload
+                value={data.logo_url ?? ''}
+                onChange={(url) => setData({ ...data, logo_url: url || null })}
+                kind="logo"
+                label="Upload logo"
+              />
             </div>
           </div>
 
@@ -252,13 +250,14 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
                 Banner preview
               </div>
             )}
-            <input
-              value={data.banner_url ?? ''}
-              onChange={(e) => setData({ ...data, banner_url: e.target.value })}
-              placeholder="https://..."
-              className="w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
-            />
-            <p className="text-xs text-slate-500 mt-1">Enter a direct image URL</p>
+            <div className="mt-2">
+              <PhotoUpload
+                value={data.banner_url ?? ''}
+                onChange={(url) => setData({ ...data, banner_url: url || null })}
+                kind="banner"
+                label="Upload banner"
+              />
+            </div>
           </div>
 
           <div>

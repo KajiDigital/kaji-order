@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { parsePoundsToPence } from '@/app/lib/utils'
-import {
-  resizedMenuImageToDataUrl,
-  resizeMenuImage,
-  revokeMenuImagePreview,
-} from '@/app/lib/menu-image'
+import { uploadResizedImage } from '@/app/lib/menu-image'
 import { ItemFormComboTab, type ComboGroupForm } from './ItemFormComboTab'
 import {
   type OptionGroupForm,
@@ -109,7 +105,6 @@ export function MenuItemInlineEditor({
   const [comboGroups, setComboGroups] = useState<ComboGroupForm[]>(() => toComboGroups(item))
   const [photoBusy, setPhotoBusy] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const previewRef = useRef<string | null>(null)
 
   const { ref: descRef, resize: resizeDesc } = useAutoResizeTextarea(description)
 
@@ -127,10 +122,6 @@ export function MenuItemInlineEditor({
     loadTagPool()
   }, [])
 
-  useEffect(() => {
-    return () => revokeMenuImagePreview(previewRef.current)
-  }, [])
-
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -138,11 +129,7 @@ export function MenuItemInlineEditor({
 
     setPhotoBusy(true)
     try {
-      revokeMenuImagePreview(previewRef.current)
-      const resized = await resizeMenuImage(file)
-      previewRef.current = resized.previewUrl
-      const dataUrl = await resizedMenuImageToDataUrl(resized)
-      setImageUrl(dataUrl)
+      setImageUrl(await uploadResizedImage(file, 'menu'))
     } catch {
       alert('Could not process that image. Try a JPG or PNG under 10MB.')
     } finally {

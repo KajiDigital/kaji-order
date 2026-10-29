@@ -1,5 +1,6 @@
 'use client'
 
+import { PhotoUpload } from '@/app/components/PhotoUpload'
 import { ALLERGENS } from '@/app/lib/menu-types'
 
 export type BasicFormState = {
@@ -81,12 +82,18 @@ export function ItemFormBasicTab({ state, categories, onChange }: Props) {
         />
       </div>
       <div>
-        <label className="menu-builder-label">Image URL</label>
-        <input
-          className="menu-builder-input"
-          placeholder="https://…"
+        <label className="menu-builder-label">Photo</label>
+        {state.imageUrl && (
+          <img
+            src={state.imageUrl}
+            alt=""
+            className="mb-2 h-24 w-24 rounded-lg object-cover"
+          />
+        )}
+        <PhotoUpload
           value={state.imageUrl}
-          onChange={(e) => set('imageUrl', e.target.value)}
+          onChange={(url) => set('imageUrl', url)}
+          kind="menu"
         />
       </div>
       <div className="flex flex-wrap gap-4">
