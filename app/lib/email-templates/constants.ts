@@ -23,6 +23,8 @@ export const EMAIL_TEMPLATE_VARIABLES: Record<EmailTemplateType, string[]> = {
     'customer_email',
     'customer_phone',
     'prep_time',
+    'ready_at',
+    'ready_at_label',
     'order_type_message',
     'order_type',
     'items (each: name, quantity, price)',

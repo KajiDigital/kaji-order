@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { formatOrderNumber, getAppUrl, formatReadyAtTime } from './utils'
+import { formatOrderNumber, getAppUrl, formatReadyAtTime, readyAtCustomerLabel } from './utils'
 import { getPrimaryColor, shouldShowPoweredBy } from './branding'
 import {
   getTemplate,
@@ -110,6 +110,7 @@ function buildOrderVariables(order: OrderEmailData): Record<string, unknown> {
     customer_phone: order.customerPhone ?? '',
     prep_time: String(order.estimatedMinutes ?? 30),
     ready_at: readyAtFormatted,
+    ready_at_label: readyAtFormatted ? readyAtCustomerLabel(order.orderType) : '',
     order_type_message: orderTypeMessage,
     order_type: orderTypeLabel,
     items: order.items.map((item) => ({

@@ -201,7 +201,7 @@ When an online order syncs to POS, `OrderDiscount` rows map to POS order discoun
 - Sound alerts on new orders; urgent alert + accept countdown in **manual** mode
 - Browser push notifications
 - Dynamic countdown timers (`accept_by`, prep)
-- Accept modal: chef picks prep minutes → `ready_at` + customer email
+- Accept modal: chef picks prep minutes or a collection/delivery clock time → `ready_at` + customer email
 - PWA (add to home screen)
 - Dark mode
 
@@ -214,7 +214,8 @@ Restaurant settings (Ordering tab): `order_mode` + `acceptance_timer_mins` (1–
 | Manual | `manual` | Stays `PENDING` until accept/reject; `accept_by` = now + timer; customer on `/[slug]/waiting/[orderId]` |
 
 - **Instant prep:** `restaurant.avg_prep_minutes` → `prep_time_mins`, `ready_at`, `estimated_time` on webhook (`payment_intent.succeeded`) or dev create-intent; customer sees “Ready at 4:45pm” on confirmation + email
-- **Manual accept:** `POST /api/orders/[id]/accept` with `{ prep_time_mins }` (chef picks in KDS modal) → `ready_at`, `estimated_time`, confirmation email
+- **Chef accept (any mode):** KDS **Accept**, order detail, or status dropdown PENDING → ACCEPTED opens the accept popup. Chef picks prep minutes **or** a collection/delivery clock time. `POST /api/orders/[id]/accept` with `{ prep_time_mins, ready_at }` → `ready_at`, `estimated_time`, confirmation email. Collection copy: “Ready for collection at”; delivery copy: “Ready for delivery at”.
+- **Manual accept:** same popup; order stays `PENDING` until accept/reject; `accept_by` = now + timer
 - **Reject / timeout:** reject API or `check-expired` / status poll → `CANCELLED`, PaymentIntent cancelled
 - Checkout redirects to waiting page when `order_mode === 'manual'`
 
@@ -277,7 +278,7 @@ PENDING → ACCEPTED → PREPARING → READY → COLLECTED
 - Supports both hour JSON formats: `{ monday: { openTime, closeTime } }` and `{ mon: { from, to } }`
 - Null/empty `opening_hours` → always open
 - Restaurant settings (Ordering tab):
-  - `show_menu_when_closed` — browse menu when closed vs closed page only
+  - `show_menu_when_closed` — browse menu when closed (Closed badge) vs closed page only
   - `accept_preorders` — allow checkout outside hours (before open AND after close)
   - `preorder_days_ahead` — max days ahead for next open slot (1–7)
   - `collection_enabled` — master ordering switch (blocks all orders when false)

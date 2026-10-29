@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
-import { formatOrderNumber, formatReadyAtTime } from '@/app/lib/utils'
+import { formatOrderNumber, formatReadyAtTime, readyAtCustomerLabel } from '@/app/lib/utils'
 import { cancelExpiredOrder } from '@/app/lib/order-expiry'
 import { ensureManualAuthorisation } from '@/app/lib/payment-capture'
 
@@ -24,6 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
       estimated_time: true,
       prep_time_mins: true,
       accept_by: true,
+      order_type: true,
       items: {
         select: { name: true, quantity: true, base_price: true, total_price: true, selections: true },
       },
@@ -68,6 +69,8 @@ export async function GET(_request: Request, { params }: Params) {
     status: order.status,
     order_number: formatOrderNumber(order.order_number),
     ready_at: readyAt ? formatReadyAtTime(readyAt) : null,
+    ready_at_label: readyAt ? readyAtCustomerLabel(order.order_type) : null,
+    order_type: order.order_type,
     estimated_time: order.estimated_time,
     prep_time_mins: order.prep_time_mins,
     accept_by: order.accept_by?.toISOString() ?? null,

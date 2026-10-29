@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { formatOrderNumber, formatPence, formatReadyAtTime } from '@/app/lib/utils'
+import { formatPence } from '@/app/lib/utils'
 
 type StatusResponse = {
   status: string
   order_number: string
   ready_at: string | null
+  ready_at_label: string | null
   estimated_time: string | null
   prep_time_mins: number | null
   accept_by: string | null
@@ -118,7 +119,7 @@ export default function WaitingPage() {
             <h1 className="text-xl font-bold text-slate-900 mt-4">Order confirmed! 🎉</h1>
             {status?.ready_at && (
               <p className="text-lg font-semibold text-violet-600 mt-2">
-                Ready at {status.ready_at}
+                {status.ready_at_label ?? 'Ready at'} {status.ready_at}
               </p>
             )}
             {status?.estimated_time && (

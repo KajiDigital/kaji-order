@@ -38,6 +38,13 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'This order can no longer be moved' }, { status: 409 })
   }
 
+  if (order.status === 'PENDING' && status === 'ACCEPTED') {
+    return NextResponse.json(
+      { error: 'Accept the order and choose a ready time first' },
+      { status: 409 }
+    )
+  }
+
   const updated = await prisma.onlineOrder.update({
     where: { id },
     data: { status: status as (typeof BOARD_STATUSES)[number] },

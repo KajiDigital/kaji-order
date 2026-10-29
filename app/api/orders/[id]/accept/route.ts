@@ -26,11 +26,32 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const body = await request.json().catch(() => ({}))
-  const prepTimeMins = Math.min(
-    120,
-    Math.max(5, Number(body.prep_time_mins) || order.restaurant.avg_prep_minutes || 30)
-  )
+  const body = await request.json().catch(() => ({})) as {
+    prep_time_mins?: unknown
+    ready_at?: unknown
+  }
+
+  let readyAt: Date | undefined
+  let prepTimeMins: number
+
+  if (typeof body.ready_at === 'string' && body.ready_at.trim()) {
+    readyAt = new Date(body.ready_at)
+    if (Number.isNaN(readyAt.getTime())) {
+      return NextResponse.json({ error: 'Choose a valid ready time' }, { status: 400 })
+    }
+    if (readyAt.getTime() < Date.now() - 60_000) {
+      return NextResponse.json({ error: 'Ready time is in the past' }, { status: 400 })
+    }
+    if (readyAt.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+      return NextResponse.json({ error: 'Ready time is too far ahead' }, { status: 400 })
+    }
+    prepTimeMins = Math.max(1, Math.round((readyAt.getTime() - Date.now()) / 60_000))
+  } else {
+    prepTimeMins = Math.min(
+      120,
+      Math.max(5, Number(body.prep_time_mins) || order.restaurant.avg_prep_minutes || 30)
+    )
+  }
 
   if (order.stripe_payment_intent_id) {
     const captured = await captureOrderPayment(order.stripe_payment_intent_id)
@@ -39,7 +60,7 @@ export async function POST(request: Request, { params }: Params) {
     }
   }
 
-  const prepFields = buildPrepFields(prepTimeMins)
+  const prepFields = buildPrepFields(prepTimeMins, readyAt)
 
   const updated = await prisma.onlineOrder.update({
     where: { id },

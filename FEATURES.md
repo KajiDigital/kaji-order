@@ -84,7 +84,7 @@
 - PWA (add to home screen)
 
 ### 11. Order Management
-- Accept order (with estimated time)
+- Accept order popup: prep minutes or collection/delivery clock time; customer sees ready time
 - Reject order (with reason)
 - Mark preparing
 - Mark ready

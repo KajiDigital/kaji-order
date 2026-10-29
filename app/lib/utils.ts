@@ -54,6 +54,10 @@ export function formatReadyAtTime(date: Date | string | null | undefined): strin
   })
 }
 
+export function readyAtCustomerLabel(orderType?: string | null): string {
+  return orderType === 'DELIVERY' ? 'Ready for delivery at' : 'Ready for collection at'
+}
+
 export function formatModifiersText(
   modifiers?: { name: string; priceDeltaPence?: number }[]
 ): string | null {

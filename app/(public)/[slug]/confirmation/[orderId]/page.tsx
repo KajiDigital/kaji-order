@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import prisma from '@/app/lib/prisma'
-import { formatOrderNumber, formatPence, formatReadyAtTime } from '@/app/lib/utils'
+import { formatOrderNumber, formatPence, formatReadyAtTime, readyAtCustomerLabel } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
 
 type Params = { params: Promise<{ slug: string; orderId: string }> }
@@ -59,7 +59,7 @@ export default async function ConfirmationPage({ params }: Params) {
         </div>
         {order.ready_at ? (
           <p className="text-slate-800 font-semibold mt-4">
-            Ready for collection at {formatReadyAtTime(order.ready_at)}
+            {readyAtCustomerLabel(order.order_type)} {formatReadyAtTime(order.ready_at)}
           </p>
         ) : (
           <p className="text-slate-600 text-sm mt-4">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { formatOrderNumber, formatPence } from '@/app/lib/utils'
+import { formatOrderNumber, formatPence, formatReadyAtTime } from '@/app/lib/utils'
 import { canRefundOrder } from '@/app/lib/refunds'
 import { RefundDialog } from './RefundDialog'
 import { AcceptOrderModal } from './AcceptOrderModal'
@@ -37,6 +37,7 @@ type Order = {
   preorder_for?: string | null
   delivery_address?: string | null
   accept_by?: string | null
+  ready_at?: string | null
   created_at: string
   items: OrderItem[]
 }
@@ -139,21 +140,17 @@ function renderOrderCard(
   return (
     <div
       key={order.id}
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(order)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onSelect(order)
-        }
-      }}
-      className={`w-full text-left bg-slate-800 border rounded-lg p-3 hover:border-violet-500 transition-colors cursor-pointer ${
+      className={`w-full bg-slate-800 border rounded-lg p-3 hover:border-violet-500 transition-colors ${
         isPendingManual
           ? 'border-red-500 animate-pulse ring-2 ring-red-500/50'
           : 'border-slate-700'
       }`}
     >
+      <button
+        type="button"
+        onClick={() => onSelect(order)}
+        className="w-full text-left"
+      >
       <div className="flex justify-between items-start">
         <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
         <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
@@ -171,6 +168,11 @@ function renderOrderCard(
       </p>
       <p className="text-sm font-medium text-violet-400 mt-2">{formatPence(order.total_pence)}</p>
       <p className="text-xs text-slate-500">{formatTime(order.created_at)}</p>
+      {order.ready_at && (
+        <p className="text-xs text-emerald-400 mt-1">
+          Ready {formatReadyAtTime(order.ready_at)}
+        </p>
+      )}
       {col === 'PENDING' && !order.is_preorder && (
         <Countdown
           createdAt={order.created_at}
@@ -183,19 +185,21 @@ function renderOrderCard(
           manualMode={manualMode}
         />
       )}
+      </button>
       <div
         className="flex items-center justify-between gap-2 mt-3"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
       >
         <select
           aria-label={`Change status for ${formatOrderNumber(order.order_number)}`}
           value={order.status}
           onChange={(event) => {
             const status = event.target.value
-            if (status !== order.status) {
-              action(order.id, 'move', { status })
+            if (status === order.status) return
+            if (status === 'ACCEPTED' && order.status === 'PENDING') {
+              setAcceptTarget(order)
+              return
             }
+            action(order.id, 'move', { status })
           }}
           className="min-w-0 max-w-[46%] bg-slate-900 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-200"
         >
@@ -212,7 +216,7 @@ function renderOrderCard(
           <button
             type="button"
             onClick={() => {
-              if (col === 'PENDING' && manualMode) {
+              if (col === 'PENDING') {
                 setAcceptTarget(order)
                 return
               }
@@ -379,9 +383,9 @@ export function KanbanBoard({
     setSelected(null)
   }
 
-  async function handleAcceptWithPrep(prepTimeMins: number) {
+  async function handleAcceptWithPrep(payload: { prep_time_mins: number; ready_at: string }) {
     if (!acceptTarget) return
-    return action(acceptTarget.id, 'accept', { prep_time_mins: prepTimeMins })
+    return action(acceptTarget.id, 'accept', payload)
   }
 
   async function handleRefund(reason: string, _amountPence?: number) {
@@ -403,7 +407,7 @@ export function KanbanBoard({
     canRefundOrder(order.status, order.stripe_payment_status as never)
 
   return (
-    <div className="min-h-screen md:h-screen md:overflow-hidden flex flex-col">
+    <div className="h-screen overflow-hidden flex flex-col">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900 shrink-0">
         <Link
           href="/dashboard"
@@ -452,14 +456,18 @@ export function KanbanBoard({
       </div>
 
       {view === 'live' && (
-        <div className="flex-1 md:min-h-0 md:overflow-hidden p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden p-3 snap-x snap-mandatory">
+          <div className="flex h-full min-w-full gap-3">
           {COLUMNS.map((col) => {
             const colOrders = orders.filter((o) => o.status === col)
             const preorders = col === 'PENDING' ? colOrders.filter((o) => o.is_preorder) : []
             const regular = col === 'PENDING' ? colOrders.filter((o) => !o.is_preorder) : colOrders
 
             return (
-              <div key={col} className="bg-slate-900/50 rounded-xl p-3 min-h-[200px] md:min-h-0 md:overflow-y-auto">
+              <div
+                key={col}
+                className="flex h-full w-[min(85vw,20rem)] shrink-0 flex-col overflow-y-auto rounded-xl bg-slate-900/50 p-3 snap-start xl:w-auto xl:min-w-0 xl:flex-1"
+              >
                 <h2 className="text-xs font-semibold text-slate-400 mb-3 tracking-wide">
                   {col}
                   {col === 'PENDING' && preorders.length > 0 && (
@@ -500,16 +508,17 @@ export function KanbanBoard({
               </div>
             )
           })}
+          </div>
         </div>
       )}
 
       {view === 'today' && (
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           <OrderTodayPanel />
         </div>
       )}
       {view === 'archive' && (
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           <OrderArchivePanel />
         </div>
       )}
@@ -556,8 +565,23 @@ export function KanbanBoard({
               ))}
             </ul>
             <p className="mt-4 font-bold text-white">{formatPence(selected.total_pence)}</p>
+            {selected.ready_at && (
+              <p className="text-sm text-emerald-400 mt-2">
+                Ready {formatReadyAtTime(selected.ready_at)}
+              </p>
+            )}
             {selected.status === 'PENDING' && (
               <div className="mt-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAcceptTarget(selected)
+                    setSelected(null)
+                  }}
+                  className="w-full py-2 bg-violet-600 text-white rounded-lg text-sm font-medium"
+                >
+                  Accept order
+                </button>
                 <input
                   placeholder="Reject reason"
                   value={rejectReason}
@@ -600,6 +624,9 @@ export function KanbanBoard({
       {acceptTarget && (
         <AcceptOrderModal
           orderNumber={acceptTarget.order_number}
+          orderType={acceptTarget.order_type}
+          isPreorder={acceptTarget.is_preorder}
+          preorderFor={acceptTarget.preorder_for}
           defaultPrepMins={settings.avg_prep_minutes}
           onCancel={() => setAcceptTarget(null)}
           onAccept={handleAcceptWithPrep}

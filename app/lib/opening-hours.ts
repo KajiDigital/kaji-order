@@ -174,6 +174,31 @@ function findNextOpen(
   return null
 }
 
+function closedStatus(fields: {
+  nextOpenTime: string | null
+  nextOpenDay: string | null
+  statusMessage: string
+  nextOpenAt: Date | null
+  showMenu: boolean
+  closedReason: OpenStatus['closedReason']
+  banner: NonNullable<OpenStatus['banner']>
+  canOrder?: boolean
+  isPreorderMode?: boolean
+}): OpenStatus {
+  return {
+    isOpen: false,
+    canOrder: fields.canOrder ?? false,
+    isPreorderMode: fields.isPreorderMode ?? false,
+    nextOpenTime: fields.nextOpenTime,
+    nextOpenDay: fields.nextOpenDay,
+    statusMessage: fields.statusMessage,
+    nextOpenAt: fields.nextOpenAt,
+    showMenu: fields.showMenu,
+    closedReason: fields.closedReason,
+    banner: fields.banner,
+  }
+}
+
 export function getOpenStatus(
   opening_hours: unknown,
   holiday_mode: boolean,
@@ -207,13 +232,10 @@ export function getOpenStatus(
       : 'Please check back later'
 
   if (holiday_mode) {
-    return {
-      isOpen: false,
+    return closedStatus({
       nextOpenTime,
       nextOpenDay,
       statusMessage: holiday_message?.trim() || "We're temporarily closed",
-      canOrder: false,
-      isPreorderMode: false,
       nextOpenAt: null,
       showMenu: show_menu_when_closed,
       closedReason: 'holiday',
@@ -224,17 +246,14 @@ export function getOpenStatus(
           "We're taking a short break. Please check back soon.",
         badge: 'Closed',
       },
-    }
+    })
   }
 
   if (!collection_enabled && !delivery_enabled) {
-    return {
-      isOpen: false,
+    return closedStatus({
       nextOpenTime,
       nextOpenDay,
       statusMessage: 'Online ordering is currently unavailable',
-      canOrder: false,
-      isPreorderMode: false,
       nextOpenAt: null,
       showMenu: show_menu_when_closed,
       closedReason: 'outside_hours',
@@ -243,7 +262,7 @@ export function getOpenStatus(
         description: 'This restaurant is not accepting online orders right now.',
         badge: 'Closed',
       },
-    }
+    })
   }
 
   if (isOpen) {
@@ -265,13 +284,10 @@ export function getOpenStatus(
     accept_preorders && nextWithinWindow !== null && nextWithinWindow.minutesUntil >= 0
 
   if (!show_menu_when_closed) {
-    return {
-      isOpen: false,
+    return closedStatus({
       nextOpenTime,
       nextOpenDay,
       statusMessage: opensLabel,
-      canOrder: false,
-      isPreorderMode: false,
       nextOpenAt,
       showMenu: false,
       closedReason,
@@ -280,99 +296,43 @@ export function getOpenStatus(
         description: opensLabel,
         badge: 'Closed',
       },
-    }
+    })
   }
 
   if (canPreorder) {
-    return {
-      isOpen: false,
+    return closedStatus({
       nextOpenTime,
       nextOpenDay,
       statusMessage: `Pre-order — we'll prepare your order when we open at ${nextOpenTime}`,
-      canOrder: true,
-      isPreorderMode: true,
       nextOpenAt:
         nextWithinWindow && nextWithinWindow.minutesUntil > 0
           ? new Date(Date.now() + nextWithinWindow.minutesUntil * 60 * 1000)
           : nextOpenAt,
       showMenu: true,
       closedReason,
+      canOrder: true,
+      isPreorderMode: true,
       banner: {
         title: 'Pre-order available',
         description: `Place your order now — we'll start preparing when we open at ${nextOpenTime}.`,
         badge: 'Pre-order',
       },
-    }
+    })
   }
 
-  return {
-    isOpen: false,
+  return closedStatus({
     nextOpenTime,
     nextOpenDay,
     statusMessage: opensLabel,
-    canOrder: false,
-    isPreorderMode: false,
     nextOpenAt,
     showMenu: true,
     closedReason,
     banner: {
       title: "We're closed right now",
       description: `${opensLabel}. You can browse our menu below.`,
-      badge: 'Browse only',
+      badge: 'Closed',
     },
-  }
-}
-
-/** @deprecated Use getOpenStatus instead */
-export function isRestaurantOpen(
-  openingHours: unknown,
-  holidayMode: boolean
-): { open: boolean; reason?: string } {
-  const status = getOpenStatus(openingHours, holidayMode, false, true, true)
-  return {
-    open: status.isOpen,
-    reason: status.closedReason,
-  }
-}
-
-/** @deprecated Use getOpenStatus instead */
-export function getClosedStatusMessage(
-  openingHours: unknown,
-  holidayMode: boolean,
-  holidayMessage?: string | null,
-  closedReason?: string
-): { title: string; description: string } {
-  const status = getOpenStatus(
-    openingHours,
-    holidayMode,
-    false,
-    true,
-    true,
-    1,
-    holidayMessage
-  )
-  if (status.banner) return { title: status.banner.title, description: status.banner.description }
-
-  const next = findNextOpen(getUkNow(), normalizeHours(openingHours), 7)
-  const hint = next
-    ? `${dayLabel(next.offset, next.dayIndex)} at ${formatTime12h(next.day.fromTime)}`
-    : null
-
-  if (closedReason === 'closed_today') {
-    return {
-      title: "We're closed today",
-      description: hint
-        ? `Feel free to browse our menu. We'll be accepting orders again ${hint}.`
-        : 'Feel free to browse our menu. Please come back when we reopen to place an order.',
-    }
-  }
-
-  return {
-    title: "We're closed right now",
-    description: hint
-      ? `You can browse our menu below. Online ordering opens ${hint}.`
-      : 'You can browse our menu below. Please come back during our opening hours to place an order.',
-  }
+  })
 }
 
 export function parseOpeningHours(raw: unknown): OpeningHours {

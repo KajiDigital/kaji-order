@@ -87,12 +87,18 @@ export async function processExpiredOrders(): Promise<number> {
   return expired.length
 }
 
-export function buildPrepFields(prepTimeMins: number) {
-  const readyAt = new Date(Date.now() + prepTimeMins * 60_000)
+export function buildPrepFields(prepTimeMins: number, readyAt?: Date) {
+  const ready = readyAt ?? new Date(Date.now() + prepTimeMins * 60_000)
+  const mins = Math.max(
+    1,
+    readyAt
+      ? Math.round((ready.getTime() - Date.now()) / 60_000)
+      : prepTimeMins
+  )
   return {
-    prep_time_mins: prepTimeMins,
-    ready_at: readyAt,
-    estimated_ready_at: readyAt,
-    estimated_time: `${prepTimeMins} minutes`,
+    prep_time_mins: mins,
+    ready_at: ready,
+    estimated_ready_at: ready,
+    estimated_time: `${mins} minutes`,
   }
 }

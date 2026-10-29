@@ -26,6 +26,7 @@ export default async function OrdersPage() {
     created_at: o.created_at.toISOString(),
     preorder_for: o.preorder_for?.toISOString() ?? null,
     accept_by: o.accept_by?.toISOString() ?? null,
+    ready_at: o.ready_at?.toISOString() ?? null,
     stripe_payment_status: o.stripe_payment_status,
   }))
 

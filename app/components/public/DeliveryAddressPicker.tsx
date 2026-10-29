@@ -20,8 +20,6 @@ type Props = {
   onPostcodeChange: (postcode: string) => void
   onAddressSelect: (address: string, postcode: string) => void
   onValidationChange?: (valid: boolean, feePence: number, minOrderPence: number) => void
-  onConfirmed?: (address: string, postcode: string) => void
-  embedded?: boolean
 }
 
 export function DeliveryAddressPicker({
@@ -33,18 +31,14 @@ export function DeliveryAddressPicker({
   onPostcodeChange,
   onAddressSelect,
   onValidationChange,
-  onConfirmed,
-  embedded = false,
 }: Props) {
   const [editing, setEditing] = useState(!selectedAddress)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showManual, setShowManual] = useState(
-    !getGooglePlacesApiKey() || Boolean(selectedAddress)
-  )
+  const googleConfigured = Boolean(getGooglePlacesApiKey())
+  const [showManual, setShowManual] = useState(!googleConfigured || Boolean(selectedAddress))
   const [manualAddress, setManualAddress] = useState(selectedAddress)
   const [manualPostcode, setManualPostcode] = useState(postcode)
-  const googleConfigured = Boolean(getGooglePlacesApiKey())
 
   const validateAndConfirm = useCallback(
     async (address: string, deliveryPostcode: string) => {
@@ -76,7 +70,6 @@ export function DeliveryAddressPicker({
         onAddressSelect(address.trim(), normalizedPostcode)
         onValidationChange?.(true, data.fee_pence ?? 0, data.minimum_order_pence ?? 0)
         setEditing(false)
-        onConfirmed?.(address.trim(), normalizedPostcode)
       } catch {
         setError('Could not verify delivery area. Try again.')
         onValidationChange?.(false, 0, 0)
@@ -84,7 +77,7 @@ export function DeliveryAddressPicker({
         setLoading(false)
       }
     },
-    [slug, onPostcodeChange, onAddressSelect, onValidationChange, onConfirmed]
+    [slug, onPostcodeChange, onAddressSelect, onValidationChange]
   )
 
   const handleGooglePlace = useCallback(
@@ -100,25 +93,12 @@ export function DeliveryAddressPicker({
     [validateAndConfirm]
   )
 
-  function startEditing() {
-    setEditing(true)
-    setError('')
-    setShowManual(!googleConfigured)
-  }
-
-  function confirmManual() {
-    void validateAndConfirm(manualAddress, manualPostcode)
-  }
-
-  if (!embedded && !editing && selectedAddress) {
+  if (!editing && selectedAddress) {
     return (
-      <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+      <div className="mt-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-              Delivering to
-            </p>
-            <p className="mt-0.5 text-sm font-medium text-stone-900">{selectedAddress}</p>
+            <p className="text-sm font-medium text-stone-900">{selectedAddress}</p>
             <p className="mt-0.5 text-xs text-stone-500">
               {postcode}
               {feePence > 0 ? ` · ${formatPence(feePence)} delivery` : ''}
@@ -126,7 +106,11 @@ export function DeliveryAddressPicker({
           </div>
           <button
             type="button"
-            onClick={startEditing}
+            onClick={() => {
+              setEditing(true)
+              setError('')
+              setShowManual(!googleConfigured)
+            }}
             className="shrink-0 text-sm font-semibold underline"
             style={{ color: primary }}
           >
@@ -138,21 +122,9 @@ export function DeliveryAddressPicker({
   }
 
   return (
-    <div className={embedded ? 'mt-4' : 'mt-3 rounded-xl border border-stone-200 bg-stone-50 p-4'}>
-      {!embedded && <p className="text-base font-bold text-stone-900">Where should we deliver?</p>}
-      {!embedded && (
-      <p className="mt-0.5 text-xs text-stone-500">
-        {googleConfigured && !showManual
-          ? 'Start typing your address and pick a suggestion.'
-          : 'Enter your full address and postcode.'}
-      </p>
-      )}
-      {embedded && googleConfigured && !showManual && (
-        <p className="text-xs text-stone-500">Start typing your address and pick a suggestion.</p>
-      )}
-
+    <div className="mt-2">
       {googleConfigured && !showManual ? (
-        <div className="mt-3">
+        <div>
           <GoogleAddressAutocomplete
             placeholder="e.g. 10 High Street, Harrow"
             className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-400"
@@ -168,12 +140,7 @@ export function DeliveryAddressPicker({
           </button>
         </div>
       ) : (
-        <div className="mt-3 space-y-3">
-          {!embedded && !googleConfigured && (
-            <p className="text-xs text-stone-500">
-              Enter your full street address and UK postcode below.
-            </p>
-          )}
+        <div className="space-y-2">
           <textarea
             value={manualAddress}
             onChange={(e) => {
@@ -205,7 +172,7 @@ export function DeliveryAddressPicker({
           )}
           <button
             type="button"
-            onClick={confirmManual}
+            onClick={() => void validateAndConfirm(manualAddress, manualPostcode)}
             disabled={loading || !manualAddress.trim() || !manualPostcode.trim()}
             className="w-full rounded-full py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-stone-300"
             style={

@@ -206,6 +206,8 @@ export function getSampleVariables(
     customer_email: 'jane@example.com',
     customer_phone: '07700 900123',
     prep_time: '25',
+    ready_at: '6:55 pm',
+    ready_at_label: 'Ready for collection at',
     order_type: 'Collection',
     order_type_message: 'We will notify you when your order is ready to collect.',
     items: sampleItems,

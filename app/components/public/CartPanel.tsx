@@ -11,6 +11,7 @@ import {
   type BasketOrderType,
 } from '@/app/lib/basket'
 import { DeliveryAddressPicker } from './DeliveryAddressPicker'
+import { FulfillmentToggle } from './FulfillmentToggle'
 
 type Props = {
   slug: string
@@ -30,6 +31,8 @@ type Props = {
   onDeliveryValidationChange?: (valid: boolean, feePence: number, minOrderPence: number) => void
   deliveryReady?: boolean
   showDeliveryAddress?: boolean
+  showFulfillmentToggle?: boolean
+  deliveryWindowMessage?: string
   onUpdateQty: (id: string, qty: number) => void
   onRemove: (id: string) => void
   compact?: boolean
@@ -54,6 +57,8 @@ export function CartPanel({
   onDeliveryValidationChange,
   deliveryReady = false,
   showDeliveryAddress = true,
+  showFulfillmentToggle = true,
+  deliveryWindowMessage,
   onUpdateQty,
   onRemove,
   compact,
@@ -61,57 +66,23 @@ export function CartPanel({
 }: Props) {
   const count = basketItemCount(items)
   const subtotal = basketSubtotal(items)
-  const effectiveMin =
-    orderType === 'delivery' ? minOrderPence : minOrderPence
-  const belowMin = subtotal < effectiveMin && effectiveMin > 0
-  const showOrderTypePicker = collectionEnabled && deliveryEnabled && deliveryAvailableNow
-  const deliveryBlocked = orderType === 'delivery' && !deliveryReady
+  const belowMin = subtotal < minOrderPence && minOrderPence > 0
+  const deliveryBlocked = orderType === 'delivery' && (!deliveryAvailableNow || !deliveryReady)
   const checkoutBlocked = belowMin || checkoutDisabled || deliveryBlocked
 
   return (
     <div className={`flex flex-col ${compact ? '' : 'h-full'}`}>
-      {(showOrderTypePicker || deliveryEnabled || collectionEnabled) && (
-        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Order type</p>
-          {showOrderTypePicker ? (
-            <div className="mt-2 flex rounded-lg border border-stone-200 p-0.5">
-              {deliveryEnabled && deliveryAvailableNow && (
-                <button
-                  type="button"
-                  onClick={() => onOrderTypeChange('delivery')}
-                  className={`flex-1 rounded-md py-2 text-xs font-medium transition-colors ${
-                    orderType === 'delivery' ? 'text-white' : 'text-stone-600 hover:bg-stone-50'
-                  }`}
-                  style={orderType === 'delivery' ? { backgroundColor: primary } : undefined}
-                >
-                  Delivery
-                </button>
-              )}
-              {collectionEnabled && (
-                <button
-                  type="button"
-                  onClick={() => onOrderTypeChange('collection')}
-                  className={`flex-1 rounded-md py-2 text-xs font-medium transition-colors ${
-                    orderType === 'collection' ? 'text-white' : 'text-stone-600 hover:bg-stone-50'
-                  }`}
-                  style={orderType === 'collection' ? { backgroundColor: primary } : undefined}
-                >
-                  Collection
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="mt-2 text-sm font-medium text-stone-800">
-              {deliveryEnabled && !collectionEnabled
-                ? 'Delivery'
-                : collectionEnabled && !deliveryEnabled
-                  ? 'Collection only'
-                  : collectionEnabled
-                    ? 'Collection'
-                    : 'Delivery'}
-            </p>
-          )}
-
+      {showFulfillmentToggle && (
+        <div className="mb-4">
+          <FulfillmentToggle
+            orderType={orderType}
+            primary={primary}
+            collectionEnabled={collectionEnabled}
+            deliveryEnabled={deliveryEnabled}
+            deliveryAvailableNow={deliveryAvailableNow}
+            deliveryWindowMessage={deliveryWindowMessage}
+            onChange={onOrderTypeChange}
+          />
           {showDeliveryAddress &&
             orderType === 'delivery' &&
             onDeliveryPostcodeChange &&
@@ -130,7 +101,7 @@ export function CartPanel({
         </div>
       )}
 
-      <div className="mt-4 flex-1 rounded-xl border border-stone-200 bg-white shadow-sm">
+      <div className="flex-1 rounded-xl border border-stone-200 bg-white shadow-sm">
         <div className="border-b border-stone-100 px-4 py-3">
           <h2 className="font-bold text-stone-900">
             Your Cart ({count} {count === 1 ? 'item' : 'items'})
@@ -203,7 +174,7 @@ export function CartPanel({
               </div>
             )}
             {belowMin && (
-              <p className="mt-2 text-xs text-red-500">Minimum order is {formatPence(effectiveMin)}</p>
+              <p className="mt-2 text-xs text-red-500">Minimum order is {formatPence(minOrderPence)}</p>
             )}
             {deliveryBlocked && (
               <p className="mt-2 text-xs text-amber-700">

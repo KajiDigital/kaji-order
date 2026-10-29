@@ -457,7 +457,7 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
               onChange={(v) => save({ show_menu_when_closed: v })}
             />
             <p className="text-xs text-slate-500 -mt-2">
-              Off: customers see a closed page only. On: menu remains visible.
+              On: customers can browse the menu with a Closed badge. Off: they only see a closed page.
             </p>
             <Toggle
               label="Accept pre-orders"

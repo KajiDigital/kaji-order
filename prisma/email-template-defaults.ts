@@ -36,7 +36,7 @@ const ORDER_CONFIRMATION_HTML = `<!DOCTYPE html>
 
     <div style="background:[PRIMARY_COLOR]11;border-left:4px solid [PRIMARY_COLOR];padding:16px;margin:0 32px 24px;border-radius:4px;">
       {{#if ready_at}}
-      <strong>⏱ Ready for collection at {{ready_at}}</strong><br>
+      <strong>⏱ {{ready_at_label}} {{ready_at}}</strong><br>
       <span style="color:#666;">That&apos;s approximately {{prep_time}} minutes from now</span><br>
       <span style="color:#666;">{{order_type_message}}</span>
       {{else}}
@@ -79,7 +79,7 @@ const ORDER_CONFIRMATION_HTML = `<!DOCTYPE html>
 
         {{#if ready_at}}
         <div style="background:{{primary_color}}22;border-radius:6px;padding:14px;margin-top:16px;text-align:center;">
-          <p style="margin:0;font-size:12px;color:#666;">Ready for collection at</p>
+          <p style="margin:0;font-size:12px;color:#666;">{{ready_at_label}}</p>
           <p style="margin:6px 0 0;font-size:22px;font-weight:bold;color:{{primary_color}};">{{ready_at}}</p>
           <p style="margin:4px 0 0;font-size:13px;color:#888;">Approximately {{prep_time}} minutes</p>
         </div>
