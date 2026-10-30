@@ -226,9 +226,11 @@ export async function POST(request: Request) {
         intentParams.capture_method = 'manual'
       }
 
-      if (restaurant.stripe_account_id && totals.platformFeePence > 0) {
-        intentParams.application_fee_amount = totals.platformFeePence
+      if (restaurant.stripe_account_id && restaurant.stripe_charges_enabled) {
         intentParams.transfer_data = { destination: restaurant.stripe_account_id }
+        if (totals.platformFeePence > 0) {
+          intentParams.application_fee_amount = totals.platformFeePence
+        }
       }
 
       const intent = await stripe.paymentIntents.create(intentParams)

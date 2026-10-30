@@ -43,6 +43,9 @@ type RestaurantData = {
   restaurant_type?: string | null
   pricing_plan: string
   commission_pct: number
+  stripe_account_id?: string | null
+  stripe_charges_enabled?: boolean
+  stripe_details_submitted?: boolean
   admin_notes?: string | null
   logo_url?: string | null
   banner_url?: string | null
@@ -339,6 +342,19 @@ export function AdminRestaurantDetail({
             onChange={(v) => setData({ ...data, commission_pct: parseInt(v, 10) || 0 })}
             type="number"
           />
+          <div>
+            <label className="text-xs text-slate-400">Stripe Connect</label>
+            <p className="mt-1 text-sm text-white">
+              {data.stripe_charges_enabled
+                ? 'Ready — payments go to the restaurant'
+                : data.stripe_account_id
+                  ? 'Started — onboarding not finished'
+                  : 'Not connected'}
+            </p>
+            {data.stripe_account_id && (
+              <p className="text-xs text-slate-500 mt-1 font-mono break-all">{data.stripe_account_id}</p>
+            )}
+          </div>
           <div>
             <label className="text-xs text-slate-400">Service fee (platform)</label>
             <p className="mt-1 text-sm text-white">{formatPence(stats.platformServiceFeePence)}</p>

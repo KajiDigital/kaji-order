@@ -11,6 +11,7 @@ import { getAppUrl } from '@/app/lib/utils'
 import { markOrderRefundedFromStripe } from '@/app/lib/refund-order'
 import { buildPrepFields } from '@/app/lib/order-expiry'
 import { markManualAuthorisation } from '@/app/lib/payment-capture'
+import { persistConnectStatus } from '@/app/lib/stripe-connect'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +91,17 @@ export async function POST(request: Request) {
           data: { stripe_payment_status: 'captured' },
         })
       }
+    }
+  }
+
+  if (event.type === 'account.updated') {
+    const account = event.data.object
+    const restaurant = await prisma.restaurant.findFirst({
+      where: { stripe_account_id: account.id },
+      select: { id: true },
+    })
+    if (restaurant) {
+      await persistConnectStatus(restaurant.id, account)
     }
   }
 

@@ -61,7 +61,8 @@ export default async function DashboardPage() {
 
   const hasMenu = restaurant.menu_categories.length > 0
   const hasHours = Boolean(restaurant.opening_hours)
-  const hasStripe = Boolean(restaurant.stripe_account_id)
+  const hasStripe =
+    Boolean(restaurant.stripe_account_id) && restaurant.stripe_charges_enabled
 
   return (
     <div className="space-y-8">

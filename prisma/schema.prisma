@@ -114,9 +114,12 @@ model Restaurant {
   kaji_cloud_id           String?       @unique
   pricing_plan            PricingPlan   @default(COMMISSION)
   commission_pct          Int           @default(5)
-  stripe_account_id       String?
-  stripe_customer_id      String?
-  stripe_subscription_id  String?
+  stripe_account_id          String?
+  stripe_details_submitted   Boolean  @default(false)
+  stripe_charges_enabled     Boolean  @default(false)
+  stripe_payouts_enabled     Boolean  @default(false)
+  stripe_customer_id         String?
+  stripe_subscription_id     String?
   holiday_mode            Boolean       @default(false)
   holiday_message         String?
   opening_hours           Json?
