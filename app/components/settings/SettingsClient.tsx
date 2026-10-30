@@ -174,7 +174,7 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`px-3 py-1.5 rounded-lg text-sm ${tab === t ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+            className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer ${tab === t ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'}`}
           >
             {t}
           </button>
@@ -528,7 +528,7 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
                       key={mins}
                       type="button"
                       onClick={() => setData({ ...data, avg_prep_minutes: mins })}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                      className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer ${
                         data.avg_prep_minutes === mins
                           ? 'bg-violet-600 text-white'
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -586,7 +586,7 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
         <div className="space-y-4 max-w-lg">
           <Toggle label="Email notifications" checked={data.email_notifications} onChange={(v) => save({ email_notifications: v })} />
           <Toggle label="Sound alerts" checked={data.sound_alerts} onChange={(v) => save({ sound_alerts: v })} />
-          <button type="button" onClick={playTestSound} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm">
+          <button type="button" onClick={playTestSound} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm cursor-pointer">
             Test sound
           </button>
         </div>
@@ -598,7 +598,7 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
             <h2 className="font-semibold text-white mb-2">Your ordering link</h2>
             <p className="text-violet-400 break-all text-sm mb-4">{orderUrl}</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={copyLink} className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm">
+              <button type="button" onClick={copyLink} className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm cursor-pointer">
                 {copied ? 'Copied!' : 'Copy link'}
               </button>
               <a href={orderUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm">
@@ -642,7 +642,7 @@ function Field({ label, value, onChange, multiline }: { label: string; value: st
 
 function Toggle({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <label className={`flex items-center gap-2 text-white ${disabled ? 'opacity-50' : ''}`}>
+    <label className={`flex items-center gap-2 text-white cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
@@ -651,7 +651,7 @@ function Toggle({ label, checked, onChange, disabled }: { label: string; checked
 
 function SaveBtn({ saving, onClick }: { saving: boolean; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} disabled={saving} className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50">
+    <button type="button" onClick={onClick} disabled={saving} className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
       {saving ? 'Saving...' : 'Save changes'}
     </button>
   )

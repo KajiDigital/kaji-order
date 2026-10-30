@@ -51,7 +51,7 @@ export function PhotoUpload({
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white hover:bg-slate-700 disabled:opacity-50"
+          className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy ? 'Uploading…' : label}
         </button>
@@ -59,7 +59,7 @@ export function PhotoUpload({
           <button
             type="button"
             onClick={() => onChange('')}
-            className="text-sm text-slate-400 hover:text-white"
+            className="text-sm text-slate-400 hover:text-white cursor-pointer"
           >
             Remove
           </button>

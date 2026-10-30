@@ -70,7 +70,7 @@ export function DashboardShell({
           <button
             type="button"
             onClick={logout}
-            className="text-sm text-slate-400 hover:text-white shrink-0"
+            className="text-sm text-slate-400 hover:text-white shrink-0 cursor-pointer"
           >
             Sign out
           </button>
@@ -80,7 +80,7 @@ export function DashboardShell({
             <Link
               key={item.href}
               href={item.href}
-              className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap cursor-pointer ${
                 pathname === item.href || pathname.startsWith(item.href + '/')
                   ? 'bg-violet-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'

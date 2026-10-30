@@ -149,7 +149,7 @@ function renderOrderCard(
       <button
         type="button"
         onClick={() => onSelect(order)}
-        className="w-full text-left"
+        className="w-full text-left cursor-pointer"
       >
       <div className="flex justify-between items-start">
         <span className="font-bold text-white">{formatOrderNumber(order.order_number)}</span>
@@ -222,7 +222,7 @@ function renderOrderCard(
               }
               action(order.id, next.endpoint)
             }}
-            className="text-xs px-2.5 py-1.5 rounded-md bg-violet-600 text-white hover:bg-violet-500"
+            className="text-xs px-2.5 py-1.5 rounded-md bg-violet-600 text-white hover:bg-violet-500 cursor-pointer"
           >
             {next.label}
           </button>
@@ -411,7 +411,7 @@ export function KanbanBoard({
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900 shrink-0">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 text-sm text-slate-200 hover:bg-slate-800 hover:text-white cursor-pointer"
         >
           <span aria-hidden="true">←</span>
           Exit
@@ -421,8 +421,8 @@ export function KanbanBoard({
             <button
               type="button"
               onClick={() => setView('live')}
-              className={`px-3 py-1.5 rounded-md text-sm ${
-                view === 'live' ? 'bg-violet-600 text-white' : 'text-slate-400'
+              className={`px-3 py-1.5 rounded-md text-sm cursor-pointer ${
+                view === 'live' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
               Live
@@ -430,8 +430,8 @@ export function KanbanBoard({
             <button
               type="button"
               onClick={() => setView('today')}
-              className={`px-3 py-1.5 rounded-md text-sm ${
-                view === 'today' ? 'bg-violet-600 text-white' : 'text-slate-400'
+              className={`px-3 py-1.5 rounded-md text-sm cursor-pointer ${
+                view === 'today' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
               Today
@@ -439,8 +439,8 @@ export function KanbanBoard({
             <button
               type="button"
               onClick={() => setView('archive')}
-              className={`px-3 py-1.5 rounded-md text-sm ${
-                view === 'archive' ? 'bg-violet-600 text-white' : 'text-slate-400'
+              className={`px-3 py-1.5 rounded-md text-sm cursor-pointer ${
+                view === 'archive' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
               Archive
@@ -528,7 +528,7 @@ export function KanbanBoard({
           <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
             <div className="flex justify-between mb-4">
               <h3 className="text-lg font-bold text-white">{formatOrderNumber(selected.order_number)}</h3>
-              <button type="button" onClick={() => setSelected(null)} className="text-slate-400">✕</button>
+              <button type="button" onClick={() => setSelected(null)} className="text-slate-400 cursor-pointer">✕</button>
             </div>
             <p className="text-slate-300">{selected.customer_name}</p>
             <p className="text-sm text-slate-500">{selected.customer_email}</p>
@@ -578,7 +578,7 @@ export function KanbanBoard({
                     setAcceptTarget(selected)
                     setSelected(null)
                   }}
-                  className="w-full py-2 bg-violet-600 text-white rounded-lg text-sm font-medium"
+                  className="w-full py-2 bg-violet-600 text-white rounded-lg text-sm font-medium cursor-pointer"
                 >
                   Accept order
                 </button>
@@ -591,7 +591,7 @@ export function KanbanBoard({
                 <button
                   type="button"
                   onClick={() => action(selected.id, 'reject', { reason: rejectReason || 'Rejected' })}
-                  className="w-full py-2 bg-red-600 text-white rounded-lg text-sm"
+                  className="w-full py-2 bg-red-600 text-white rounded-lg text-sm cursor-pointer"
                 >
                   Reject order
                 </button>
@@ -601,7 +601,7 @@ export function KanbanBoard({
               <button
                 type="button"
                 onClick={() => setRefundTarget(selected)}
-                className="w-full mt-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm hover:bg-red-600/30"
+                className="w-full mt-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm hover:bg-red-600/30 cursor-pointer"
               >
                 Refund {formatPence(selected.total_pence)}
               </button>
@@ -649,7 +649,7 @@ function ActionBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`text-xs px-2 py-1 rounded ${
+      className={`text-xs px-2 py-1 rounded cursor-pointer ${
         variant === 'danger'
           ? 'bg-red-600/20 text-red-400 hover:bg-red-600/40'
           : 'bg-violet-600/20 text-violet-300 hover:bg-violet-600/40'

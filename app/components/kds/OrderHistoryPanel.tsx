@@ -67,7 +67,7 @@ export function OrderTodayPanel() {
               key={order.id}
               type="button"
               onClick={() => setSelected(order)}
-              className="w-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-violet-500"
+              className="w-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-violet-500 cursor-pointer"
             >
               <div className="flex justify-between items-start">
                 <div>
@@ -162,8 +162,8 @@ export function OrderArchivePanel() {
           <option value="COLLECTION">Collection</option>
           <option value="DELIVERY">Delivery</option>
         </select>
-        <button type="button" onClick={load} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm">Search</button>
-        <button type="button" onClick={exportCsv} className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm">Export CSV</button>
+        <button type="button" onClick={load} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm cursor-pointer">Search</button>
+        <button type="button" onClick={exportCsv} className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm cursor-pointer">Export CSV</button>
       </div>
 
       <div className="space-y-2">
@@ -172,7 +172,7 @@ export function OrderArchivePanel() {
             key={order.id}
             type="button"
             onClick={() => setSelected(order)}
-            className="w-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-violet-500"
+            className="w-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-violet-500 cursor-pointer"
           >
             <div className="flex justify-between">
               <div>
@@ -212,7 +212,7 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
           ))}
         </ul>
         <p className="font-bold text-white mt-4">{formatPence(order.total_pence)}</p>
-        <button type="button" onClick={onClose} className="mt-4 w-full py-2 bg-slate-800 text-white rounded-lg text-sm">Close</button>
+        <button type="button" onClick={onClose} className="mt-4 w-full py-2 bg-slate-800 text-white rounded-lg text-sm cursor-pointer">Close</button>
       </div>
     </div>
   )
