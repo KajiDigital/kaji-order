@@ -54,6 +54,38 @@ export function clearBasket(slug: string): void {
   localStorage.removeItem(basketKey(slug))
 }
 
+export function addItemsToBasket(
+  slug: string,
+  items: BasketItemPayload[],
+  orderType?: BasketOrderType
+): Basket {
+  const current = getBasket(slug)
+  const nextItems = [...(current?.items ?? [])]
+  for (const item of items) {
+    const key = basketItemKey(item)
+    const existing = nextItems.find((row) => basketItemKey(row) === key)
+    if (existing) {
+      existing.quantity += item.quantity
+      existing.total_price += item.total_price
+      existing.options_price += item.options_price
+    } else {
+      nextItems.push(item)
+    }
+  }
+  const basket: Basket = {
+    items: nextItems,
+    restaurantSlug: slug,
+    orderType: orderType ?? current?.orderType,
+    deliveryAddress: current?.deliveryAddress,
+    deliveryPostcode: current?.deliveryPostcode,
+    fulfillmentChosen: current?.fulfillmentChosen,
+    appliedDiscount: current?.appliedDiscount ?? null,
+    updatedAt: new Date().toISOString(),
+  }
+  saveBasket(slug, basket)
+  return basket
+}
+
 export function itemLineTotal(item: BasketItemPayload): number {
   return item.total_price ?? calcLineTotal(
     item.base_price,

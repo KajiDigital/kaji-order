@@ -1,42 +1,40 @@
 export const dynamic = 'force-dynamic'
 
-import { Suspense } from 'react'
 import prisma from '@/app/lib/prisma'
+import { latestIsoTimestamp } from '@/app/lib/admin-format'
+import { startOfLondonDay } from '@/app/lib/london-time'
 import { AdminRestaurantsClient } from '@/app/components/admin/AdminRestaurantsClient'
 
 export default async function AdminRestaurantsPage() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
   const restaurants = await prisma.restaurant.findMany({
     where: { deleted_at: null },
     include: {
       orders: {
-        where: { created_at: { gte: today } },
+        where: { created_at: { gte: startOfLondonDay() } },
         select: { commission_pence: true },
       },
+      staff: { select: { last_login_at: true } },
     },
     orderBy: { created_at: 'desc' },
   })
 
-  const data = restaurants.map((r) => ({
-    id: r.id,
-    name: r.name,
-    slug: r.slug,
-    email: r.email,
-    phone: r.phone,
-    contact_name: r.contact_name,
-    restaurant_type: r.restaurant_type,
-    description: r.description,
-    status: r.status,
-    pricing_plan: r.pricing_plan,
-    ordersToday: r.orders.length,
-    commissionToday: r.orders.reduce((s, o) => s + o.commission_pence, 0),
-  }))
-
   return (
-    <Suspense fallback={<p className="text-slate-400">Loading...</p>}>
-      <AdminRestaurantsClient restaurants={data} />
-    </Suspense>
+    <AdminRestaurantsClient
+      restaurants={restaurants.map((restaurant) => ({
+        id: restaurant.id,
+        name: restaurant.name,
+        slug: restaurant.slug,
+        email: restaurant.email,
+        phone: restaurant.phone,
+        contact_name: restaurant.contact_name,
+        restaurant_type: restaurant.restaurant_type,
+        status: restaurant.status,
+        pricing_plan: restaurant.pricing_plan,
+        created_at: restaurant.created_at.toISOString(),
+        last_login_at: latestIsoTimestamp(restaurant.staff.map((staff) => staff.last_login_at)),
+        ordersToday: restaurant.orders.length,
+        commissionToday: restaurant.orders.reduce((sum, order) => sum + order.commission_pence, 0),
+      }))}
+    />
   )
 }

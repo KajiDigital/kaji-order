@@ -47,16 +47,16 @@ kaji-order (own DB: kaji_order)
     ├── NO shared tables with kaji-cloud
     │
     └── API only → kaji-cloud (KAJI_CLOUD_API_URL)
-            ├── Menu sync (POS linked)
-            ├── Order push → POS KDS
+            ├── Menu pull from POS snapshot (Sprint 13)
+            ├── Order push → POS Kitchen / Takeaway (Sprint 13 — not live)
             └── Restaurant verification
 ```
 
 **Restaurant types**
 | Type | menu_source | Behaviour |
 |------|-------------|-----------|
-| OOS only | `manual` | Menu in kaji-order dashboard |
-| POS + OOS | `kaji_sync` | Sync via kaji-cloud; orders → KDS; `kaji_cloud_id` links |
+| OOS only | `manual` | Menu in kaji-order dashboard. Live today. |
+| POS + OOS | `kaji_sync` | Sprint 13. Menu from POS via cloud; orders → POS; `kaji_cloud_id` links |
 
 ---
 
@@ -124,11 +124,13 @@ pm2 restart kaji-order && pm2 save
 ---
 
 ## Sprint Snapshot
-**S10 (now):** setup · SaaS/admin · onboarding · menu · public pages · checkout · Stripe · KDS · commission · email
+**S10:** setup · SaaS/admin · onboarding · menu · public pages · checkout · Stripe · KDS · commission · email
 
-**S11:** delivery · scheduling · photos · customer accounts · loyalty · POS KDS
+**S11 (in progress):** delivery · photos · customer accounts · scheduling · loyalty
 
 **S12:** Stripe automation · custom domains · multi-site
+
+**S13 (planned):** POS + OOS link — paid website orders on the till. Spec: `SPRINT_13.md`
 
 ---
 

@@ -110,6 +110,7 @@ export default function CheckoutPage() {
   const [deliveryError, setDeliveryError] = useState('')
   const [deliveryValidated, setDeliveryValidated] = useState(false)
   const [deliveryMinOrder, setDeliveryMinOrder] = useState(0)
+  const [loggedIn, setLoggedIn] = useState(false)
 
   const validateDeliveryPostcode = useCallback(
     async (postcode: string) => {
@@ -174,6 +175,22 @@ export default function CheckoutPage() {
     if (basket.orderType) setOrderType(basket.orderType)
     if (basket.deliveryAddress) setDeliveryAddress(basket.deliveryAddress)
     if (basket.deliveryPostcode) setDeliveryPostcode(basket.deliveryPostcode)
+
+    fetch(`/api/customer/me?slug=${encodeURIComponent(slug)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.customer) return
+        setLoggedIn(true)
+        setName((current) => current || d.customer.name || '')
+        setEmail((current) => current || d.customer.email || '')
+        setPhone((current) => current || d.customer.phone || '')
+        const saved = d.customer.addresses?.[0]
+        if (saved) {
+          setDeliveryAddress((current) => current || saved.address || '')
+          setDeliveryPostcode((current) => current || saved.postcode || '')
+        }
+      })
+      .catch(() => undefined)
 
     fetch(`/api/menu/${slug}`)
       .then((r) => r.json())
@@ -404,6 +421,29 @@ export default function CheckoutPage() {
             <input required type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
             <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
             <textarea placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" rows={2} />
+            {!loggedIn ? (
+              <p className="text-xs text-slate-500">
+                Have an account?{' '}
+                <Link href={`/${slug}/account/login`} className="text-violet-600 hover:underline">
+                  Log in
+                </Link>{' '}
+                to prefill these details. Guest checkout is fine.{' '}
+                <Link href={`/${slug}/privacy`} className="underline">
+                  Privacy
+                </Link>
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">
+                Signed in — this order will appear in{' '}
+                <Link href={`/${slug}/account`} className="text-violet-600 hover:underline">
+                  My orders
+                </Link>
+                .{' '}
+                <Link href={`/${slug}/privacy`} className="underline">
+                  Privacy
+                </Link>
+              </p>
+            )}
           </div>
           {!clientSecret && !orderId && (
             <button

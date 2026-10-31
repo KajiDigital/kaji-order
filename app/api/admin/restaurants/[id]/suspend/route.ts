@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/app/lib/admin-auth'
-import prisma from '@/app/lib/prisma'
-import { logAdminChange } from '@/app/lib/audit'
+import { deactivateRestaurant } from '@/app/lib/admin-restaurant-status'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -14,13 +14,12 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   const { id } = await params
-
-  logAdminChange(admin.email, id, { action: 'suspend', status: 'suspended' })
-
-  const restaurant = await prisma.restaurant.update({
-    where: { id },
-    data: { status: 'suspended' },
-  })
-
-  return NextResponse.json({ restaurant })
+  const result = await deactivateRestaurant(id, admin.email)
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.error === 'Not found' ? 404 : 400 }
+    )
+  }
+  return NextResponse.json({ success: true })
 }

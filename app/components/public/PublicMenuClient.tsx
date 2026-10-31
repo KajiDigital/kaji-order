@@ -17,6 +17,7 @@ import { DeliveryAddressPicker } from './DeliveryAddressPicker'
 import { FulfillmentToggle } from './FulfillmentToggle'
 import { ProductModal } from './ProductModal'
 import { PromotionsBanner } from './PromotionsBanner'
+import { CustomerAccountLinks } from './CustomerAccountLinks'
 import type { Category, MenuPromotion, Product, Restaurant } from './menu-types'
 import { getFontClass } from '@/app/lib/branding'
 
@@ -643,6 +644,11 @@ export function PublicMenuClient({
             </span>
           </div>
         </div>
+        {!isPreview && (
+          <div className="absolute right-4 top-4 z-20 sm:right-6">
+            <CustomerAccountLinks slug={restaurant.slug} primary={primary} />
+          </div>
+        )}
       </div>
 
       <PromotionsBanner messages={promotionBannerMessages} />

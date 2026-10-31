@@ -144,6 +144,7 @@ model Restaurant {
   updated_at              DateTime      @updatedAt
 
   staff             RestaurantStaff[]
+  customers         Customer[]
   menu_categories   MenuCategory[]
   menu_items        MenuItem[]
   attribute_sets    AttributeSet[]
@@ -522,6 +523,8 @@ model OnlineOrder {
   id                       String      @id @default(uuid())
   restaurant_id            String
   restaurant               Restaurant  @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  customer_id              String?
+  customer                 Customer?   @relation(fields: [customer_id], references: [id], onDelete: SetNull)
   order_number             Int
   status                   OrderStatus @default(PENDING)
   order_type               OrderType   @default(COLLECTION)
@@ -567,7 +570,43 @@ model OnlineOrder {
 
   @@unique([restaurant_id, order_number])
   @@index([restaurant_id, status, created_at])
+  @@index([customer_id])
   @@map("online_orders")
+}
+
+model Customer {
+  id            String    @id @default(uuid())
+  restaurant_id String
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  email         String
+  password      String
+  name          String
+  phone         String?
+  last_login_at DateTime?
+  deleted_at    DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  addresses CustomerAddress[]
+  orders    OnlineOrder[]
+
+  @@unique([restaurant_id, email])
+  @@index([restaurant_id])
+  @@index([last_login_at])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id          String   @id @default(uuid())
+  customer_id String
+  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  label       String?
+  address     String
+  postcode    String
+  created_at  DateTime @default(now())
+
+  @@index([customer_id])
+  @@map("customer_addresses")
 }
 
 model OnlineOrderItem {

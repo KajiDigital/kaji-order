@@ -1,4 +1,11 @@
+import type { OrderStatus } from '@prisma/client'
 import prisma from './prisma'
+
+export const CLOSED_ORDER_STATUSES: OrderStatus[] = ['CANCELLED', 'REJECTED', 'REFUNDED']
+
+export function isLiveOrder(status: string) {
+  return !CLOSED_ORDER_STATUSES.includes(status as OrderStatus)
+}
 
 export async function getNextOrderNumber(restaurantId: string): Promise<number> {
   const last = await prisma.onlineOrder.findFirst({

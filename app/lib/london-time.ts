@@ -84,3 +84,15 @@ export function readyAtFromLondonClock(
 export function londonHhmmInMinutes(from = new Date(), mins: number) {
   return londonDateParts(new Date(from.getTime() + mins * 60_000)).hhmm
 }
+
+export function startOfLondonDay(ymd = londonDateParts().ymd) {
+  return londonWallTimeToDate(ymd, '00:00')
+}
+
+export function londonMonthStart(parts: { year: number; month: number } = londonDateParts()) {
+  return startOfLondonDay(`${parts.year}-${pad(parts.month)}-01`)
+}
+
+export function shiftLondonYmd(ymd: string, days: number) {
+  return londonDateParts(new Date(startOfLondonDay(ymd).getTime() + days * 86_400_000)).ymd
+}

@@ -25,25 +25,26 @@ export function AdminShell({
           <p className="text-xs text-slate-400">{admin.email}</p>
         </div>
         <div className="flex items-center gap-4">
-          <Link
-            href="/admin"
-            className={`text-sm ${pathname === '/admin' ? 'text-white' : 'text-slate-400'}`}
+          {[
+            { href: '/admin', label: 'Dashboard', match: pathname === '/admin' },
+            { href: '/admin/reports', label: 'Reports', match: pathname.startsWith('/admin/reports') },
+            { href: '/admin/restaurants', label: 'Restaurants', match: pathname.startsWith('/admin/restaurants') },
+            { href: '/admin/customers', label: 'Customers', match: pathname.startsWith('/admin/customers') },
+            { href: '/admin/settings', label: 'Settings', match: pathname === '/admin/settings' },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`cursor-pointer text-sm ${item.match ? 'text-white' : 'text-slate-400'}`}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <button
+            type="button"
+            onClick={logout}
+            className="cursor-pointer text-sm text-slate-400 hover:text-white"
           >
-            Dashboard
-          </Link>
-          <Link
-            href="/admin/restaurants"
-            className={`text-sm ${pathname.startsWith('/admin/restaurants') ? 'text-white' : 'text-slate-400'}`}
-          >
-            Restaurants
-          </Link>
-          <Link
-            href="/admin/settings"
-            className={`text-sm ${pathname === '/admin/settings' ? 'text-white' : 'text-slate-400'}`}
-          >
-            Settings
-          </Link>
-          <button type="button" onClick={logout} className="text-sm text-slate-400 hover:text-white">
             Sign out
           </button>
         </div>

@@ -4,9 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatOrderNumber, formatPence, getOrderUrl } from '@/app/lib/utils'
+import { formatLondonWhen } from '@/app/lib/admin-format'
 import { DEFAULT_PRIMARY, FONT_OPTIONS } from '@/app/lib/branding'
 import { canRefundOrder } from '@/app/lib/refunds'
 import { RefundDialog } from '@/app/components/kds/RefundDialog'
+import { InviteEmailDialog } from '@/app/components/admin/InviteEmailDialog'
 
 type Order = {
   id: string
@@ -136,6 +138,14 @@ export function AdminRestaurantDetail({
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [refundTarget, setRefundTarget] = useState<Order | null>(null)
+  const [tab, setTab] = useState<'overview' | 'details' | 'branding' | 'orders'>('overview')
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0)
+  const [deleteName, setDeleteName] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
+  const [deactivateStep, setDeactivateStep] = useState<0 | 1 | 2>(0)
+  const [deactivateName, setDeactivateName] = useState('')
+  const [deactivating, setDeactivating] = useState(false)
 
   async function saveAll() {
     setSaving(true)
@@ -179,8 +189,6 @@ export function AdminRestaurantDetail({
         banner_url: data.banner_url,
         font_choice: data.font_choice,
         show_powered_by: data.show_powered_by,
-        pricing_plan: data.pricing_plan,
-        commission_pct: data.commission_pct,
       }),
     })
     const json = await res.json()
@@ -246,12 +254,81 @@ export function AdminRestaurantDetail({
       window.location.href = json.redirect
       return
     }
-    if (path === 'delete') {
-      router.push('/admin/restaurants')
-      return
-    }
     router.refresh()
     setMessage(`Action completed: ${path}`)
+  }
+
+  function cancelDelete() {
+    setDeleteStep(0)
+    setDeleteName('')
+    setDeleting(false)
+  }
+
+  function cancelDeactivate() {
+    setDeactivateStep(0)
+    setDeactivateName('')
+    setDeactivating(false)
+  }
+
+  async function confirmDeactivate() {
+    if (deactivateStep === 1) {
+      setDeactivateStep(2)
+      setDeactivateName('')
+      return
+    }
+    if (deactivateName.trim() !== data.name) return
+
+    setDeactivating(true)
+    const res = await fetch(`/api/admin/restaurants/${data.id}/suspend`, { method: 'POST' })
+    const json = await res.json()
+    setDeactivating(false)
+    if (!res.ok) {
+      alert(json.error ?? 'Could not deactivate restaurant')
+      return
+    }
+    setData({ ...data, status: 'suspended' })
+    cancelDeactivate()
+    setMessage('Restaurant deactivated. Public menu and staff login are offline.')
+    router.refresh()
+  }
+
+  async function activateRestaurant() {
+    const res = await fetch(`/api/admin/restaurants/${data.id}/activate`, { method: 'POST' })
+    const json = await res.json()
+    if (!res.ok) {
+      alert(json.error ?? 'Could not activate restaurant')
+      return
+    }
+    setData({ ...data, status: 'active' })
+    setMessage('Restaurant activated.')
+    router.refresh()
+  }
+
+  async function confirmDelete() {
+    if (deleteStep === 0) {
+      setDeleteStep(1)
+      setDeleteName('')
+      return
+    }
+    if (deleteStep === 1) {
+      setDeleteStep(2)
+      setDeleteName('')
+      return
+    }
+    if (deleteName.trim() !== data.name) {
+      setMessage('')
+      return
+    }
+
+    setDeleting(true)
+    const res = await fetch(`/api/admin/restaurants/${data.id}/delete`, { method: 'POST' })
+    const json = await res.json()
+    setDeleting(false)
+    if (!res.ok) {
+      alert(json.error ?? 'Could not delete restaurant')
+      return
+    }
+    router.push('/admin/restaurants')
   }
 
   async function handleAdminRefund(reason: string, amountPence?: number) {
@@ -270,36 +347,324 @@ export function AdminRestaurantDetail({
     setMessage('Refund processed successfully')
   }
 
+  const statusLabel = data.status === 'suspended' ? 'Deactivated' : data.status
+
   return (
     <div className="space-y-8">
-      <Link href="/admin/restaurants" className="text-sm text-violet-400">← Back</Link>
+      <Link href="/admin/restaurants" className="cursor-pointer text-sm text-violet-400">
+        ← Back
+      </Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">{data.name}</h1>
-          <p className="text-slate-400 text-sm capitalize">{data.status}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/admin/restaurants/${data.id}/emails`}
-            className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg text-sm hover:bg-slate-700"
+          <p className="mt-1 text-sm capitalize text-slate-400">{statusLabel}</p>
+          <a
+            href={getOrderUrl(data.slug)}
+            target="_blank"
+            rel="noreferrer"
+            className="cursor-pointer text-xs text-violet-400 hover:underline"
           >
-            Email templates
-          </Link>
-          <button
-          type="button"
-          onClick={saveAll}
-          disabled={saving}
-          className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save all'}
-        </button>
+            {getOrderUrl(data.slug)}
+          </a>
         </div>
+        <Link
+          href={`/admin/restaurants/${data.id}/emails`}
+          className="cursor-pointer rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-200 hover:bg-slate-700"
+        >
+          Email templates
+        </Link>
       </div>
+
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            { id: 'overview', label: 'Overview' },
+            { id: 'details', label: 'Details' },
+            { id: 'branding', label: 'Branding' },
+            { id: 'orders', label: 'Orders' },
+          ] as const
+        ).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setTab(item.id)}
+            className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm ${
+              tab === item.id ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {message && <p className="text-sm text-emerald-400">{message}</p>}
 
-      {/* Section 1: Editable details */}
+      {tab === 'overview' && (
+        <>
+          <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
+            <h2 className="mb-4 font-semibold text-white">Quick actions</h2>
+            <div className="flex flex-wrap gap-2">
+              <ActionBtn
+                label="Send invite email"
+                onClick={() => setShowInvite(true)}
+                active={showInvite}
+              />
+              <ActionBtn label="Reset password" onClick={toggleResetPassword} active={showResetPassword} />
+              <ActionBtn label="Impersonate" onClick={() => action('impersonate')} variant="amber" />
+              {data.status === 'active' && (
+                <ActionBtn
+                  label="Deactivate"
+                  onClick={() => {
+                    cancelDelete()
+                    if (deactivateStep === 0) setDeactivateStep(1)
+                  }}
+                  variant="warn"
+                  active={deactivateStep > 0}
+                />
+              )}
+              {data.status === 'suspended' && (
+                <ActionBtn
+                  label="Activate"
+                  onClick={() => void activateRestaurant()}
+                />
+              )}
+              <ActionBtn
+                label="Delete account"
+                onClick={() => {
+                  cancelDeactivate()
+                  if (deleteStep === 0) setDeleteStep(1)
+                }}
+                variant="danger"
+                active={deleteStep > 0}
+              />
+              {data.email && (
+                <a
+                  href={`mailto:${data.email}`}
+                  className="cursor-pointer rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300"
+                >
+                  Contact
+                </a>
+              )}
+            </div>
+            {deactivateStep === 1 && (
+              <div className="mt-4 rounded-lg border border-orange-900/70 bg-orange-950/40 p-4">
+                <p className="text-sm font-medium text-orange-200">Deactivate {data.name}?</p>
+                <p className="mt-1 text-sm text-orange-300/80">
+                  The public menu will go offline and staff will not be able to sign in.
+                  Orders, customers, and branding stay in place so you can activate again later.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelDeactivate}
+                    className="cursor-pointer rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void confirmDeactivate()}
+                    className="cursor-pointer rounded-lg bg-orange-600 px-3 py-1.5 text-sm text-white"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            )}
+            {deactivateStep === 2 && (
+              <div className="mt-4 rounded-lg border border-orange-700 bg-orange-950/60 p-4">
+                <p className="text-sm font-medium text-orange-100">Are you sure? The restaurant will go offline.</p>
+                <p className="mt-1 text-sm text-orange-300/80">
+                  Type <span className="font-medium text-white">{data.name}</span> to confirm deactivation.
+                </p>
+                <input
+                  value={deactivateName}
+                  onChange={(e) => setDeactivateName(e.target.value)}
+                  autoComplete="off"
+                  placeholder={data.name}
+                  className="mt-3 w-full rounded-lg border border-orange-800 bg-slate-900 px-3 py-2 text-sm text-white"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelDeactivate}
+                    className="cursor-pointer rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-200"
+                  >
+                    Keep active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void confirmDeactivate()}
+                    disabled={deactivating || deactivateName.trim() !== data.name}
+                    className="cursor-pointer rounded-lg bg-orange-700 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                  >
+                    {deactivating ? 'Deactivating...' : 'Yes, deactivate'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {deleteStep === 1 && (
+              <div className="mt-4 rounded-lg border border-red-900/70 bg-red-950/40 p-4">
+                <p className="text-sm font-medium text-red-200">Delete {data.name}?</p>
+                <p className="mt-1 text-sm text-red-300/80">
+                  The public menu will go offline and this restaurant will be hidden from admin lists.
+                  Past orders are kept for records.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelDelete}
+                    className="cursor-pointer rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void confirmDelete()}
+                    className="cursor-pointer rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            )}
+            {deleteStep === 2 && (
+              <div className="mt-4 rounded-lg border border-red-700 bg-red-950/60 p-4">
+                <p className="text-sm font-medium text-red-100">Are you sure? This cannot be undone.</p>
+                <p className="mt-1 text-sm text-red-300/80">
+                  Type <span className="font-medium text-white">{data.name}</span> to confirm permanent deletion.
+                </p>
+                <input
+                  value={deleteName}
+                  onChange={(e) => setDeleteName(e.target.value)}
+                  autoComplete="off"
+                  placeholder={data.name}
+                  className="mt-3 w-full rounded-lg border border-red-800 bg-slate-900 px-3 py-2 text-sm text-white"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelDelete}
+                    className="cursor-pointer rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-200"
+                  >
+                    Keep account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void confirmDelete()}
+                    disabled={deleting || deleteName.trim() !== data.name}
+                    className="cursor-pointer rounded-lg bg-red-700 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting...' : 'Yes, delete permanently'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {passwordMessage && !showResetPassword && (
+              <p className="mt-3 text-sm text-emerald-400">{passwordMessage}</p>
+            )}
+            {showResetPassword && (
+              <div className="mt-4 border-t border-slate-800 pt-4">
+                {data.login_email ? (
+                  <p className="text-xs text-slate-500">
+                    New dashboard password for {data.login_email}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    No dashboard login yet. Send an invite to create one.
+                  </p>
+                )}
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="New password"
+                    value={newPassword}
+                    onChange={setNewPassword}
+                    type="password"
+                    autoComplete="new-password"
+                  />
+                  <Field
+                    label="Confirm password"
+                    value={confirmPassword}
+                    onChange={setConfirmPassword}
+                    type="password"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={setPassword}
+                    disabled={settingPassword || !data.login_email}
+                    className="cursor-pointer rounded-lg bg-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                  >
+                    {settingPassword ? 'Saving...' : 'Set password'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleResetPassword}
+                    className="cursor-pointer px-3 py-2 text-sm text-slate-400"
+                  >
+                    Cancel
+                  </button>
+                  {passwordError && <p className="text-sm text-red-400">{passwordError}</p>}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
+            <h2 className="mb-4 font-semibold text-white">Activity</h2>
+            <dl className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+              <Stat label="Account created" value={new Date(data.created_at).toLocaleDateString('en-GB')} />
+              <Stat
+                label="Last login"
+                value={stats.lastLogin ? new Date(stats.lastLogin).toLocaleString('en-GB') : 'Never'}
+              />
+              <Stat label="Total orders" value={String(stats.totalOrders)} />
+              <Stat label="Orders this month" value={String(stats.ordersThisMonth)} />
+              <Stat label="Commission owed" value={formatPence(stats.totalCommissionOwed)} />
+              <Stat label="Food commission" value={formatPence(stats.commissionThisMonth)} />
+              <Stat label="Service fees" value={formatPence(stats.serviceFeesThisMonth)} />
+              <Stat label="Platform this month" value={formatPence(stats.totalPlatformThisMonth)} />
+            </dl>
+            <div className="mt-6 grid gap-3 text-sm text-slate-300 md:grid-cols-3">
+              <p>
+                <span className="text-slate-500">Contact</span>
+                <br />
+                {data.contact_name || data.email || '—'}
+              </p>
+              <p>
+                <span className="text-slate-500">Plan</span>
+                <br />
+                {data.pricing_plan} · {data.commission_pct}%
+              </p>
+              <p>
+                <span className="text-slate-500">Stripe</span>
+                <br />
+                {data.stripe_charges_enabled
+                  ? 'Ready'
+                  : data.stripe_account_id
+                    ? 'Onboarding unfinished'
+                    : 'Not connected'}
+              </p>
+            </div>
+          </section>
+        </>
+      )}
+
+      {tab === 'details' && (
       <section className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-white">Restaurant details</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold text-white">Restaurant details</h2>
+          <button
+            type="button"
+            onClick={saveAll}
+            disabled={saving}
+            className="cursor-pointer rounded-lg bg-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save details'}
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Restaurant name" value={data.name} onChange={(v) => setData({ ...data, name: v })} />
           <Field label="Contact name" value={data.contact_name ?? ''} onChange={(v) => setData({ ...data, contact_name: v })} />
@@ -373,10 +738,21 @@ export function AdminRestaurantDetail({
           type="textarea"
         />
       </section>
+      )}
 
-      {/* Branding */}
+      {tab === 'branding' && (
       <section className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-white">Branding</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold text-white">Branding</h2>
+          <button
+            type="button"
+            onClick={saveBranding}
+            disabled={savingBranding}
+            className="cursor-pointer rounded-lg bg-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {savingBranding ? 'Saving...' : 'Save branding'}
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-slate-400">Primary colour</label>
@@ -408,24 +784,6 @@ export function AdminRestaurantDetail({
           </div>
           <Field label="Logo URL" value={data.logo_url ?? ''} onChange={(v) => setData({ ...data, logo_url: v })} />
           <Field label="Banner URL" value={data.banner_url ?? ''} onChange={(v) => setData({ ...data, banner_url: v })} />
-          <div>
-            <label className="text-xs text-slate-400">Plan override</label>
-            <select
-              value={data.pricing_plan}
-              onChange={(e) => setData({ ...data, pricing_plan: e.target.value })}
-              className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
-            >
-              {PLANS.map((p) => (
-                <option key={p} value={p}>{p.toLowerCase()}</option>
-              ))}
-            </select>
-          </div>
-          <Field
-            label="Commission % override"
-            value={String(data.commission_pct)}
-            onChange={(v) => setData({ ...data, commission_pct: parseInt(v, 10) || 0 })}
-            type="number"
-          />
         </div>
         <label className="flex items-center gap-2 text-sm text-slate-300">
           <input
@@ -435,83 +793,11 @@ export function AdminRestaurantDetail({
           />
           Show &quot;Powered by Kaji&quot; on menu page
         </label>
-        <button
-          type="button"
-          onClick={saveBranding}
-          disabled={savingBranding}
-          className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
-        >
-          {savingBranding ? 'Saving...' : 'Save branding'}
-        </button>
       </section>
+      )}
 
-      {/* Section 2: Quick actions */}
-      <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <h2 className="font-semibold text-white mb-4">Quick actions</h2>
-        <div className="flex flex-wrap gap-2">
-          <ActionBtn label="Send invite email" onClick={() => action('send-invite')} />
-          <ActionBtn label="Reset password" onClick={toggleResetPassword} active={showResetPassword} />
-          <ActionBtn label="Impersonate" onClick={() => action('impersonate')} variant="amber" />
-          <ActionBtn label="Suspend account" onClick={() => action('suspend', 'Suspend this account?')} variant="warn" />
-          <ActionBtn label="Delete account" onClick={() => action('delete', 'Soft delete this account?')} variant="danger" />
-          {data.email && (
-            <a href={`mailto:${data.email}`} className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-sm">
-              Contact
-            </a>
-          )}
-        </div>
-        {passwordMessage && !showResetPassword && (
-          <p className="text-sm text-emerald-400 mt-3">{passwordMessage}</p>
-        )}
-        {showResetPassword && (
-          <div className="mt-4 pt-4 border-t border-slate-800">
-            {data.login_email ? (
-              <p className="text-xs text-slate-500">
-                New dashboard password for {data.login_email}
-              </p>
-            ) : (
-              <p className="text-xs text-slate-500">
-                No dashboard login yet. Send an invite to create one.
-              </p>
-            )}
-            <div className="grid sm:grid-cols-2 gap-4 mt-3">
-              <Field
-                label="New password"
-                value={newPassword}
-                onChange={setNewPassword}
-                type="password"
-                autoComplete="new-password"
-              />
-              <Field
-                label="Confirm password"
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                type="password"
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-3 mt-3">
-              <button
-                type="button"
-                onClick={setPassword}
-                disabled={settingPassword || !data.login_email}
-                className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
-              >
-                {settingPassword ? 'Saving...' : 'Set password'}
-              </button>
-              <button
-                type="button"
-                onClick={toggleResetPassword}
-                className="px-3 py-2 text-slate-400 text-sm"
-              >
-                Cancel
-              </button>
-              {passwordError && <p className="text-sm text-red-400">{passwordError}</p>}
-            </div>
-          </div>
-        )}
-      </section>
-
+      {tab === 'overview' && (
+        <>
       {/* Promotions */}
       <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -527,7 +813,7 @@ export function AdminRestaurantDetail({
                 alert(json.error ?? 'Failed to impersonate')
               }
             }}
-            className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm"
+            className="cursor-pointer rounded-lg bg-violet-600 px-3 py-1.5 text-sm text-white"
           >
             Create on behalf
           </button>
@@ -567,61 +853,62 @@ export function AdminRestaurantDetail({
         </div>
       </section>
 
-      {/* Section 3: Activity */}
-      <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <h2 className="font-semibold text-white mb-4">Activity</h2>
-        <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          <Stat label="Account created" value={new Date(data.created_at).toLocaleDateString('en-GB')} />
-          <Stat
-            label="Last login"
-            value={stats.lastLogin ? new Date(stats.lastLogin).toLocaleString('en-GB') : 'Never'}
-          />
-          <Stat label="Total orders" value={String(stats.totalOrders)} />
-          <Stat label="Orders this month" value={String(stats.ordersThisMonth)} />
-          <Stat label="Commission owed" value={formatPence(stats.totalCommissionOwed)} />
-          <Stat label="Food commission (month)" value={formatPence(stats.commissionThisMonth)} />
-          <Stat label="Service fees (month)" value={formatPence(stats.serviceFeesThisMonth)} />
-          <Stat label="Total platform (month)" value={formatPence(stats.totalPlatformThisMonth)} />
-        </dl>
-      </section>
-
-      {/* Recent orders */}
       <section>
-        <h2 className="font-semibold text-white mb-4">Recent orders</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold text-white">Recent orders</h2>
+          {data.orders.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTab('orders')}
+              className="cursor-pointer text-sm text-violet-400 hover:underline"
+            >
+              View all orders
+            </button>
+          )}
+        </div>
         <div className="space-y-2">
-          {data.orders.map((order) => (
-            <div key={order.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-              <div className="flex justify-between gap-4">
-                <div>
-                  <p className="text-white font-medium">{formatOrderNumber(order.order_number)}</p>
-                  <p className="text-sm text-slate-400">{order.customer_name}</p>
-                  {order.refund_reason && (
-                    <p className="text-xs text-red-400 mt-1">Refund: {order.refund_reason}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-white">{formatPence(order.total_pence)}</p>
-                  <p className={`text-xs ${order.status === 'REFUNDED' || order.status === 'CANCELLED' ? 'text-red-400' : 'text-slate-500'}`}>
-                    {order.status}
-                  </p>
-                </div>
-              </div>
-              {canRefundOrder(order.status, order.stripe_payment_status as never) && (
-                <button
-                  type="button"
-                  onClick={() => setRefundTarget(order)}
-                  className="mt-3 px-3 py-1.5 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/30"
-                >
-                  Refund
-                </button>
-              )}
-            </div>
+          {data.orders.slice(0, 8).map((order) => (
+            <OrderRow key={order.id} order={order} onRefund={setRefundTarget} />
           ))}
           {data.orders.length === 0 && (
-            <p className="text-slate-500 text-sm">No orders yet.</p>
+            <p className="text-sm text-slate-500">No orders yet.</p>
           )}
         </div>
       </section>
+        </>
+      )}
+
+      {tab === 'orders' && (
+        <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-semibold text-white">Orders</h2>
+            <p className="text-sm text-slate-500">
+              Showing last {data.orders.length} of {stats.totalOrders}
+            </p>
+          </div>
+          <div className="space-y-2">
+            {data.orders.map((order) => (
+              <OrderRow key={order.id} order={order} onRefund={setRefundTarget} />
+            ))}
+            {data.orders.length === 0 && (
+              <p className="text-sm text-slate-500">No orders yet.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {showInvite && (
+        <InviteEmailDialog
+          restaurantId={data.id}
+          restaurantName={data.name}
+          onClose={() => setShowInvite(false)}
+          onSent={(to) => {
+            setShowInvite(false)
+            setMessage(`Invite email sent to ${to}`)
+            router.refresh()
+          }}
+        />
+      )}
 
       {refundTarget && (
         <RefundDialog
@@ -632,6 +919,43 @@ export function AdminRestaurantDetail({
           onConfirm={handleAdminRefund}
           onClose={() => setRefundTarget(null)}
         />
+      )}
+    </div>
+  )
+}
+
+function OrderRow({
+  order,
+  onRefund,
+}: {
+  order: Order
+  onRefund: (order: Order) => void
+}) {
+  const closed = order.status === 'REFUNDED' || order.status === 'CANCELLED' || order.status === 'REJECTED'
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="flex justify-between gap-4">
+        <div>
+          <p className="font-medium text-white">{formatOrderNumber(order.order_number)}</p>
+          <p className="text-sm text-slate-400">{order.customer_name}</p>
+          <p className="mt-1 text-xs text-slate-500">{formatLondonWhen(order.created_at)}</p>
+          {order.refund_reason && (
+            <p className="mt-1 text-xs text-red-400">Refund: {order.refund_reason}</p>
+          )}
+        </div>
+        <div className="text-right">
+          <p className="text-white">{formatPence(order.total_pence)}</p>
+          <p className={`text-xs ${closed ? 'text-red-400' : 'text-slate-500'}`}>{order.status}</p>
+        </div>
+      </div>
+      {canRefundOrder(order.status, order.stripe_payment_status as never) && (
+        <button
+          type="button"
+          onClick={() => onRefund(order)}
+          className="mt-3 cursor-pointer rounded-lg bg-red-600/20 px-3 py-1.5 text-sm text-red-400 hover:bg-red-600/30"
+        >
+          Refund
+        </button>
       )}
     </div>
   )
@@ -667,7 +991,7 @@ function ActionBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-lg text-sm ${active ? 'bg-violet-600 text-white' : styles[variant]}`}
+      className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm ${active ? 'bg-violet-600 text-white' : styles[variant]}`}
     >
       {label}
     </button>

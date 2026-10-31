@@ -220,33 +220,51 @@ export async function sendRegistrationRequestConfirmation(
   await resend.emails.send({ from: fromEmail, to, subject, html })
 }
 
+export function buildInviteEmailDraft({
+  to,
+  restaurantName,
+  contactName,
+  tempPassword,
+}: {
+  to: string
+  restaurantName: string
+  contactName?: string | null
+  tempPassword: string
+}) {
+  const loginUrl = `${getAppUrl()}/login`
+  const greeting = contactName?.trim() ? `Hi ${contactName.trim()},` : 'Hi,'
+  const subject = `Welcome to Kaji Order — ${restaurantName}`
+  const body = `${greeting}
+
+Great news — ${restaurantName} has been approved on Kaji Order.
+
+Sign in at ${loginUrl}
+
+Email: ${to}
+Temporary password: ${tempPassword}
+
+Please change your password after signing in.`
+
+  return { subject, body, loginUrl }
+}
+
+export function emailHtmlFromText(body: string) {
+  const escaped = body
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')
+  return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;color:#111">${linked.replace(/\n/g, '<br/>')}</div>`
+}
+
 export async function sendRegistrationApproved(
   to: string,
   restaurantName: string,
-  tempPassword: string
+  tempPassword: string,
+  contactName?: string | null
 ): Promise<void> {
-  const loginUrl = `${getAppUrl()}/login`
-  const subject = `Welcome to Kaji Order — ${restaurantName}`
-  const html = `
-    <h2>Your account has been approved!</h2>
-    <p>Hi,</p>
-    <p>Great news — <strong>${restaurantName}</strong> has been approved on Kaji Order.</p>
-    <p>Sign in at <a href="${loginUrl}">${loginUrl}</a></p>
-    <p>Email: ${to}<br/>Temporary password: <strong>${tempPassword}</strong></p>
-    <p>Please change your password after signing in.</p>
-  `
-
-  if (!resend) {
-    console.log('[email] sendRegistrationApproved (no RESEND_API_KEY):', {
-      to,
-      subject,
-      tempPassword,
-      loginUrl,
-    })
-    return
-  }
-
-  await resend.emails.send({ from: fromEmail, to, subject, html })
+  const draft = buildInviteEmailDraft({ to, restaurantName, contactName, tempPassword })
+  await sendRawEmail(to, draft.subject, emailHtmlFromText(draft.body))
 }
 
 export async function sendRegistrationRejected(

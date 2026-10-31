@@ -21,6 +21,7 @@ import {
 } from '@/app/lib/email'
 import { getAppUrl } from '@/app/lib/utils'
 import { incrementPromotionUsage, validatePromotion } from '@/app/lib/promotions'
+import { getCustomerSession, upsertCustomerAddress } from '@/app/lib/customer-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,6 +81,12 @@ export async function POST(request: Request) {
     if (!restaurant || restaurant.status !== 'active') {
       return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 })
     }
+
+    const customerSession = await getCustomerSession()
+    const customerId =
+      customerSession && customerSession.restaurantId === restaurant.id
+        ? customerSession.customerId
+        : null
 
     const openStatus = getOpenStatus(
       restaurant.opening_hours,
@@ -241,6 +248,7 @@ export async function POST(request: Request) {
     const order = await prisma.onlineOrder.create({
       data: {
         restaurant_id: restaurant.id,
+        customer_id: customerId,
         order_number: orderNumber,
         status: isInstant && !stripe ? 'ACCEPTED' : 'PENDING',
         order_type,
@@ -311,6 +319,10 @@ export async function POST(request: Request) {
       },
       include: { items: true, restaurant: true },
     })
+
+    if (customerId && deliveryAddress && deliveryPostcode) {
+      await upsertCustomerAddress(customerId, deliveryAddress, deliveryPostcode)
+    }
 
     if (discountPence > 0 && appliedPromotionId) {
       await incrementPromotionUsage(appliedPromotionId, appliedCoupon)

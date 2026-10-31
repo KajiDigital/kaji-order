@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/app/lib/admin-auth'
-import prisma from '@/app/lib/prisma'
-import { sendRegistrationRejected } from '@/app/lib/email'
+import { rejectRestaurant } from '@/app/lib/admin-restaurant-status'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -14,24 +14,12 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   const { id } = await params
-  const restaurant = await prisma.restaurant.findUnique({ where: { id } })
-
-  if (!restaurant) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const result = await rejectRestaurant(id, admin.email)
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.error === 'Not found' ? 404 : 400 }
+    )
   }
-
-  if (restaurant.status !== 'pending') {
-    return NextResponse.json({ error: 'Restaurant is not pending' }, { status: 400 })
-  }
-
-  await prisma.restaurant.update({
-    where: { id },
-    data: { status: 'suspended' },
-  })
-
-  if (restaurant.email) {
-    await sendRegistrationRejected(restaurant.email, restaurant.name)
-  }
-
   return NextResponse.json({ success: true })
 }

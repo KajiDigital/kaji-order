@@ -10,6 +10,11 @@ import { OrderTodayPanel, OrderArchivePanel } from './OrderHistoryPanel'
 
 import { formatSelectionsLines } from '@/app/lib/menu-selections'
 import type { SelectionSnapshot } from '@/app/lib/menu-types'
+import {
+  startOrderAlertLoop,
+  stopOrderAlertLoop,
+  unlockAlertAudio,
+} from '@/app/lib/order-alert-sound'
 
 type OrderItem = {
   id: string
@@ -67,45 +72,6 @@ const NEXT_STEP: Record<(typeof COLUMNS)[number], { label: string; endpoint: str
   ACCEPTED: { label: 'Start preparing', endpoint: 'preparing' },
   PREPARING: { label: 'Mark ready', endpoint: 'ready' },
   READY: { label: 'Collected', endpoint: 'collected' },
-}
-
-function playAlertSound() {
-  try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.frequency.value = 880
-    gain.gain.value = 0.15
-    osc.start()
-    setTimeout(() => {
-      osc.stop()
-      ctx.close()
-    }, 200)
-  } catch {
-    /* ignore */
-  }
-}
-
-function playUrgentAlert() {
-  try {
-    const ctx = new AudioContext()
-    for (let i = 0; i < 3; i++) {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.frequency.value = 1100
-      gain.gain.value = 0.2
-      const start = ctx.currentTime + i * 0.3
-      osc.start(start)
-      osc.stop(start + 0.15)
-    }
-    setTimeout(() => ctx.close(), 1000)
-  } catch {
-    /* ignore */
-  }
 }
 
 function formatTime(iso: string) {
@@ -292,7 +258,10 @@ export function KanbanBoard({
   const [acceptTarget, setAcceptTarget] = useState<Order | null>(null)
   const [refundTarget, setRefundTarget] = useState<Order | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [audioReady, setAudioReady] = useState(false)
+  const [silenced, setSilenced] = useState(false)
   const knownPending = useRef(new Set(initialOrders.filter((o) => o.status === 'PENDING').map((o) => o.id)))
+  const alertingPending = orders.filter((order) => order.status === 'PENDING' && !order.is_preorder)
 
   const fetchOrders = useCallback(async () => {
     await fetch('/api/orders/check-expired')
@@ -303,12 +272,8 @@ export function KanbanBoard({
 
     if (settings.sound_alerts) {
       for (const o of newOrders) {
-        if (o.status === 'PENDING' && !knownPending.current.has(o.id)) {
-          if (settings.order_mode === 'manual') {
-            playUrgentAlert()
-          } else {
-            playAlertSound()
-          }
+        if (o.status === 'PENDING' && !o.is_preorder && !knownPending.current.has(o.id)) {
+          setSilenced(false)
           if (Notification.permission === 'granted') {
             new Notification('New order!', {
               body: `${formatOrderNumber(o.order_number)} — ${formatPence(o.total_pence)}`,
@@ -322,13 +287,36 @@ export function KanbanBoard({
       newOrders.filter((o) => o.status === 'PENDING').map((o) => o.id)
     )
     setOrders(newOrders)
-  }, [settings.sound_alerts, settings.order_mode])
+  }, [settings.sound_alerts])
 
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission()
     }
   }, [])
+
+  useEffect(() => {
+    function unlock() {
+      unlockAlertAudio()
+      setAudioReady(true)
+    }
+    window.addEventListener('pointerdown', unlock)
+    window.addEventListener('keydown', unlock)
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
+
+  useEffect(() => {
+    const shouldPlay = settings.sound_alerts && audioReady && !silenced && alertingPending.length > 0
+    if (shouldPlay) {
+      startOrderAlertLoop()
+    } else {
+      stopOrderAlertLoop()
+    }
+    return () => stopOrderAlertLoop()
+  }, [settings.sound_alerts, audioReady, silenced, alertingPending.length])
 
   useEffect(() => {
     const poll = setInterval(fetchOrders, 15000)
@@ -454,6 +442,25 @@ export function KanbanBoard({
           )}
         </div>
       </div>
+      {settings.sound_alerts && alertingPending.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-red-900 bg-red-950 px-4 py-2 text-sm text-red-100">
+          <p>
+            {alertingPending.length === 1
+              ? 'New order waiting — alarm repeating until accepted'
+              : `${alertingPending.length} orders waiting — alarm repeating until accepted`}
+            {!audioReady && ' · tap anywhere to enable sound'}
+          </p>
+          {audioReady && (
+            <button
+              type="button"
+              onClick={() => setSilenced((on) => !on)}
+              className="cursor-pointer rounded-md bg-red-800 px-3 py-1 text-white hover:bg-red-700"
+            >
+              {silenced ? 'Resume alarm' : 'Silence this alert'}
+            </button>
+          )}
+        </div>
+      )}
 
       {view === 'live' && (
         <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden p-3 snap-x snap-mandatory">

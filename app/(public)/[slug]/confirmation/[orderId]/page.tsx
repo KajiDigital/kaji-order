@@ -5,6 +5,8 @@ import { notFound } from 'next/navigation'
 import prisma from '@/app/lib/prisma'
 import { formatOrderNumber, formatPence, formatReadyAtTime, readyAtCustomerLabel } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
+import { SaveAccountPrompt } from '@/app/components/public/SaveAccountPrompt'
+import { getCustomerSession } from '@/app/lib/customer-auth'
 
 type Params = { params: Promise<{ slug: string; orderId: string }> }
 
@@ -17,6 +19,9 @@ export default async function ConfirmationPage({ params }: Params) {
   })
 
   if (!order) notFound()
+
+  const session = await getCustomerSession()
+  const loggedIn = Boolean(session && session.slug === slug)
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
@@ -69,6 +74,13 @@ export default async function ConfirmationPage({ params }: Params) {
         <p className="text-slate-500 text-sm mt-2">
           We&apos;ll send updates to {order.customer_email}
         </p>
+        <SaveAccountPrompt
+          slug={slug}
+          name={order.customer_name}
+          email={order.customer_email}
+          phone={order.customer_phone}
+          loggedIn={loggedIn}
+        />
         <Link href={`/${slug}`} className="inline-block mt-6 text-violet-600 text-sm hover:underline">
           Back to menu
         </Link>

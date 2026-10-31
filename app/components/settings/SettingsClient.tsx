@@ -10,6 +10,7 @@ import {
   getFontPreviewClass,
   isPaidPlan,
 } from '@/app/lib/branding'
+import { playOrderAlertBurst } from '@/app/lib/order-alert-sound'
 
 type Restaurant = {
   id: string
@@ -146,14 +147,7 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
   }
 
   function playTestSound() {
-    try {
-      const ctx = new AudioContext()
-      const osc = ctx.createOscillator()
-      osc.connect(ctx.destination)
-      osc.frequency.value = 660
-      osc.start()
-      setTimeout(() => { osc.stop(); ctx.close() }, 300)
-    } catch { /* ignore */ }
+    playOrderAlertBurst()
   }
 
   function copyLink() {
@@ -586,6 +580,10 @@ export function SettingsClient({ initial }: { initial: Restaurant }) {
         <div className="space-y-4 max-w-lg">
           <Toggle label="Email notifications" checked={data.email_notifications} onChange={(v) => save({ email_notifications: v })} />
           <Toggle label="Sound alerts" checked={data.sound_alerts} onChange={(v) => save({ sound_alerts: v })} />
+          <p className="text-sm text-slate-400">
+            On the live orders board the alarm is loud and repeats every couple of seconds until
+            the order is accepted or rejected. Tap the page once so the browser allows sound.
+          </p>
           <button type="button" onClick={playTestSound} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm cursor-pointer">
             Test sound
           </button>

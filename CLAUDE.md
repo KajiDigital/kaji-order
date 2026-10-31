@@ -35,9 +35,11 @@ Communicates with kaji-cloud via API only
 ## API Connection to kaji-cloud
 Base URL: process.env.KAJI_CLOUD_API_URL
 Used for:
-- Menu sync (if restaurant has kaji-pos)
-- Online order push to POS KDS
+- Menu pull from POS snapshot when `menu_source` is `kaji_sync` (**Sprint 13**)
+- Online order push to POS via cloud (**Sprint 13** — not live)
 - Restaurant verification (if POS linked)
+
+See `SPRINT_13.md`. Until then, website orders stay on this app’s KDS only.
 
 ## Restaurant Types
 1. OOS Only (no POS)
@@ -45,10 +47,10 @@ Used for:
    - Menu managed in kaji-order dashboard
    - Independent of kaji-cloud
 
-2. POS + OOS (integrated)
+2. POS + OOS (integrated) — **Sprint 13, not live**
    - menu_source: "kaji_sync"
-   - Menu synced from kaji-pos via kaji-cloud
-   - Orders pushed to KDS
+   - Menu pulled from kaji-pos via kaji-cloud
+   - Orders pushed to POS Kitchen / Takeaway
    - kaji_cloud_id links accounts
 
 ## Pricing Plans
@@ -229,7 +231,7 @@ Restaurant settings (Ordering tab): `order_mode` + `acceptance_timer_mins` (1–
 - **REJECTED / CANCELLED:** not charged; link back to menu
 
 ## kaji-order ↔ kaji-pos status mapping
-Future POS sync reference: `OnlineOrder.pos_order_id`, `OnlineOrderItem.pos_item_id`.
+Sprint 13 reference (`SPRINT_13.md`). Fields `OnlineOrder.pos_order_id`, `OnlineOrderItem.pos_item_id` exist but are unused until that sprint.
 
 | kaji-order | kaji-pos OrderStatus |
 |------------|----------------------|
@@ -349,18 +351,24 @@ Sprint 10 — Complete
 - [x] PWA manifest
 - [x] QR code + share links in settings
 
-Sprint 11 (planned)
-- Delivery + postcode validation
-- Menu scheduling
-- Product photos — resize in browser, save files on the order VPS (`uploads/`, served at `/uploads/...`)
-- Customer accounts
-- Loyalty points
-- kaji-pos KDS integration
+Sprint 11 — In progress
+- [x] Delivery + postcode validation
+- [x] Product photos — resize in browser, save files on the order VPS (`uploads/`, served at `/uploads/...`)
+- [x] Customer accounts (per-restaurant login, My orders, GDPR delete)
+- [ ] Menu scheduling
+- [ ] Loyalty points
 
 Sprint 12 (planned)
 - Stripe Connect automation
 - White label custom domains
 - Multi-site per restaurant
+
+Sprint 13 (planned) — POS + online ordering integration
+- Link OOS restaurant to kaji-cloud / POS (`kaji_cloud_id`, `menu_source: kaji_sync`)
+- Push paid website orders through cloud to POS Kitchen + Takeaway
+- Status write-back so accept on POS updates the customer
+- Pull POS menu into OOS for linked venues
+- Spec: `SPRINT_13.md` (also in kaji-cloud and kaji-pos)
 
 ## Dynamic Menu System (migration: `redesign_menu_system`)
 
@@ -394,7 +402,7 @@ Sprint 12 (planned)
 ### Basket localStorage
 - Key: `kaji-basket-v2-{slug}` (v2 shape with `selections`)
 
-### kaji-order ↔ kaji-pos menu mapping (future sync)
+### kaji-order ↔ kaji-pos menu mapping (Sprint 13)
 | kaji-order | kaji-pos |
 |------------|----------|
 | OptionGroup (item-scoped) | VariationGroup + MenuItemVariationGroup |
