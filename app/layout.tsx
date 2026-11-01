@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono, Newsreader, Schibsted_Grotesk } from 'next/font/google'
 import './globals.css'
 
@@ -28,6 +28,9 @@ export const metadata: Metadata = {
   title: 'Kaji Order — Online Ordering',
   description: 'White-label online ordering for restaurants',
   manifest: '/manifest.json',
+}
+
+export const viewport: Viewport = {
   themeColor: '#7c3aed',
 }
 
@@ -38,10 +41,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#7c3aed" />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} ${schibsted.variable} antialiased`}
       >
