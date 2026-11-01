@@ -33,8 +33,10 @@ type Promotion = {
   active: boolean
   uses_count: number
   max_uses: number | null
+  max_uses_per_customer: number | null
   valid_from: string | null
   valid_until: string | null
+  promo_config?: { audience?: string; allowedCustomers?: { phone?: string; email?: string }[] } | null
   coupon_codes: Coupon[]
   _count?: { order_discounts: number }
 }
@@ -66,10 +68,20 @@ export function PromotionsManager() {
     setSaving(true)
     setError('')
 
+    const payload = buildPayloadFromForm(form)
+    if (
+      form.audience === 'specific' &&
+      !(payload.promo_config as { allowedCustomers?: unknown[] } | null)?.allowedCustomers?.length
+    ) {
+      setError('Add at least one customer phone or email')
+      setSaving(false)
+      return
+    }
+
     const res = await fetch('/api/dashboard/promotions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildPayloadFromForm(form)),
+      body: JSON.stringify(payload),
     })
 
     const data = await res.json()
@@ -178,7 +190,17 @@ export function PromotionsManager() {
                   <p className="text-sm text-slate-500 mt-1">{promo.description}</p>
                 )}
                 <p className="text-xs text-slate-500 mt-2">
-                  Used {promo.uses_count} times
+                  Used {promo.uses_count}
+                  {promo.max_uses != null ? `/${promo.max_uses}` : ''} times
+                  {promo.max_uses === 1
+                    ? ' · One-time code'
+                    : promo.max_uses != null
+                      ? ' · Multi-use'
+                      : ''}
+                  {promo.max_uses_per_customer === 1 ? ' · One per customer' : ''}
+                  {promo.promo_config?.audience === 'specific'
+                    ? ` · ${promo.promo_config.allowedCustomers?.length ?? 0} named customers`
+                    : ' · Any customer'}
                   {promo._count ? ` · ${promo._count.order_discounts} orders` : ''}
                   {promo.coupon_codes.length > 0 &&
                     ` · Codes: ${promo.coupon_codes.map((c) => c.code).join(', ')}`}

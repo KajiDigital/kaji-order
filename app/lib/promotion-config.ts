@@ -1,6 +1,8 @@
 import type { Promotion } from '@prisma/client'
+import type { AllowedCustomer } from './customer-identity'
 
 export type PromoScope = 'any' | 'category' | 'items' | 'same'
+export type PromoAudience = 'any' | 'specific'
 
 export type PromoConfig = {
   buyFrom?: { scope: PromoScope; ids?: string[] }
@@ -11,6 +13,8 @@ export type PromoConfig = {
   freeItemCategoryId?: string
   freeItemMenuItemId?: string
   freeItemLimit?: 'order' | 'daily'
+  audience?: PromoAudience
+  allowedCustomers?: AllowedCustomer[]
 }
 
 export function parsePromoConfig(json: unknown): PromoConfig {

@@ -43,6 +43,10 @@ export type PromotionFormState = {
   show_on_menu: boolean
   require_coupon: boolean
   coupon_code: string
+  usage_type: 'one_time' | 'multi'
+  max_uses: number
+  audience: 'any' | 'specific'
+  allowed_customers: { phone: string; email: string }[]
   buyFromScope: PromoScope
   buyFromCategoryId: string
   buyFromItemIds: string[]
@@ -80,6 +84,10 @@ export const emptyPromotionForm = (): PromotionFormState => ({
   show_on_menu: true,
   require_coupon: false,
   coupon_code: '',
+  usage_type: 'multi',
+  max_uses: 10,
+  audience: 'any',
+  allowed_customers: [{ phone: '', email: '' }],
   buyFromScope: 'any',
   buyFromCategoryId: '',
   buyFromItemIds: [],
@@ -350,6 +358,18 @@ export function buildPayloadFromForm(form: PromotionFormState) {
     promo_config.freeItemLimit = form.freeItemLimit
   }
 
+  promo_config.audience = form.audience
+  if (form.audience === 'specific') {
+    promo_config.allowedCustomers = form.allowed_customers
+      .map((c) => ({
+        phone: c.phone.trim() || undefined,
+        email: c.email.trim() || undefined,
+      }))
+      .filter((c) => c.phone || c.email)
+  }
+
+  const maxUses = form.usage_type === 'one_time' ? 1 : form.max_uses > 0 ? form.max_uses : null
+
   return {
     name: form.name,
     description: form.description || null,
@@ -365,6 +385,9 @@ export function buildPayloadFromForm(form: PromotionFormState) {
     applicable_ids,
     promo_config: Object.keys(promo_config).length ? promo_config : null,
     min_order_pence: form.min_order_pence > 0 ? form.min_order_pence : null,
+    max_uses: maxUses,
+    coupon_max_uses: maxUses,
+    max_uses_per_customer: 1,
     valid_from: form.valid_from || null,
     valid_until: form.valid_until || null,
     days_of_week: form.days_of_week.length ? form.days_of_week : null,
@@ -375,6 +398,116 @@ export function buildPayloadFromForm(form: PromotionFormState) {
     show_on_menu: form.show_on_menu,
     coupon_codes: form.require_coupon && form.coupon_code ? [form.coupon_code] : [],
   }
+}
+
+type RestaurantCustomer = { id: string; name: string; email: string; phone: string | null }
+
+function AllowedCustomersFields({
+  form,
+  setForm,
+}: {
+  form: PromotionFormState
+  setForm: (f: PromotionFormState) => void
+}) {
+  const [customers, setCustomers] = useState<RestaurantCustomer[]>([])
+
+  useEffect(() => {
+    fetch('/api/dashboard/customers')
+      .then((r) => r.json())
+      .then((d) => setCustomers(d.customers ?? []))
+      .catch(() => setCustomers([]))
+  }, [])
+
+  function updateRow(index: number, patch: Partial<{ phone: string; email: string }>) {
+    setForm({
+      ...form,
+      allowed_customers: form.allowed_customers.map((row, i) =>
+        i === index ? { ...row, ...patch } : row
+      ),
+    })
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+      <p className="text-xs text-slate-500">
+        Add a mobile number for each person. Email is optional extra matching.
+      </p>
+      {customers.length > 0 && (
+        <label className="block text-xs text-slate-400">
+          Add a saved customer
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const selected = customers.find((c) => c.id === e.target.value)
+              e.currentTarget.value = ''
+              if (!selected) return
+              const next = { phone: selected.phone ?? '', email: selected.email }
+              const emptyIndex = form.allowed_customers.findIndex((row) => !row.phone && !row.email)
+              setForm({
+                ...form,
+                allowed_customers:
+                  emptyIndex >= 0
+                    ? form.allowed_customers.map((row, i) => (i === emptyIndex ? next : row))
+                    : [...form.allowed_customers, next],
+              })
+            }}
+            className={`${inputClass()} mt-1`}
+          >
+            <option value="">Select customer</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {c.phone ? ` · ${c.phone}` : ''}
+                {c.email ? ` · ${c.email}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {form.allowed_customers.map((row, index) => (
+        <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <input
+            type="tel"
+            placeholder="Mobile number"
+            value={row.phone}
+            onChange={(e) => updateRow(index, { phone: e.target.value })}
+            className={inputClass()}
+          />
+          <input
+            type="email"
+            placeholder="Email (optional)"
+            value={row.email}
+            onChange={(e) => updateRow(index, { email: e.target.value })}
+            className={inputClass()}
+          />
+          <button
+            type="button"
+            onClick={() =>
+              setForm({
+                ...form,
+                allowed_customers: form.allowed_customers.filter((_, i) => i !== index),
+              })
+            }
+            className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-300"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() =>
+          setForm({
+            ...form,
+            allowed_customers: [...form.allowed_customers, { phone: '', email: '' }],
+          })
+        }
+        className="text-xs text-violet-300"
+      >
+        + Add another customer
+      </button>
+    </div>
+  )
 }
 
 export function PromotionForm({
@@ -833,6 +966,63 @@ export function PromotionForm({
           />
           Show on menu
         </label>
+      </Section>
+
+      <Section title="How many times it can be used">
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="radio"
+            checked={form.usage_type === 'one_time'}
+            onChange={() => setForm({ ...form, usage_type: 'one_time', max_uses: 1 })}
+          />
+          One-time use — the code works once in total
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="radio"
+            checked={form.usage_type === 'multi'}
+            onChange={() => setForm({ ...form, usage_type: 'multi', max_uses: form.max_uses || 10 })}
+          />
+          Multi-use — set how many times the code can be used
+        </label>
+        {form.usage_type === 'multi' && (
+          <label className="block text-xs text-slate-400">
+            Times the code can be used
+            <input
+              type="number"
+              min={1}
+              value={form.max_uses}
+              onChange={(e) => setForm({ ...form, max_uses: Math.max(1, Number(e.target.value) || 1) })}
+              className={`${inputClass()} mt-1 w-28`}
+            />
+          </label>
+        )}
+        <p className="text-xs text-slate-500">
+          Each customer can use it once. We match them by mobile number first — a new email is easy
+          to invent, a UK mobile is not.
+        </p>
+      </Section>
+
+      <Section title="Who can use it">
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="radio"
+            checked={form.audience === 'any'}
+            onChange={() => setForm({ ...form, audience: 'any' })}
+          />
+          Any customer
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="radio"
+            checked={form.audience === 'specific'}
+            onChange={() => setForm({ ...form, audience: 'specific' })}
+          />
+          Specific customers only
+        </label>
+        {form.audience === 'specific' && (
+          <AllowedCustomersFields form={form} setForm={setForm} />
+        )}
       </Section>
     </div>
   )

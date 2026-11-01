@@ -19,6 +19,8 @@ import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreak
 import { itemLineTotal } from '@/app/lib/basket'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 import { singleFulfillmentLabel } from '@/app/lib/fulfillment'
+import { CartCouponField } from '@/app/components/public/CartCouponField'
+import { discountFromValidation, validateBasketPromotion } from '@/app/lib/basket-promotions'
 
 function CheckoutForm({
   orderId,
@@ -107,6 +109,9 @@ export default function CheckoutPage() {
   const [isPreorderMode, setIsPreorderMode] = useState(false)
   const [nextOpenTime, setNextOpenTime] = useState<string | null>(null)
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponError, setCouponError] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
   const [deliveryValidating, setDeliveryValidating] = useState(false)
   const [deliveryError, setDeliveryError] = useState('')
   const [deliveryValidated, setDeliveryValidated] = useState(false)
@@ -167,12 +172,15 @@ export default function CheckoutPage() {
   useEffect(() => {
     const basket = getBasket(slug)
     if (!basket?.items.length) {
-      router.push(`/${slug}/basket`)
+      router.push(`/${slug}`)
       return
     }
     setItems(basket.items)
     setNotes(basket.orderNotes ?? '')
     setAppliedDiscount(basket.appliedDiscount ?? null)
+    if (basket.appliedDiscount?.coupon_code) {
+      setCouponInput(basket.appliedDiscount.coupon_code)
+    }
     if (basket.orderType) setOrderType(basket.orderType)
     if (basket.deliveryAddress) setDeliveryAddress(basket.deliveryAddress)
     if (basket.deliveryPostcode) setDeliveryPostcode(basket.deliveryPostcode)
@@ -203,7 +211,7 @@ export default function CheckoutPage() {
         setIsPreorderMode(Boolean(d.restaurant?.isPreorderMode))
         setNextOpenTime(d.restaurant?.nextOpenTime ?? null)
         if (!d.restaurant?.canOrder) {
-          router.push(`/${slug}/basket`)
+          router.push(`/${slug}`)
         }
         if (!basket.orderType) {
           const defaultType: BasketOrderType =
@@ -237,8 +245,45 @@ export default function CheckoutPage() {
   const canSubmit =
     name &&
     email &&
+    phone.trim() &&
     (!deliveryFieldsRequired ||
       (deliveryAddress.trim() && deliveryPostcode.trim() && deliveryValidated && !deliveryError))
+
+  function persistDiscount(discount: AppliedDiscount | null) {
+    setAppliedDiscount(discount)
+    const basket = getBasket(slug)
+    if (!basket) return
+    saveBasket(slug, { ...basket, appliedDiscount: discount, updatedAt: new Date().toISOString() })
+  }
+
+  async function applyCoupon() {
+    const code = couponInput.trim()
+    if (!code) return
+    if (!phone.trim()) {
+      setCouponError('Add your mobile number first')
+      return
+    }
+    setCouponLoading(true)
+    setCouponError('')
+    const data = await validateBasketPromotion({
+      slug,
+      items,
+      code,
+      customerPhone: phone,
+    })
+    setCouponLoading(false)
+    if (!data.valid) {
+      setCouponError(data.error ?? 'Invalid discount code')
+      return
+    }
+    persistDiscount(discountFromValidation(data, code.toUpperCase()))
+  }
+
+  function removeCoupon() {
+    setCouponInput('')
+    setCouponError('')
+    persistDiscount(null)
+  }
 
   function persistCheckoutFields(
     nextOrderType = orderType,
@@ -321,7 +366,7 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-slate-50 p-4">
       <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
         <div>
-          <Link href={`/${slug}/basket`} className="text-sm text-violet-600">← Back to basket</Link>
+          <Link href={`/${slug}`} className="text-sm text-violet-600">← Back to menu</Link>
           <h1 className="text-2xl font-bold text-slate-900 mt-4">Checkout</h1>
           {isPreorderMode && (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -420,7 +465,15 @@ export default function CheckoutPage() {
 
             <input required placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
             <input required type="email" placeholder="Email *" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
-            <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" />
+            <input
+              required
+              type="tel"
+              inputMode="tel"
+              placeholder="Mobile number *"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400"
+            />
             <textarea placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400" rows={2} />
             {!loggedIn ? (
               <p className="text-xs text-slate-500">
@@ -477,6 +530,17 @@ export default function CheckoutPage() {
                 Minimum order for delivery is {formatPence(deliveryMinOrder)}
               </p>
             )}
+            <div className="mb-4">
+              <CartCouponField
+                input={couponInput}
+                error={couponError}
+                loading={couponLoading}
+                discount={appliedDiscount}
+                onInputChange={setCouponInput}
+                onApply={applyCoupon}
+                onRemove={removeCoupon}
+              />
+            </div>
             <OrderSummaryBreakdown
               subtotal={subtotal}
               serviceFeePence={serviceFeePence}

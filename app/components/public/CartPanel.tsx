@@ -7,6 +7,7 @@ import {
   basketItemCount,
   basketSubtotal,
   itemLineTotal,
+  type AppliedDiscount,
   type BasketItem,
   type BasketOrderType,
 } from '@/app/lib/basket'
@@ -37,6 +38,7 @@ type Props = {
   onRemove: (id: string) => void
   compact?: boolean
   checkoutDisabled?: boolean
+  appliedDiscount?: AppliedDiscount | null
 }
 
 export function CartPanel({
@@ -63,9 +65,11 @@ export function CartPanel({
   onRemove,
   compact,
   checkoutDisabled,
+  appliedDiscount,
 }: Props) {
   const count = basketItemCount(items)
   const subtotal = basketSubtotal(items)
+  const discountPence = appliedDiscount?.discount_pence ?? 0
   const belowMin = subtotal < minOrderPence && minOrderPence > 0
   const deliveryBlocked = orderType === 'delivery' && (!deliveryAvailableNow || !deliveryReady)
   const checkoutBlocked = belowMin || checkoutDisabled || deliveryBlocked
@@ -167,6 +171,16 @@ export function CartPanel({
               <span>Subtotal</span>
               <span className="font-semibold text-stone-900">{formatPence(subtotal)}</span>
             </div>
+            {discountPence > 0 && (
+              <div className="mt-1 flex justify-between text-sm text-emerald-700">
+                <span>
+                  {appliedDiscount?.coupon_code
+                    ? `Discount (${appliedDiscount.coupon_code})`
+                    : appliedDiscount?.description ?? 'Discount'}
+                </span>
+                <span>−{formatPence(discountPence)}</span>
+              </div>
+            )}
             {orderType === 'delivery' && deliveryFeePence > 0 && (
               <div className="mt-1 flex justify-between text-sm text-stone-600">
                 <span>Delivery</span>

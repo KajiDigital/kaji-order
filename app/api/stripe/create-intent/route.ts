@@ -187,6 +187,12 @@ export async function POST(request: Request) {
         items: promoItems,
         code: coupon_code,
         promotionId: promotion_id,
+        customer: {
+          customerId,
+          email: customer_email,
+          phone: customer_phone,
+        },
+        requireCustomerIdentity: true,
       })
 
       if (!validation.valid) {

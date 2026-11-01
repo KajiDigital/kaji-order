@@ -1,12 +1,24 @@
 import prisma from './prisma'
-import type { Promotion, CouponCode } from '@prisma/client'
+import { OrderStatus, type Promotion, type CouponCode } from '@prisma/client'
+import {
+  hasIdentity,
+  identityFromOrder,
+  isAllowedCustomer,
+  sameCustomer,
+  type CustomerIdentity,
+} from './customer-identity'
 import {
   parseIdList,
   parsePromoConfig,
   formatDaysOfWeek,
   formatTimeRange,
-  type PromoConfig,
 } from './promotion-config'
+
+const EXCLUDED_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.CANCELLED,
+  OrderStatus.REJECTED,
+  OrderStatus.REFUNDED,
+]
 
 export type PromoLineItem = {
   menuItemId: string
@@ -263,14 +275,44 @@ function buildDescription(promo: Promotion, code?: string, discountPence?: numbe
   return promo.badge_text ?? promo.name
 }
 
+async function countCustomerUses(
+  restaurantId: string,
+  promotionId: string,
+  identity: CustomerIdentity
+): Promise<number> {
+  const rows = await prisma.orderDiscount.findMany({
+    where: {
+      promotion_id: promotionId,
+      order: {
+        restaurant_id: restaurantId,
+        status: { notIn: EXCLUDED_ORDER_STATUSES },
+      },
+    },
+    select: {
+      order: {
+        select: {
+          customer_id: true,
+          customer_email: true,
+          customer_phone: true,
+        },
+      },
+    },
+  })
+
+  return rows.filter((row) => sameCustomer(identityFromOrder(row.order), identity)).length
+}
+
 export async function validatePromotion(input: {
   restaurantId: string
   subtotalPence: number
   items: PromoLineItem[]
   code?: string
   promotionId?: string
+  customer?: CustomerIdentity
+  requireCustomerIdentity?: boolean
 }): Promise<PromoValidationResult> {
-  const { restaurantId, subtotalPence, items, code, promotionId } = input
+  const { restaurantId, subtotalPence, items, code, promotionId, customer, requireCustomerIdentity } =
+    input
 
   let promo: PromotionWithCoupons | null = null
 
@@ -324,6 +366,59 @@ export async function validatePromotion(input: {
   const activeCheck = isPromotionActiveNow(promo)
   if (!activeCheck.ok) {
     return { valid: false, discount_pence: 0, description: '', error: activeCheck.error }
+  }
+
+  const config = parsePromoConfig(promo.promo_config)
+  const allowedCustomers = config.allowedCustomers ?? []
+  const audience = config.audience === 'specific' || allowedCustomers.length > 0 ? 'specific' : 'any'
+  const perCustomerLimit = promo.max_uses_per_customer
+  const identityKnown = hasIdentity(customer)
+
+  if (audience === 'specific') {
+    if (!identityKnown) {
+      return {
+        valid: false,
+        discount_pence: 0,
+        description: '',
+        error: requireCustomerIdentity
+          ? 'Add a mobile number to use this offer'
+          : 'This offer is for selected customers. Log in or add your mobile number.',
+      }
+    }
+    if (!isAllowedCustomer(customer ?? {}, allowedCustomers)) {
+      return {
+        valid: false,
+        discount_pence: 0,
+        description: '',
+        error: 'This offer is not available for this customer',
+      }
+    }
+  }
+
+  if (perCustomerLimit != null && perCustomerLimit > 0) {
+    if (!identityKnown) {
+      if (requireCustomerIdentity) {
+        return {
+          valid: false,
+          discount_pence: 0,
+          description: '',
+          error: 'Add a mobile number to use this offer',
+        }
+      }
+    } else {
+      const used = await countCustomerUses(restaurantId, promo.id, customer ?? {})
+      if (used >= perCustomerLimit) {
+        return {
+          valid: false,
+          discount_pence: 0,
+          description: '',
+          error:
+            perCustomerLimit === 1
+              ? 'This offer has already been used on this mobile number'
+              : 'This customer has already used this offer the maximum number of times',
+        }
+      }
+    }
   }
 
   if (
@@ -391,6 +486,8 @@ export async function findBestAutoPromotion(input: {
   restaurantId: string
   subtotalPence: number
   items: PromoLineItem[]
+  customer?: CustomerIdentity
+  requireCustomerIdentity?: boolean
 }): Promise<PromoValidationResult | null> {
   const promotions = await prisma.promotion.findMany({
     where: {
@@ -410,6 +507,8 @@ export async function findBestAutoPromotion(input: {
       subtotalPence: input.subtotalPence,
       items: input.items,
       promotionId: promo.id,
+      customer: input.customer,
+      requireCustomerIdentity: input.requireCustomerIdentity,
     })
 
     if (result.valid && (!best || result.discount_pence > best.discount_pence)) {

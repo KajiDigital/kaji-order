@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatPence } from '@/app/lib/utils'
 import {
+  type AppliedDiscount,
   type BasketItem,
   type BasketSelection,
   basketItemCount,
@@ -12,6 +13,7 @@ import {
   saveBasket,
   type BasketOrderType,
 } from '@/app/lib/basket'
+import { discountFromValidation, validateBasketPromotion } from '@/app/lib/basket-promotions'
 import { CartPanel } from './CartPanel'
 import { DeliveryAddressPicker } from './DeliveryAddressPicker'
 import { FulfillmentToggle } from './FulfillmentToggle'
@@ -264,6 +266,7 @@ export function PublicMenuClient({
   const [deliveryPostcode, setDeliveryPostcode] = useState('')
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [deliveryReady, setDeliveryReady] = useState(false)
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
   const categoryDrag = useHorizontalDragScroll()
 
   const allItems = useMemo(
@@ -316,6 +319,7 @@ export function PublicMenuClient({
     setDeliveryPostcode(stored?.deliveryPostcode ?? '')
     setDeliveryAddress(stored?.deliveryAddress ?? '')
     setDeliveryReady(Boolean(stored?.deliveryAddress && stored?.deliveryPostcode))
+    setAppliedDiscount(stored?.appliedDiscount ?? null)
   }, [basketSlug, defaultOrderType])
 
   function writeBasketMeta(
@@ -324,6 +328,7 @@ export function PublicMenuClient({
       nextOrderType?: BasketOrderType
       nextPostcode?: string
       nextAddress?: string
+      nextDiscount?: AppliedDiscount | null
     }
   ) {
     saveBasket(basketSlug, {
@@ -332,6 +337,7 @@ export function PublicMenuClient({
       orderType: meta?.nextOrderType ?? orderType,
       deliveryPostcode: (meta?.nextPostcode ?? deliveryPostcode) || undefined,
       deliveryAddress: (meta?.nextAddress ?? deliveryAddress) || undefined,
+      appliedDiscount: meta?.nextDiscount !== undefined ? meta.nextDiscount : appliedDiscount,
       fulfillmentChosen: true,
       updatedAt: new Date().toISOString(),
     })
@@ -363,11 +369,38 @@ export function PublicMenuClient({
       .filter((cat) => cat.items.length > 0)
   }, [categories, activeCategory, search])
 
-  function persistBasket(items: BasketItem[]) {
+  function persistBasket(items: BasketItem[], discount = appliedDiscount) {
     setBasket(items)
-    if (items.length === 0) clearBasket(basketSlug)
-    else writeBasketMeta(items)
+    if (items.length === 0) {
+      setAppliedDiscount(null)
+      clearBasket(basketSlug)
+      return
+    }
+    writeBasketMeta(items, { nextDiscount: discount })
   }
+
+  const basketSignature = basket
+    .map((item) => `${item.menuItemId}:${item.quantity}:${item.total_price}`)
+    .join('|')
+
+  useEffect(() => {
+    if (isPreview || basket.length === 0 || appliedDiscount?.coupon_code) return
+    let cancelled = false
+    validateBasketPromotion({
+      slug: restaurant.slug,
+      items: basket,
+      autoApply: true,
+    }).then((data) => {
+      if (cancelled) return
+      const discount = discountFromValidation(data)
+      setAppliedDiscount(discount)
+      writeBasketMeta(basket, { nextDiscount: discount })
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basketSignature, restaurant.slug, isPreview])
 
   function selectFulfillment(next: BasketOrderType) {
     if (next === 'collection' && !collectionEnabled) return
@@ -492,6 +525,7 @@ export function PublicMenuClient({
     onUpdateQty: updateQty,
     onRemove: removeItem,
     checkoutDisabled: isPreview,
+    appliedDiscount,
   }
 
   const stickyPillsClass = `sticky z-30 -mx-4 mb-4 border-b border-stone-200/80 bg-stone-50/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 ${isPreview ? 'top-10' : 'top-0'}`

@@ -3,6 +3,7 @@ import { getSession } from '@/app/lib/auth'
 import prisma from '@/app/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET() {
   const session = await getSession()
@@ -32,6 +33,17 @@ export async function POST(request: Request) {
 
   if (!body.name || !body.promo_type) {
     return NextResponse.json({ error: 'Name and type required' }, { status: 400 })
+  }
+
+  const promoConfig = (body.promo_config ?? {}) as {
+    audience?: string
+    allowedCustomers?: { phone?: string; email?: string }[]
+  }
+  if (promoConfig.audience === 'specific' && !promoConfig.allowedCustomers?.length) {
+    return NextResponse.json(
+      { error: 'Add at least one customer phone or email for a named-customer offer' },
+      { status: 400 }
+    )
   }
 
   const promotion = await prisma.promotion.create({

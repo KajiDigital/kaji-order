@@ -42,9 +42,6 @@ export default function BasketPage() {
   const [collectionEnabled, setCollectionEnabled] = useState(true)
   const [deliveryEnabled, setDeliveryEnabled] = useState(false)
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
-  const [couponInput, setCouponInput] = useState('')
-  const [couponError, setCouponError] = useState('')
-  const [couponLoading, setCouponLoading] = useState(false)
   const [autoMessage, setAutoMessage] = useState('')
   const [promoHints, setPromoHints] = useState<string[]>([])
   const [freeItemClaim, setFreeItemClaim] = useState<{
@@ -217,9 +214,6 @@ export default function BasketPage() {
       setItems(basket.items)
       setOrderNotes(basket.orderNotes ?? '')
       setAppliedDiscount(basket.appliedDiscount ?? null)
-      if (basket.appliedDiscount?.coupon_code) {
-        setCouponInput(basket.appliedDiscount.coupon_code)
-      }
     }
     fetch(`/api/menu/${slug}`)
       .then((r) => r.json())
@@ -254,51 +248,6 @@ export default function BasketPage() {
   function removeItem(id: string) {
     const next = items.filter((i) => i.id !== id)
     updateItems(next)
-  }
-
-  async function applyCoupon() {
-    const code = couponInput.trim()
-    if (!code) return
-    setCouponLoading(true)
-    setCouponError('')
-    setAutoMessage('')
-
-    const subtotal = basketSubtotal(items)
-    const res = await fetch('/api/promotions/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        slug,
-        code,
-        subtotal,
-        items: buildPromoItems(items),
-      }),
-    })
-    const data = await res.json()
-    setCouponLoading(false)
-
-    if (!data.valid) {
-      setCouponError(data.error ?? 'Invalid coupon code')
-      return
-    }
-
-    const discount: AppliedDiscount = {
-      promotion_id: data.promotion_id,
-      coupon_code: data.coupon_code ?? code.toUpperCase(),
-      discount_pence: data.discount_pence,
-      description: data.description,
-      discount_type: data.discount_type,
-    }
-    setAppliedDiscount(discount)
-    persistBasket(items, orderNotes, discount)
-  }
-
-  function removeCoupon() {
-    setCouponInput('')
-    setCouponError('')
-    setAppliedDiscount(null)
-    persistBasket(items, orderNotes, null)
-    refreshDiscounts(items, null)
   }
 
   function claimFreeItem() {
@@ -368,33 +317,9 @@ export default function BasketPage() {
             rows={2}
           />
 
-          <div className="mt-4 bg-white rounded-xl p-4 border space-y-3">
-            <div className="flex gap-2">
-              <input
-                placeholder="Enter coupon code"
-                value={couponInput}
-                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                className="flex-1 rounded-lg border bg-white px-3 py-2 text-sm font-mono text-stone-900 placeholder:text-stone-400"
-              />
-              <button
-                type="button"
-                onClick={applyCoupon}
-                disabled={couponLoading || !couponInput.trim()}
-                className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
-              >
-                Apply
-              </button>
-            </div>
-            {couponError && <p className="text-red-500 text-sm">{couponError}</p>}
-            {appliedDiscount?.coupon_code && (
-              <button type="button" onClick={removeCoupon} className="text-xs text-slate-500">
-                Remove coupon
-              </button>
-            )}
-            {autoMessage && (
-              <p className="text-emerald-600 text-sm">{autoMessage}</p>
-            )}
-          </div>
+          {autoMessage && (
+            <p className="mt-4 text-sm text-emerald-600">{autoMessage}</p>
+          )}
 
           {promoHints.length > 0 && (
             <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">

@@ -3,6 +3,7 @@ import { getSession } from '@/app/lib/auth'
 import prisma from '@/app/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -39,6 +40,9 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(body.promo_config !== undefined && { promo_config: body.promo_config }),
       ...(body.min_order_pence !== undefined && { min_order_pence: body.min_order_pence }),
       ...(body.max_uses !== undefined && { max_uses: body.max_uses }),
+      ...(body.max_uses_per_customer !== undefined && {
+        max_uses_per_customer: body.max_uses_per_customer,
+      }),
       ...(body.valid_from !== undefined && {
         valid_from: body.valid_from ? new Date(body.valid_from) : null,
       }),

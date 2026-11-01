@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/app/lib/prisma'
+import { getCustomerSession } from '@/app/lib/customer-auth'
 import {
   findBestAutoPromotion,
   getPromotionHints,
@@ -8,6 +9,7 @@ import {
 } from '@/app/lib/promotions'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 type ValidateItem = {
   menuItemId: string
@@ -44,6 +46,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Restaurant required' }, { status: 400 })
   }
 
+  const session = await getCustomerSession()
+  const sessionMatches = session?.restaurantId === resolvedRestaurantId
+  const customer = {
+    customerId: sessionMatches ? session.customerId : undefined,
+    email: (body.customer_email as string | undefined) || (sessionMatches ? session.email : undefined),
+    phone: (body.customer_phone as string | undefined) || (sessionMatches ? session.phone : undefined),
+  }
+
   const promoItems: PromoLineItem[] = items.map((i) => ({
     menuItemId: i.menuItemId,
     categoryId: i.categoryId,
@@ -78,6 +88,7 @@ export async function POST(request: Request) {
         subtotalPence,
         items: promoItems,
         promotionId: promo.id,
+        customer,
       })
       if (result.free_item_qualified && result.free_item_id) {
         return NextResponse.json({
@@ -97,6 +108,7 @@ export async function POST(request: Request) {
       subtotalPence,
       items: promoItems,
       code,
+      customer,
     })
     return NextResponse.json({ ...result, hints })
   }
@@ -106,6 +118,7 @@ export async function POST(request: Request) {
       restaurantId: resolvedRestaurantId,
       subtotalPence,
       items: promoItems,
+      customer,
     })
     if (best) {
       return NextResponse.json({ ...best, hints })
