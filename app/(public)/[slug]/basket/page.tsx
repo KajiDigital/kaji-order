@@ -17,16 +17,12 @@ import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreak
 import { formatSelectionsLines } from '@/app/lib/menu-selections'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 import { basketOrderTypeLabel } from '@/app/lib/fulfillment'
-
-function buildPromoItems(items: BasketItem[]) {
-  return items.map((i) => ({
-    menuItemId: i.menuItemId,
-    categoryId: i.categoryId ?? '',
-    quantity: i.quantity,
-    lineTotalPence: itemLineTotal(i),
-    unitPricePence: Math.round(itemLineTotal(i) / i.quantity),
-  }))
-}
+import {
+  discountFromValidation,
+  discountLabel,
+  promotionNotice,
+  validateBasketPromotion,
+} from '@/app/lib/basket-promotions'
 
 export default function BasketPage() {
   const params = useParams()
@@ -66,18 +62,7 @@ export default function BasketPage() {
   const fetchHints = useCallback(
     async (nextItems: BasketItem[]) => {
       if (!restaurantId) return
-      const subtotal = basketSubtotal(nextItems)
-      const res = await fetch('/api/promotions/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug,
-          hints: true,
-          subtotal,
-          items: buildPromoItems(nextItems),
-        }),
-      })
-      const data = await res.json()
+      const data = await validateBasketPromotion({ slug, items: nextItems, hints: true })
       setPromoHints(data.hints ?? [])
     },
     [restaurantId, slug]
@@ -91,93 +76,24 @@ export default function BasketPage() {
         return
       }
 
-      const subtotal = basketSubtotal(nextItems)
-      const promoItems = buildPromoItems(nextItems)
-
-      if (existing?.coupon_code) {
-        const res = await fetch('/api/promotions/validate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      const data = existing?.coupon_code
+        ? await validateBasketPromotion({
             slug,
+            items: nextItems,
             code: existing.coupon_code,
-            subtotal,
-            items: promoItems,
-          }),
-        })
-        const data = await res.json()
-        if (data.valid) {
-          const discount: AppliedDiscount = {
-            promotion_id: data.promotion_id,
-            coupon_code: data.coupon_code,
-            discount_pence: data.discount_pence,
-            description: data.description,
-            discount_type: data.discount_type,
-          }
-          setAppliedDiscount(discount)
-          setAutoMessage(
-            data.discount_type === 'BUY_X_GET_Y'
-              ? data.description
-              : data.discount_type === 'HAPPY_HOUR' && data.happy_hour_ends_in_mins
-                ? `${data.description} — ends in ${data.happy_hour_ends_in_mins} min`
-                : data.auto !== false && !data.coupon_code
-                  ? `${data.description} applied automatically 🎉`
-                  : ''
-          )
-          persistBasket(nextItems, orderNotes, discount)
-          return
-        }
-        setAppliedDiscount(null)
-        setCouponError(data.error ?? 'Coupon no longer valid')
-        persistBasket(nextItems, orderNotes, null)
-        return
-      }
+          })
+        : await validateBasketPromotion({ slug, items: nextItems, autoApply: true })
 
-      const res = await fetch('/api/promotions/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug,
-          auto_apply: true,
-          subtotal,
-          items: promoItems,
-        }),
-      })
-      const data = await res.json()
-      if (data.valid && data.discount_pence > 0) {
-        const discount: AppliedDiscount = {
-          promotion_id: data.promotion_id,
-          discount_pence: data.discount_pence,
-          description: data.description,
-          discount_type: data.discount_type,
-          auto: true,
-        }
-        setAppliedDiscount(discount)
-        setAutoMessage(
-          data.discount_type === 'BUY_X_GET_Y'
-            ? data.description
-            : data.discount_type === 'HAPPY_HOUR' && data.happy_hour_ends_in_mins
-              ? `${data.description} — ends in ${data.happy_hour_ends_in_mins} min`
-              : `${data.description} applied automatically 🎉`
-        )
-        persistBasket(nextItems, orderNotes, discount)
-      } else {
-        setAppliedDiscount(null)
-        setAutoMessage('')
-        persistBasket(nextItems, orderNotes, null)
-      }
+      const discount = discountFromValidation(data, existing?.coupon_code)
+      setAppliedDiscount(discount)
+      setAutoMessage(discount ? promotionNotice(data) : '')
+      persistBasket(nextItems, orderNotes, discount)
 
-      const freeRes = await fetch('/api/promotions/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug,
-          check_free_item: true,
-          subtotal,
-          items: promoItems,
-        }),
+      const freeData = await validateBasketPromotion({
+        slug,
+        items: nextItems,
+        checkFreeItem: true,
       })
-      const freeData = await freeRes.json()
       if (freeData.qualified && freeData.free_item_id) {
         const hasItem = nextItems.some((i) => i.menuItemId === freeData.free_item_id)
         if (!hasItem) {
@@ -272,11 +188,7 @@ export default function BasketPage() {
   const discountPence = appliedDiscount?.discount_pence ?? 0
   const belowMin = subtotal < minOrder
   const checkoutBlocked = belowMin || !canOrder
-  const discountLabel = appliedDiscount?.coupon_code
-    ? `Discount (${appliedDiscount.coupon_code})`
-    : appliedDiscount?.description
-      ? `Discount (${appliedDiscount.description})`
-      : 'Discount'
+  const appliedDiscountLabel = discountLabel(appliedDiscount)
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 max-w-lg mx-auto">
@@ -357,7 +269,7 @@ export default function BasketPage() {
                 subtotal={subtotal}
                 serviceFeePence={serviceFeePence}
                 discountPence={discountPence}
-                discountLabel={discountLabel}
+                discountLabel={appliedDiscountLabel}
               />
             </div>
             {belowMin && (

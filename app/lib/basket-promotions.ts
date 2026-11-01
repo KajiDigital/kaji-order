@@ -10,6 +10,26 @@ export function buildPromoItems(items: BasketItem[]) {
   }))
 }
 
+export function discountLabel(discount?: AppliedDiscount | null): string {
+  if (!discount) return 'Discount'
+  if (discount.coupon_code) return `Discount (${discount.coupon_code})`
+  return discount.description || 'Discount'
+}
+
+export function promotionNotice(data: {
+  description?: string
+  discount_type?: string
+  happy_hour_ends_in_mins?: number
+  coupon_code?: string
+}): string {
+  if (data.discount_type === 'BUY_X_GET_Y') return data.description ?? ''
+  if (data.discount_type === 'HAPPY_HOUR' && data.happy_hour_ends_in_mins) {
+    return `${data.description} — ends in ${data.happy_hour_ends_in_mins} min`
+  }
+  if (!data.coupon_code && data.description) return `${data.description} applied automatically`
+  return ''
+}
+
 export function discountFromValidation(
   data: {
     valid?: boolean
@@ -38,6 +58,8 @@ export async function validateBasketPromotion(input: {
   code?: string
   autoApply?: boolean
   customerPhone?: string
+  hints?: boolean
+  checkFreeItem?: boolean
 }) {
   const res = await fetch('/api/promotions/validate', {
     method: 'POST',
@@ -49,6 +71,8 @@ export async function validateBasketPromotion(input: {
       code: input.code,
       auto_apply: input.autoApply === true,
       customer_phone: input.customerPhone || undefined,
+      hints: input.hints === true,
+      check_free_item: input.checkFreeItem === true,
     }),
   })
   return res.json()

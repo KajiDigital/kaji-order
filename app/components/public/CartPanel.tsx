@@ -11,6 +11,7 @@ import {
   type BasketItem,
   type BasketOrderType,
 } from '@/app/lib/basket'
+import { discountLabel } from '@/app/lib/basket-promotions'
 import { DeliveryAddressPicker } from './DeliveryAddressPicker'
 import { FulfillmentToggle } from './FulfillmentToggle'
 
@@ -173,11 +174,7 @@ export function CartPanel({
             </div>
             {discountPence > 0 && (
               <div className="mt-1 flex justify-between text-sm text-emerald-700">
-                <span>
-                  {appliedDiscount?.coupon_code
-                    ? `Discount (${appliedDiscount.coupon_code})`
-                    : appliedDiscount?.description ?? 'Discount'}
-                </span>
+                <span>{discountLabel(appliedDiscount)}</span>
                 <span>−{formatPence(discountPence)}</span>
               </div>
             )}

@@ -10,17 +10,22 @@ import {
   clearBasket,
   saveBasket,
   basketSubtotal,
+  itemLineTotal,
   type AppliedDiscount,
+  type Basket,
   type BasketItem,
   type BasketOrderType,
 } from '@/app/lib/basket'
 import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
-import { itemLineTotal } from '@/app/lib/basket'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
 import { singleFulfillmentLabel } from '@/app/lib/fulfillment'
 import { CartCouponField } from '@/app/components/public/CartCouponField'
-import { discountFromValidation, validateBasketPromotion } from '@/app/lib/basket-promotions'
+import {
+  discountFromValidation,
+  discountLabel,
+  validateBasketPromotion,
+} from '@/app/lib/basket-promotions'
 
 function CheckoutForm({
   orderId,
@@ -229,11 +234,7 @@ export default function CheckoutPage() {
   const discountPence = appliedDiscount?.discount_pence ?? 0
   const activeDeliveryFee = orderType === 'delivery' ? deliveryFeePence : 0
   const total = subtotal + serviceFeePence + activeDeliveryFee - discountPence
-  const discountLabel = appliedDiscount?.coupon_code
-    ? `Discount (${appliedDiscount.coupon_code})`
-    : appliedDiscount?.description
-      ? `Discount (${appliedDiscount.description})`
-      : 'Discount'
+  const appliedDiscountLabel = discountLabel(appliedDiscount)
 
   const showOrderTypePicker = collectionEnabled && deliveryEnabled
   const deliveryFieldsRequired = orderType === 'delivery'
@@ -249,11 +250,15 @@ export default function CheckoutPage() {
     (!deliveryFieldsRequired ||
       (deliveryAddress.trim() && deliveryPostcode.trim() && deliveryValidated && !deliveryError))
 
-  function persistDiscount(discount: AppliedDiscount | null) {
-    setAppliedDiscount(discount)
+  function persistBasketPatch(patch: Partial<Basket>) {
     const basket = getBasket(slug)
     if (!basket) return
-    saveBasket(slug, { ...basket, appliedDiscount: discount, updatedAt: new Date().toISOString() })
+    saveBasket(slug, { ...basket, ...patch, updatedAt: new Date().toISOString() })
+  }
+
+  function persistDiscount(discount: AppliedDiscount | null) {
+    setAppliedDiscount(discount)
+    persistBasketPatch({ appliedDiscount: discount })
   }
 
   async function applyCoupon() {
@@ -290,14 +295,10 @@ export default function CheckoutPage() {
     nextAddress = deliveryAddress,
     nextPostcode = deliveryPostcode
   ) {
-    const basket = getBasket(slug)
-    if (!basket) return
-    saveBasket(slug, {
-      ...basket,
+    persistBasketPatch({
       orderType: nextOrderType,
       deliveryAddress: nextAddress || undefined,
       deliveryPostcode: nextPostcode || undefined,
-      updatedAt: new Date().toISOString(),
     })
   }
 
@@ -422,6 +423,16 @@ export default function CheckoutPage() {
               </div>
             )}
 
+            <CartCouponField
+              input={couponInput}
+              error={couponError}
+              loading={couponLoading}
+              discount={appliedDiscount}
+              onInputChange={setCouponInput}
+              onApply={applyCoupon}
+              onRemove={removeCoupon}
+            />
+
             {deliveryFieldsRequired && (
               <>
                 <input
@@ -530,23 +541,12 @@ export default function CheckoutPage() {
                 Minimum order for delivery is {formatPence(deliveryMinOrder)}
               </p>
             )}
-            <div className="mb-4">
-              <CartCouponField
-                input={couponInput}
-                error={couponError}
-                loading={couponLoading}
-                discount={appliedDiscount}
-                onInputChange={setCouponInput}
-                onApply={applyCoupon}
-                onRemove={removeCoupon}
-              />
-            </div>
             <OrderSummaryBreakdown
               subtotal={subtotal}
               serviceFeePence={serviceFeePence}
               deliveryFeePence={activeDeliveryFee}
               discountPence={discountPence}
-              discountLabel={discountLabel}
+              discountLabel={appliedDiscountLabel}
             />
           </div>
 
