@@ -12,6 +12,7 @@ import {
   parsePromoConfig,
   formatDaysOfWeek,
   formatTimeRange,
+  type PromoConfig,
 } from './promotion-config'
 
 const EXCLUDED_ORDER_STATUSES: OrderStatus[] = [
