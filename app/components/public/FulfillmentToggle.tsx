@@ -1,6 +1,7 @@
 'use client'
 
 import type { BasketOrderType } from '@/app/lib/basket'
+import { singleFulfillmentLabel } from '@/app/lib/fulfillment'
 
 export function FulfillmentToggle({
   orderType,
@@ -19,7 +20,27 @@ export function FulfillmentToggle({
   deliveryWindowMessage?: string
   onChange: (type: BasketOrderType) => void
 }) {
-  if (!collectionEnabled || !deliveryEnabled) return null
+  const onlyLabel = singleFulfillmentLabel(collectionEnabled, deliveryEnabled)
+  const windowNote =
+    deliveryEnabled && !deliveryAvailableNow && deliveryWindowMessage ? (
+      <p className="mt-2 px-1 text-xs text-amber-700">{deliveryWindowMessage}</p>
+    ) : null
+
+  if (onlyLabel) {
+    return (
+      <div>
+        <div
+          className="rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white shadow-sm"
+          style={{ backgroundColor: primary }}
+        >
+          {onlyLabel}
+        </div>
+        {onlyLabel === 'Delivery only' ? windowNote : null}
+      </div>
+    )
+  }
+
+  if (!collectionEnabled && !deliveryEnabled) return null
 
   return (
     <div>
@@ -46,9 +67,7 @@ export function FulfillmentToggle({
           Collection
         </button>
       </div>
-      {deliveryEnabled && !deliveryAvailableNow && deliveryWindowMessage && (
-        <p className="mt-2 px-1 text-xs text-amber-700">{deliveryWindowMessage}</p>
-      )}
+      {windowNote}
     </div>
   )
 }

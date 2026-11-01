@@ -43,20 +43,19 @@ function timeToMinutes(time: string): number {
   return h * 60 + (m || 0)
 }
 
-function formatTime12h(time: string): string {
+export function formatTime12h(time: string): string {
   const [h, m] = time.split(':').map(Number)
   const period = h >= 12 ? 'pm' : 'am'
   const hour = h % 12 || 12
   return m === 0 ? `${hour}${period}` : `${hour}:${String(m).padStart(2, '0')}${period}`
 }
 
-function getUkNow(): UkNow {
-  const instant = new Date()
+function getUkNow(now = new Date()): UkNow {
   const weekday = new Intl.DateTimeFormat('en-US', {
     timeZone: UK_TZ,
     weekday: 'short',
   })
-    .format(instant)
+    .format(now)
     .toLowerCase()
     .slice(0, 3)
 
@@ -66,13 +65,13 @@ function getUkNow(): UkNow {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  }).formatToParts(instant)
+  }).formatToParts(now)
 
   const hour = Number(timeParts.find((p) => p.type === 'hour')?.value ?? 0)
   const minute = Number(timeParts.find((p) => p.type === 'minute')?.value ?? 0)
 
   return {
-    dayIndex: dayIndex >= 0 ? dayIndex : instant.getDay(),
+    dayIndex: dayIndex >= 0 ? dayIndex : now.getDay(),
     minutes: hour * 60 + minute,
   }
 }
@@ -109,9 +108,24 @@ function normalizeHours(raw: unknown): NormalizedDay[] | null {
   })
 }
 
-function isCurrentlyOpen(uk: UkNow, day: NormalizedDay | null): boolean {
-  if (!day?.open) return false
-  return uk.minutes >= day.fromMins && uk.minutes < day.toMins
+function spansMidnight(day: NormalizedDay): boolean {
+  return day.toMins <= day.fromMins
+}
+
+function isOpenAt(minutes: number, day: NormalizedDay): boolean {
+  if (!day.open) return false
+  if (spansMidnight(day)) return minutes >= day.fromMins
+  return minutes >= day.fromMins && minutes < day.toMins
+}
+
+function isCurrentlyOpen(uk: UkNow, hours: NormalizedDay[] | null): boolean {
+  if (!hours) return true
+  const today = hours[uk.dayIndex]
+  const yesterday = hours[(uk.dayIndex + 6) % 7]
+  if (today && isOpenAt(uk.minutes, today)) return true
+  return Boolean(
+    yesterday?.open && spansMidnight(yesterday) && uk.minutes < yesterday.toMins
+  )
 }
 
 function dayLabel(offset: number, dayIndex: number): string {
@@ -143,6 +157,9 @@ function findNextOpen(
         elapsed += 1440 - uk.minutes
         continue
       }
+      if (isOpenAt(uk.minutes, day)) {
+        return { offset, dayIndex, day, minutesUntil: 0 }
+      }
       if (uk.minutes < day.fromMins) {
         return {
           offset,
@@ -150,9 +167,6 @@ function findNextOpen(
           day,
           minutesUntil: elapsed + (day.fromMins - uk.minutes),
         }
-      }
-      if (uk.minutes < day.toMins) {
-        return { offset, dayIndex, day, minutesUntil: 0 }
       }
       elapsed += 1440 - uk.minutes
       continue
@@ -207,12 +221,13 @@ export function getOpenStatus(
   collection_enabled = true,
   preorder_days_ahead = 1,
   holiday_message?: string | null,
-  delivery_enabled = false
+  delivery_enabled = false,
+  now?: Date
 ): OpenStatus {
-  const uk = getUkNow()
+  const uk = getUkNow(now)
   const hours = normalizeHours(opening_hours)
   const today = hours?.[uk.dayIndex] ?? null
-  const isOpen = hours === null ? true : isCurrentlyOpen(uk, today)
+  const isOpen = isCurrentlyOpen(uk, hours)
   const next = findNextOpen(uk, hours, Math.max(preorder_days_ahead, 7))
 
   const nextOpenTime = next ? formatTime12h(next.day.fromTime) : null

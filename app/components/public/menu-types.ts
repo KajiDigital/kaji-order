@@ -39,6 +39,9 @@ export type Restaurant = {
   show_powered_by: boolean
   phone?: string | null
   email?: string | null
+  address?: string | null
+  postcode?: string | null
+  opening_hours?: unknown
   isLiveOpen: boolean
   canOrder: boolean
   isPreorderMode: boolean

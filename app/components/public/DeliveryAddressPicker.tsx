@@ -141,15 +141,15 @@ export function DeliveryAddressPicker({
         </div>
       ) : (
         <div className="space-y-2">
-          <textarea
+          <input
+            type="text"
             value={manualAddress}
             onChange={(e) => {
               setManualAddress(e.target.value)
               setError('')
             }}
             placeholder="Flat 1, 110 Hindes Road"
-            rows={2}
-            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-400"
+            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-400"
           />
           <input
             type="text"

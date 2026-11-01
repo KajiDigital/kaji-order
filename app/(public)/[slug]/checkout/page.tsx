@@ -18,6 +18,7 @@ import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
 import { itemLineTotal } from '@/app/lib/basket'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
+import { singleFulfillmentLabel } from '@/app/lib/fulfillment'
 
 function CheckoutForm({
   orderId,
@@ -370,7 +371,7 @@ export default function CheckoutPage() {
                   </div>
                 ) : (
                   <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800">
-                    {deliveryEnabled && !collectionEnabled ? 'Delivery' : 'Collection'}
+                    {singleFulfillmentLabel(collectionEnabled, deliveryEnabled) ?? 'Collection only'}
                   </p>
                 )}
               </div>
@@ -378,8 +379,9 @@ export default function CheckoutPage() {
 
             {deliveryFieldsRequired && (
               <>
-                <textarea
+                <input
                   required
+                  type="text"
                   placeholder="Delivery address *"
                   value={deliveryAddress}
                   onChange={(e) => {
@@ -387,7 +389,6 @@ export default function CheckoutPage() {
                     persistCheckoutFields(orderType, e.target.value, deliveryPostcode)
                   }}
                   className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400"
-                  rows={2}
                 />
                 <input
                   required

@@ -16,6 +16,7 @@ import { formatPence } from '@/app/lib/utils'
 import { OrderSummaryBreakdown } from '@/app/components/public/OrderSummaryBreakdown'
 import { formatSelectionsLines } from '@/app/lib/menu-selections'
 import { DEFAULT_SERVICE_FEE_PENCE } from '@/app/lib/service-fee'
+import { basketOrderTypeLabel } from '@/app/lib/fulfillment'
 
 function buildPromoItems(items: BasketItem[]) {
   return items.map((i) => ({
@@ -38,6 +39,8 @@ export default function BasketPage() {
   const [prepMins, setPrepMins] = useState(30)
   const [serviceFeePence, setServiceFeePence] = useState(DEFAULT_SERVICE_FEE_PENCE)
   const [canOrder, setCanOrder] = useState(true)
+  const [collectionEnabled, setCollectionEnabled] = useState(true)
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false)
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState('')
@@ -227,6 +230,8 @@ export default function BasketPage() {
         setPrepMins(d.restaurant?.avg_prep_minutes ?? 30)
         setServiceFeePence(d.restaurant?.service_fee_pence ?? DEFAULT_SERVICE_FEE_PENCE)
         setCanOrder(Boolean(d.restaurant?.canOrder))
+        setCollectionEnabled(d.restaurant?.collection_enabled !== false)
+        setDeliveryEnabled(Boolean(d.restaurant?.delivery_enabled))
       })
   }, [slug])
 
@@ -417,7 +422,10 @@ export default function BasketPage() {
           )}
 
           <div className="mt-4 bg-white rounded-xl p-4 border">
-            <p className="text-sm text-slate-600">Order type: <strong>Collection</strong></p>
+            <p className="text-sm text-slate-600">
+              Order type:{' '}
+              <strong>{basketOrderTypeLabel(collectionEnabled, deliveryEnabled)}</strong>
+            </p>
             <p className="text-sm text-slate-600 mt-1">Est. ready: ~{prepMins} minutes</p>
             <div className="mt-3">
               <OrderSummaryBreakdown

@@ -193,10 +193,10 @@ export function AccountDetailsForm({
             <div key={row.id} className="rounded-2xl bg-stone-50 p-3">
               {editingId === row.id ? (
                 <div className="space-y-2">
-                  <textarea
+                  <input
+                    type="text"
                     value={editAddress}
                     onChange={(e) => setEditAddress(e.target.value)}
-                    rows={2}
                     className="w-full rounded-xl border bg-white px-3 py-2 text-sm text-stone-900"
                   />
                   <input
@@ -255,12 +255,12 @@ export function AccountDetailsForm({
 
         {addresses.length < 3 && (
           <form onSubmit={addAddress} className="mt-4 space-y-2">
-            <textarea
+            <input
               required
+              type="text"
               placeholder="Street address"
               value={newAddress}
               onChange={(e) => setNewAddress(e.target.value)}
-              rows={2}
               className="w-full rounded-xl border bg-white px-4 py-3 text-stone-900"
             />
             <input

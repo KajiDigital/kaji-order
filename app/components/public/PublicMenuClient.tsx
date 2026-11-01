@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatPence } from '@/app/lib/utils'
 import {
   type BasketItem,
@@ -15,21 +15,15 @@ import {
 import { CartPanel } from './CartPanel'
 import { DeliveryAddressPicker } from './DeliveryAddressPicker'
 import { FulfillmentToggle } from './FulfillmentToggle'
+import { MenuPlaceholderImage } from './MenuPlaceholderImage'
 import { ProductModal } from './ProductModal'
 import { PromotionsBanner } from './PromotionsBanner'
+import { RecommendedMeals } from './RecommendedMeals'
+import { RestaurantInfoDialog } from './RestaurantInfoDialog'
 import { CustomerAccountLinks } from './CustomerAccountLinks'
+import { useHorizontalDragScroll } from './use-horizontal-drag-scroll'
 import type { Category, MenuPromotion, Product, Restaurant } from './menu-types'
 import { getFontClass } from '@/app/lib/branding'
-
-function PlaceholderImage({ className }: { className?: string }) {
-  return (
-    <div className={`flex items-center justify-center bg-stone-100 text-stone-300 ${className ?? ''}`}>
-      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    </div>
-  )
-}
 
 function PromoBadge({ promo }: { promo: MenuPromotion }) {
   const label =
@@ -96,73 +90,20 @@ function isSetMeal(product: Product): boolean {
   return Boolean(product.is_bundle && product.combo_groups.length >= 1)
 }
 
-function useHorizontalDragScroll() {
-  const ref = useRef<HTMLDivElement>(null)
-  const drag = useRef({
-    pointerId: -1,
-    startX: 0,
-    startScroll: 0,
-    moved: false,
-  })
-
-  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (e.pointerType === 'touch' || e.button !== 0) return
-    const el = ref.current
-    if (!el) return
-    drag.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startScroll: el.scrollLeft,
-      moved: false,
-    }
-  }
-
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const el = ref.current
-    const state = drag.current
-    if (!el || state.pointerId !== e.pointerId) return
-    const dx = e.clientX - state.startX
-    if (!state.moved) {
-      if (Math.abs(dx) < 5) return
-      state.moved = true
-      try {
-        el.setPointerCapture(e.pointerId)
-      } catch {
-        // Pointer capture is unavailable for this event. Scrolling still follows the pointer.
-      }
-      el.classList.add('cursor-grabbing')
-    }
-    el.scrollLeft = state.startScroll - dx
-  }
-
-  function finish(e: React.PointerEvent<HTMLDivElement>) {
-    const el = ref.current
-    const state = drag.current
-    if (state.pointerId !== e.pointerId) return
-    state.pointerId = -1
-    el?.classList.remove('cursor-grabbing')
-    if (el?.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
-  }
-
-  function onClickCapture(e: React.MouseEvent<HTMLDivElement>) {
-    if (!drag.current.moved) return
-    e.preventDefault()
-    e.stopPropagation()
-    drag.current.moved = false
-  }
-
-  return {
-    ref,
-    onPointerDown,
-    onPointerMove,
-    onPointerUp: finish,
-    onPointerCancel: finish,
-    onClickCapture,
-  }
-}
-
 function hasCustomisation(product: Product): boolean {
   return product.option_groups.length > 0 || product.combo_groups.length > 0
+}
+
+function previewClass(
+  forceMobile: boolean,
+  forceDesktop: boolean,
+  mobile: string,
+  desktop: string,
+  responsive: string
+) {
+  if (forceMobile) return mobile
+  if (forceDesktop) return desktop
+  return responsive
 }
 
 function MenuItemRow({
@@ -229,7 +170,7 @@ function MenuItemRow({
               className="h-20 w-20 shrink-0 rounded-lg object-cover"
             />
           ) : (
-            <PlaceholderImage className="h-20 w-20 shrink-0 rounded-lg" />
+            <MenuPlaceholderImage className="h-20 w-20 shrink-0 rounded-lg" />
           )
         )}
 
@@ -318,13 +259,12 @@ export function PublicMenuClient({
   const [basket, setBasket] = useState<BasketItem[]>([])
   const [modalProduct, setModalProduct] = useState<Product | null>(null)
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const [orderType, setOrderType] = useState<BasketOrderType>(defaultOrderType)
   const [deliveryPostcode, setDeliveryPostcode] = useState('')
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [deliveryReady, setDeliveryReady] = useState(false)
-  const carouselDrag = useHorizontalDragScroll()
   const categoryDrag = useHorizontalDragScroll()
-  const carouselRef = carouselDrag.ref
 
   const allItems = useMemo(
     () => categories.flatMap((c) => c.items),
@@ -511,10 +451,6 @@ export function PublicMenuClient({
     persistBasket(basket.filter((i) => i.id !== id))
   }
 
-  function scrollCarousel(dir: -1 | 1) {
-    carouselRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' })
-  }
-
   const forceMobile = previewLayout === 'mobile'
   const forceDesktop = previewLayout === 'desktop'
 
@@ -558,34 +494,33 @@ export function PublicMenuClient({
     checkoutDisabled: isPreview,
   }
 
-  const categorySidebarClass = forceMobile
-    ? 'hidden'
-    : forceDesktop
-      ? 'block w-[250px] shrink-0'
-      : 'hidden w-[250px] shrink-0 lg:block'
-
-  const mobilePillsClass = forceMobile
-    ? 'no-scrollbar mb-4 flex cursor-grab select-none gap-2 overflow-x-auto'
-    : forceDesktop
-      ? 'hidden'
-      : 'no-scrollbar mb-4 flex cursor-grab select-none gap-2 overflow-x-auto lg:hidden'
-
-  const desktopCartClass =
-    forceMobile || !canOrder
-      ? 'hidden'
-      : forceDesktop
-        ? 'block w-[300px] shrink-0'
-        : 'hidden w-[300px] shrink-0 lg:block'
-
-  const mobileCartButtonClass = forceDesktop
-    ? 'hidden'
-    : `fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-3 rounded-2xl border border-white/70 bg-white/45 px-2.5 py-2 text-left shadow-[0_10px_30px_rgba(28,25,23,0.16)] backdrop-blur-2xl backdrop-saturate-150 ${forceMobile ? '' : 'lg:hidden'}`
-
-  const mobileCartDrawerClass = forceDesktop
-    ? 'hidden'
-    : `fixed inset-0 z-50 ${forceMobile ? '' : 'lg:hidden'}`
-
-  const pagePaddingClass = forceMobile ? 'pb-24' : forceDesktop ? 'pb-8' : 'pb-24 lg:pb-8'
+  const stickyPillsClass = `sticky z-30 -mx-4 mb-4 border-b border-stone-200/80 bg-stone-50/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 ${isPreview ? 'top-10' : 'top-0'}`
+  const categorySidebarClass = previewClass(
+    forceMobile,
+    forceDesktop,
+    'hidden',
+    'block w-[250px] shrink-0',
+    'hidden w-[250px] shrink-0 lg:block'
+  )
+  const mobilePillsWrapClass = previewClass(
+    forceMobile,
+    forceDesktop,
+    stickyPillsClass,
+    'hidden',
+    `${stickyPillsClass} lg:hidden`
+  )
+  const mobilePillsClass = 'no-scrollbar flex cursor-grab select-none gap-2 overflow-x-auto'
+  const desktopCartClass = previewClass(
+    forceMobile || !canOrder,
+    forceDesktop,
+    'hidden',
+    'block w-[300px] shrink-0',
+    'hidden w-[300px] shrink-0 lg:block'
+  )
+  const mobileCartChrome = forceDesktop ? 'hidden' : forceMobile ? '' : 'lg:hidden'
+  const mobileCartButtonClass = `fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-3 rounded-2xl border border-white/70 bg-white/45 px-2.5 py-2 text-left shadow-[0_10px_30px_rgba(28,25,23,0.16)] backdrop-blur-2xl backdrop-saturate-150 ${mobileCartChrome}`
+  const mobileCartDrawerClass = `fixed inset-0 z-50 ${mobileCartChrome}`
+  const pagePaddingClass = previewClass(forceMobile, forceDesktop, 'pb-24', 'pb-8', 'pb-24 lg:pb-8')
 
   return (
     <div className={`min-h-screen bg-stone-50 ${pagePaddingClass} ${fontClass}`}>
@@ -637,11 +572,21 @@ export function PublicMenuClient({
                 </p>
               )}
             </div>
-            <span
-              className={`mb-1 shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-white shadow ${statusBadge.className}`}
-            >
-              {statusBadge.label}
-            </span>
+            <div className="mb-1 flex shrink-0 items-center gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold text-white shadow ${statusBadge.className}`}
+              >
+                {statusBadge.label}
+              </span>
+              <button
+                type="button"
+                onClick={() => setInfoOpen(true)}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/70 bg-white/20 text-xs font-bold text-white shadow backdrop-blur-sm hover:bg-white/30"
+                aria-label="Restaurant information"
+              >
+                i
+              </button>
+            </div>
           </div>
         </div>
         {!isPreview && (
@@ -653,48 +598,15 @@ export function PublicMenuClient({
 
       <PromotionsBanner messages={promotionBannerMessages} />
 
-      {(restaurant.phone || restaurant.email) && (
-      <div className="border-b border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
-          {restaurant.phone && (
-            <a
-              href={`tel:${restaurant.phone}`}
-              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
-            >
-              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              {restaurant.phone}
-            </a>
-          )}
-          {restaurant.email && (
-            <a
-              href={`mailto:${restaurant.email}`}
-              className="flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900"
-            >
-              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span className="truncate">{restaurant.email}</span>
-            </a>
-          )}
-          {restaurant.phone && (
-            <a
-              href={`tel:${restaurant.phone}`}
-              className="ml-auto flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm"
-              style={{ backgroundColor: primary }}
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              Call Now
-            </a>
-          )}
-        </div>
-      </div>
+      {infoOpen && (
+        <RestaurantInfoDialog
+          restaurant={restaurant}
+          primary={primary}
+          onClose={() => setInfoOpen(false)}
+        />
       )}
 
-      {canOrder && ((collectionEnabled && deliveryEnabled) || orderType === 'delivery') && (
+      {canOrder && (collectionEnabled || deliveryEnabled) && (
         <div className={`border-b border-stone-200 bg-white ${forceMobile ? '' : forceDesktop ? 'hidden' : 'lg:hidden'}`}>
           <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
             <FulfillmentToggle
@@ -800,127 +712,70 @@ export function PublicMenuClient({
 
         {/* Center content */}
         <main className="min-w-0 flex-1">
-          {/* Recommended carousel */}
           {recommendedItems.length > 0 && !search && (
-            <section className="mb-6">
-              <h2 className="mb-3 text-lg font-bold text-stone-900">Recommended Meals</h2>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => scrollCarousel(-1)}
-                  className="absolute -left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow sm:flex"
-                  aria-label="Scroll left"
-                >
-                  ‹
-                </button>
-                <div
-                  ref={carouselRef}
-                  className="no-scrollbar flex cursor-grab select-none gap-3 overflow-x-auto pb-1"
-                  onPointerDown={carouselDrag.onPointerDown}
-                  onPointerMove={carouselDrag.onPointerMove}
-                  onPointerUp={carouselDrag.onPointerUp}
-                  onPointerCancel={carouselDrag.onPointerCancel}
-                  onClickCapture={carouselDrag.onClickCapture}
-                >
-                  {recommendedItems.map((product) => (
-                    <div
-                      key={product.id}
-                      className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm sm:w-40"
-                    >
-                      {showMenuImages && (
-                        product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt=""
-                            className="h-28 w-full object-cover"
-                          />
-                        ) : (
-                          <PlaceholderImage className="h-28 w-full" />
-                        )
-                      )}
-                      <div className="p-2.5">
-                        <p className="truncate text-sm font-bold text-stone-900">{product.name}</p>
-                        <p className="text-sm font-semibold" style={{ color: primary }}>
-                          {formatPence(product.base_price)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          canOrder &&
-                          (hasCustomisation(product)
-                            ? openProduct(product)
-                            : product.available &&
-                              addItemDirect(
-                                product,
-                                1,
-                                [],
-                                '',
-                                { options_price: 0, total_price: product.base_price },
-                                itemCategoryMap.get(product.id)
-                              ))
-                        }
-                        disabled={!canOrder || !product.available}
-                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white shadow disabled:cursor-not-allowed disabled:opacity-40"
-                        style={{
-                          backgroundColor:
-                            !canOrder || !product.available ? '#a8a29e' : primary,
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => scrollCarousel(1)}
-                  className="absolute -right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow sm:flex"
-                  aria-label="Scroll right"
-                >
-                  ›
-                </button>
-              </div>
-            </section>
+            <RecommendedMeals
+              items={recommendedItems}
+              primary={primary}
+              showMenuImages={showMenuImages}
+              canOrder={canOrder}
+              onAdd={(product) => {
+                if (!canOrder) return
+                if (hasCustomisation(product)) {
+                  openProduct(product)
+                  return
+                }
+                if (!product.available) return
+                addItemDirect(
+                  product,
+                  1,
+                  [],
+                  '',
+                  { options_price: 0, total_price: product.base_price },
+                  itemCategoryMap.get(product.id)
+                )
+              }}
+            />
           )}
 
-          {/* Mobile category pills */}
-          <div
-            className={mobilePillsClass}
-            ref={categoryDrag.ref}
-            onPointerDown={categoryDrag.onPointerDown}
-            onPointerMove={categoryDrag.onPointerMove}
-            onPointerUp={categoryDrag.onPointerUp}
-            onPointerCancel={categoryDrag.onPointerCancel}
-            onClickCapture={categoryDrag.onClickCapture}
-          >
-            <button
-              type="button"
-              onClick={() => setActiveCategory('all')}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
-                activeCategory === 'all' ? 'text-white' : 'border border-stone-200 bg-white text-stone-700'
-              }`}
-              style={activeCategory === 'all' ? { backgroundColor: primary } : undefined}
+          {/* Mobile category pills — stick to the top while the menu scrolls */}
+          <div className={mobilePillsWrapClass}>
+            <div
+              className={mobilePillsClass}
+              ref={categoryDrag.ref}
+              onPointerDown={categoryDrag.onPointerDown}
+              onPointerMove={categoryDrag.onPointerMove}
+              onPointerUp={categoryDrag.onPointerUp}
+              onPointerCancel={categoryDrag.onPointerCancel}
+              onClickCapture={categoryDrag.onClickCapture}
             >
-              All Items
-            </button>
-            {categories.map((cat) => (
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => setActiveCategory(cat.id)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium ${
-                  activeCategory === cat.id ? 'text-white' : 'border border-stone-200 bg-white text-stone-700'
+                onClick={() => setActiveCategory('all')}
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
+                  activeCategory === 'all' ? 'text-white' : 'border border-stone-200 bg-white text-stone-700'
                 }`}
-                style={activeCategory === cat.id ? { backgroundColor: primary } : undefined}
+                style={activeCategory === 'all' ? { backgroundColor: primary } : undefined}
               >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: activeCategory === cat.id ? 'white' : cat.color }}
-                />
-                {cat.name}
+                All Items
               </button>
-            ))}
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium ${
+                    activeCategory === cat.id ? 'text-white' : 'border border-stone-200 bg-white text-stone-700'
+                  }`}
+                  style={activeCategory === cat.id ? { backgroundColor: primary } : undefined}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: activeCategory === cat.id ? 'white' : cat.color }}
+                  />
+                  {cat.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Search */}
@@ -1044,7 +899,12 @@ export function PublicMenuClient({
                 </svg>
               </button>
             </div>
-            <CartPanel {...cartPanelProps} compact showFulfillmentToggle={false} showDeliveryAddress={false} />
+            <CartPanel
+              {...cartPanelProps}
+              compact
+              showFulfillmentToggle={!(collectionEnabled && deliveryEnabled)}
+              showDeliveryAddress={false}
+            />
           </div>
         </div>
       )}
