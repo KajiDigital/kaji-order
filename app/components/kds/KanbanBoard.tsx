@@ -395,7 +395,7 @@ export function KanbanBoard({
     canRefundOrder(order.status, order.stripe_payment_status as never)
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col">
+    <div className="h-dvh overflow-hidden flex flex-col">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900 shrink-0">
         <Link
           href="/dashboard"

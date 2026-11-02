@@ -20,6 +20,18 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Dashboard / admin: force dark on the root canvas (Android Chrome / Fully Kiosk).
+   Nested bg-slate-950 alone leaves the global white body visible on Chromium. */
+html.app-dark {
+  color-scheme: only dark;
+  background-color: #020617;
+}
+
+html.app-dark body {
+  background-color: #020617;
+  color: #f1f5f9;
+}
+
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;

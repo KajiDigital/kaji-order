@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useDarkRoot } from '@/app/lib/use-dark-root'
 
 export function AdminShell({
   admin,
@@ -11,6 +12,7 @@ export function AdminShell({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  useDarkRoot()
 
   async function logout() {
     await fetch('/api/auth/admin-login', { method: 'DELETE' })
@@ -18,7 +20,7 @@ export function AdminShell({
   }
 
   return (
-    <div className="scheme-dark min-h-screen bg-slate-950 text-slate-100">
+    <div className="scheme-only-dark min-h-dvh bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900 px-4 py-4 flex items-center justify-between">
         <div>
           <p className="font-bold text-violet-400">Kaji Order Admin</p>
